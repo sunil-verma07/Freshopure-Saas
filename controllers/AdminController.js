@@ -11,7 +11,11 @@ const db = getDatabase();
 const fs = require("fs");
 const util = require("util");
 const unlinkFile = util.promisify(fs.unlink);
-
+const OrderStatus = require('../models/orderStatus.js');
+const UserOrder = require('../models/order.js');
+const Cart = require('../models/cart.js');
+const User = require('../models/user.js')
+const Role = require('../models/role.js')
 
 const addNewCategory = catchAsyncError(async (req, res, next) => {
     try {
@@ -120,8 +124,225 @@ const addNewItem = catchAsyncError( async function (req, res, next) {
   }
   });
 
+const orderDetailById = catchAsyncError(async (req, res, next) => {
+    try {
+      const {orderId} = req.body;
 
+      const orderData = await UserOrder.aggregate([
+        {
+          $match: { "_id": new ObjectId(orderId) }
+      },
+        {
+            $lookup: {
+                from: "orderstatuses",
+                localField: "orderStatus",
+                foreignField: "_id",
+                as: "orderStatuses"
+            }
+        },
+        {
+            $unwind: "$orderStatuses"
+        },
+        {
+          $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails"
+          }
+      },
+      {
+          $unwind: "$hotelDetails"
+      },
+        {
+            $lookup: {
+                from: "Items",
+                localField: "orderedItems.itemId",
+                foreignField: "_id",
+                as: "orderedItems.itemDetails"
+            }
+        },
+        {
+            $unwind: "$orderedItems.itemDetails"
+        },
+        {
+            $lookup: {
+                from: "Images",
+                localField: "orderedItems.itemDetails._id",
+                foreignField: "itemId",
+                as: "orderedItems.itemDetails.images"
+            }
+        },
+        {
+            $unwind: "$orderedItems.itemDetails.images"
+        },
+        {
+            $group: {
+                _id: "$_id",
+                hotelId: { $first: "$hotelId" },
+                hotelDetails: { $first: "$hotelDetails" },
+                orderNumber:{ $first: "$orderNumber"},
+                isReviewed:{ $first: "$isReviewed"},
+                orderStatuses: { $first: "$orderStatuses" },
+                orderedItems: { $push: "$orderedItems" }, 
+                isItemAdded:{ $first: "$isItemAdded"},
+                createdAt:{ $first: "$createdAt"},
+                updatedAt:{ $first: "$updatedAt"},
+                
+            }
+        }
+    ]);
+    res.status(200).json({ orderData });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+
+const getAllOrders = catchAsyncError(async (req, res, next) => {
+    try {
+
+      const orderData = await UserOrder.aggregate([
+       
+        {
+            $lookup: {
+                from: "orderstatuses",
+                localField: "orderStatus",
+                foreignField: "_id",
+                as: "orderStatuses"
+            }
+        },
+        {
+            $unwind: "$orderStatuses"
+        },
+        {
+          $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails"
+          }
+      },
+      {
+          $unwind: "$hotelDetails"
+      },
+       
+    ]);
+    res.status(200).json({ orderData });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+
+const getAllHotels = catchAsyncError(async (req, res, next) => {
+    try {
+
+    const hotelRoleId = await Role.findOne({name:"Hotel"})
+
+    if(!hotelRoleId){
+      return res.status(404).json({error:'Role does not exist'})
+    }
+
+      const hotelData = await User.aggregate([
+        {
+          $match: { "roleId": new ObjectId(hotelRoleId) }
+       },
+       
+    ]);
+    res.status(200).json({ hotelData });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+
+
+const getAllVendors = catchAsyncError(async (req, res, next) => {
+    try {
+
+    const vendorRoleId = await Role.findOne({name:"Vendor"})
+
+    if(!vendorRoleId){
+      return res.status(404).json({error:'Role does not exist'})
+    }
+
+      const vendorData = await User.aggregate([
+        {
+          $match: { "roleId": new ObjectId(vendorRoleId) }
+       },
+       
+    ]);
+    res.status(200).json({ vendorData });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+
+const getAllItems = catchAsyncError(async (req, res, next) => {
+
+    try {
+
+      const itemData = await Item.aggregate([
+     
+      {
+          $lookup: {
+              from: "Images",
+              localField: "_id",
+              foreignField: "itemId",
+              as: "images"
+          }
+      },
+      {
+          $unwind: "$images"
+      },
+      {
+        $lookup: {
+            from: "Category",
+            localField: "categoryId",
+            foreignField: "_id",
+            as: "category"
+        }
+    },
+    {
+        $unwind: "$category"
+    },
+       
+    ]);
+    res.status(200).json({ itemData });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
   
+const getHotelOrdersById = catchAsyncError(async (req, res, next) => {
+    try {
+
+    const {hotelId} = req.body;
+
+      const orderData = await UserOrder.aggregate([
+        {
+          $match: { "hotelId": new ObjectId(hotelId) }
+       },
+       
+        {
+            $lookup: {
+                from: "orderstatuses",
+                localField: "orderStatus",
+                foreignField: "_id",
+                as: "orderStatuses"
+            }
+        },
+        {
+            $unwind: "$orderStatuses"
+        },
+       
+    ]);
+    res.status(200).json({ orderData });
+    } catch (error) {
+      console.log(error)
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  })
 
 
-module.exports = { linkHoteltoVendor, addNewCategory, addNewItem}
+
+
+  module.exports = { linkHoteltoVendor, addNewCategory, addNewItem,orderDetailById,getAllOrders,getAllHotels,getAllVendors,getAllItems,getHotelOrdersById}

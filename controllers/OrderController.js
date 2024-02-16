@@ -8,7 +8,6 @@ const db = getDatabase();
 // const UserOrder = db.collection('UserOrders');
 const OrderStatus = require('../models/orderStatus.js');
 const itemsPrice = require('../models/cart.js');
-const orderStatus = require('../models/orderStatus.js');
 const Items = require('../models/item.js');
 const Images = require('../models/image.js');
 const Address = require('../models/address.js');

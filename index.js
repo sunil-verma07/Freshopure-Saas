@@ -15,10 +15,9 @@ aws.config.update({
 
 const userRoute = require('./routes/UserRoute');
 const orderRoute = require('./routes/OrderRoute');
-const itemsRoute = require('./routes/ItemRoute');
 const cartRoute = require('./routes/CartRoute');
 const wishlistRoute = require('./routes/WishlistRoute');
-const addressRoute = require('./routes/AddressRoute');
+const addressRoute = require('./routes/addressRoute');
 const adminRoute = require('./routes/adminRoute');
 const vendorRoute = require('./routes/vendorRoute');
 const hotelRoute = require('./routes/HotelRoute');
@@ -38,7 +37,6 @@ app.use(bodyParser.json());
 
 app.use('/user', userRoute);
 app.use('/order', orderRoute);
-app.use('/items', itemsRoute);
 app.use('/cart', cartRoute);
 app.use('/wishlist', wishlistRoute);
 app.use('/address', addressRoute);
