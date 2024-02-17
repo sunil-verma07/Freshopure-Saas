@@ -3,10 +3,34 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 
-exports.isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
-	const {token} = req.cookies
+require('dotenv').config()
+const cookieParser = require('cookie-parser');
+
+exports.authMiddleware = async (req, res, next) => {
+
+  const token = req.headers.token;
+
   if (!token) {
-    return res.status(500).json({success: false}); 
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+    let id = decoded.userId;
+    const hotel = await User.findOne({ _id: id });
+    req.hotel = hotel;
+
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+
+exports.isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
+	const {token} = req.cookies;
+  if (!token) {
+    return res.status(401).json({success: false,error:'Unauthenticated User'}); 
   }else{
     try {
       const decodedData = jwt.verify(token, process.env.JWT_SECRET);

@@ -26,6 +26,7 @@ const errorMiddleware = require('./middleware/error');
 
 
 require("./db");
+const cors = require("cors");
 
 const app = express();
 app.use(cookieParser());
@@ -34,6 +35,23 @@ app.use(errorMiddleware);
 // msg91.initialize({ authKey: process.env.AUTHKEY });
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+const corsOptions ={
+  origin:['exp://192.168.152.236:8081',], 
+  credentials:true,//access-control-allow-credentials:true
+  optionSuccessStatus:200
+}
+app.use(cors(corsOptions));
+
+// Set headers to allow CORS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", ["exp://192.168.152.236:8081"]);
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
 
 app.use('/user', userRoute);
 app.use('/order', orderRoute);

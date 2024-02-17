@@ -61,6 +61,16 @@ const getAllItemsForHotel = catchAsyncError(async (req, res, next) => {
     } catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
     }
-})
+});
 
-module.exports = { getAllItemsForHotel }
+const myHotelProfile = catchAsyncError(async(req,res,next)=>{
+    const userId = req.user._id;
+    const user = await User.findOne({_id:userId}).populate('roleId')
+    if(!user){
+        return res.status(401).json({success:false,error:'Unauthenticated User'})
+    }else{
+        return res.status(200).json({success:true,user:user})
+    }
+});
+
+module.exports = { getAllItemsForHotel ,myHotelProfile}

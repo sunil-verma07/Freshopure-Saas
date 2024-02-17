@@ -57,7 +57,7 @@ const myProfile = catchAsyncErrors(async(req,res,next)=>{
     const userId = req.user._id;
     const user = await User.findOne({_id:userId}).populate('roleId')
     if(!user){
-        return res.status(404).json({success:false,error:'Unauthenticated User'})
+        return res.status(401).json({success:false,error:'Unauthenticated User'})
     }else{
         return res.status(200).json({success:true,user:user})
     }
@@ -103,6 +103,7 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
 const login = catchAsyncErrors(async (req, res, next) => {
 
     const { email, password} = req.body;
+    console.log(email,password)
     if(!email || !password) {
         return res.status(400).json({success:false,error:'Please enter all fields properly!'})
     }else{

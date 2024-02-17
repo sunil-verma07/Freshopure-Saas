@@ -128,6 +128,8 @@ const orderDetailById = catchAsyncError(async (req, res, next) => {
     try {
       const {orderId} = req.body;
 
+      console.log(req.body);
+
       const orderData = await UserOrder.aggregate([
         {
           $match: { "_id": new ObjectId(orderId) }
@@ -316,6 +318,7 @@ const getHotelOrdersById = catchAsyncError(async (req, res, next) => {
     try {
 
     const {hotelId} = req.body;
+
 
       const orderData = await UserOrder.aggregate([
         {

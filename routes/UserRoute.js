@@ -7,7 +7,7 @@ const imageService = require('../services/imageService')
 
 router.post("/login", usercontroller.login)
 router.post("/register", usercontroller.register)
-router.get("/profile", usercontroller.myProfile)
+router.get("/profile",isAuthenticatedUser, usercontroller.myProfile)
 router.get("/logout", isAuthenticatedUser, usercontroller.logout)
 router.post("/setprofileimage", isAuthenticatedUser,imageService.upload.any(), usercontroller.setProfileImage)
 router.post('/setprofile', isAuthenticatedUser, usercontroller.setProfile);
