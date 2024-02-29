@@ -15,10 +15,9 @@ exports.authMiddleware = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-    let id = decoded.userId;
-    const hotel = await User.findOne({ _id: id });
-    req.hotel = hotel;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    req.user = await User.findById(decoded.id);
 
     next();
   } catch (error) {

@@ -4,9 +4,9 @@ const authMiddleware = require('../middleware/auth');
 // const profileCompleteMiddleware = require('../middleware/auth')
 const wishlistcontroller = require('../controllers/WishlistController');
 
-router.post("/additemtowishlist", authMiddleware.isAuthenticatedUser , wishlistcontroller.addItemToWishlist)
+router.post("/additemtowishlist", authMiddleware.authMiddleware , wishlistcontroller.addItemToWishlist)
 router.post("/removeitemfromwishlist", authMiddleware.isAuthenticatedUser, wishlistcontroller.removeItemFormWishlist)
-router.get("/getwishlistitems", authMiddleware.isAuthenticatedUser, wishlistcontroller.getWishlistItems)
+router.get("/getwishlistitems", authMiddleware.authMiddleware, wishlistcontroller.getWishlistItems)
 
 
 module.exports = router; 

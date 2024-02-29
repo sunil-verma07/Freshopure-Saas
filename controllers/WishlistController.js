@@ -72,6 +72,7 @@ const removeItemFormWishlist = catchAsyncError(async (req, res, next) => {
 const getWishlistItems = catchAsyncError(async (req, res, next) => {
     try {
         const hotelId = req.user._id;
+        console.log(hotelId)
         const pipeline = [
             {
                 $match: {
