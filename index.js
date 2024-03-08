@@ -1,5 +1,6 @@
 require("dotenv").config();
 const aws = require("aws-sdk");
+const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -21,6 +22,7 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
+// const paymentRoutes = require("./routes/paymentRoute");
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
@@ -64,6 +66,7 @@ app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
 app.use("/subvendor", subVendorRoute);
+// app.use("/api", paymentRoutes);
 
 const port = process.env.PORT;
 app.listen(port, () => {

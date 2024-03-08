@@ -17,6 +17,7 @@ const UserOrder = require("../models/order.js");
 const Cart = require("../models/cart.js");
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
+const hotelItemPrice = require("../models/hotelItemPrice.js");
 
 const addNewCategory = catchAsyncError(async (req, res, next) => {
   try {
@@ -219,6 +220,17 @@ const getAllOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
       },
     ]);
     res.status(200).json({ orderData });
@@ -437,6 +449,147 @@ const placeOrderByAdmin = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const getAllCategories = catchAsyncError(async (req, res, next) => {
+  try {
+    const category = await Category.find();
+    res.json({ category });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getHotelVendors = catchAsyncError(async (req, res, next) => {
+  try {
+    const hotelId = req.params.hotelId;
+
+    const vendors = await HotelVendorLink.aggregate([
+      {
+        $match: { hotelId: new ObjectId(hotelId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
+      },
+    ]);
+
+    res.json({ vendors });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getHotelOrders = catchAsyncError(async (req, res, next) => {
+  try {
+    const hotelId = req.params.hotelId;
+
+    const orders = await UserOrder.find({ hotelId });
+
+    res.json({ orders });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getHotelItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const hotelId = req.params.hotelId;
+
+    const items = await hotelItemPrice.aggregate([
+      {
+        $match: { hotelId: new ObjectId(hotelId) },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+    ]);
+
+    res.json({ items });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getVendorHotels = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.params.vendorId;
+
+    const hotels = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+    ]);
+
+    res.json({ hotels });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getVendorOrders = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.params.vendorId;
+    console.log(vendorId);
+
+    const orders = await UserOrder.find({ vendorId });
+
+    res.json(orders);
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
+const getVendorItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.params.vendorId;
+
+    const items = await hotelItemPrice.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+    ]);
+
+    res.json({ items });
+  } catch (error) {
+    res.json({ error });
+  }
+});
 module.exports = {
   linkHoteltoVendor,
   addNewCategory,
@@ -450,4 +603,11 @@ module.exports = {
   addUser,
   reviewUser,
   placeOrderByAdmin,
+  getAllCategories,
+  getHotelVendors,
+  getHotelOrders,
+  getHotelItems,
+  getVendorHotels,
+  getVendorOrders,
+  getVendorItems,
 };

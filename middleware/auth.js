@@ -27,7 +27,7 @@ exports.authMiddleware = async (req, res, next) => {
 
 exports.isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
   const { token } = req.cookies;
-
+  console.log(token);
   if (!token) {
     return res
       .status(401)

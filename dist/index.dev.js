@@ -4,6 +4,8 @@ require("dotenv").config();
 
 var aws = require("aws-sdk");
 
+var path = require("path");
+
 var express = require("express");
 
 var bodyParser = require("body-parser"); // const msg91 = require('msg91').default;
@@ -33,7 +35,8 @@ var vendorRoute = require("./routes/vendorRoute");
 
 var hotelRoute = require("./routes/HotelRoute");
 
-var subVendorRoute = require("./routes/subVendorRoute");
+var subVendorRoute = require("./routes/subVendorRoute"); // const paymentRoutes = require("./routes/paymentRoute");
+
 
 var errorMiddleware = require("./middleware/error");
 
@@ -74,7 +77,8 @@ app.use("/address", addressRoute);
 app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
-app.use("/subvendor", subVendorRoute);
+app.use("/subvendor", subVendorRoute); // app.use("/api", paymentRoutes);
+
 var port = process.env.PORT;
 app.listen(port, function () {
   console.log("Server is running on http://localhost:".concat(port));

@@ -42,6 +42,8 @@ var User = require("../models/user.js");
 
 var Role = require("../models/role.js");
 
+var hotelItemPrice = require("../models/hotelItemPrice.js");
+
 var addNewCategory = catchAsyncError(function _callee(req, res, next) {
   var name, createdBy, isActive, category;
   return regeneratorRuntime.async(function _callee$(_context) {
@@ -373,6 +375,15 @@ var getAllOrders = catchAsyncError(function _callee5(req, res, next) {
             }
           }, {
             $unwind: "$hotelDetails"
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "vendorId",
+              foreignField: "_id",
+              as: "vendorDetails"
+            }
+          }, {
+            $unwind: "$vendorDetails"
           }]));
 
         case 3:
@@ -846,6 +857,291 @@ var placeOrderByAdmin = catchAsyncError(function _callee12(req, res, next) {
     }
   }, null, null, [[0, 18]]);
 });
+var getAllCategories = catchAsyncError(function _callee13(req, res, next) {
+  var category;
+  return regeneratorRuntime.async(function _callee13$(_context13) {
+    while (1) {
+      switch (_context13.prev = _context13.next) {
+        case 0:
+          _context13.prev = 0;
+          _context13.next = 3;
+          return regeneratorRuntime.awrap(Category.find());
+
+        case 3:
+          category = _context13.sent;
+          res.json({
+            category: category
+          });
+          _context13.next = 10;
+          break;
+
+        case 7:
+          _context13.prev = 7;
+          _context13.t0 = _context13["catch"](0);
+          res.json({
+            error: _context13.t0
+          });
+
+        case 10:
+        case "end":
+          return _context13.stop();
+      }
+    }
+  }, null, null, [[0, 7]]);
+});
+var getHotelVendors = catchAsyncError(function _callee14(req, res, next) {
+  var hotelId, vendors;
+  return regeneratorRuntime.async(function _callee14$(_context14) {
+    while (1) {
+      switch (_context14.prev = _context14.next) {
+        case 0:
+          _context14.prev = 0;
+          hotelId = req.params.hotelId;
+          _context14.next = 4;
+          return regeneratorRuntime.awrap(HotelVendorLink.aggregate([{
+            $match: {
+              hotelId: new ObjectId(hotelId)
+            }
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "vendorId",
+              foreignField: "_id",
+              as: "vendorDetails"
+            }
+          }, {
+            $unwind: "$vendorDetails"
+          }]));
+
+        case 4:
+          vendors = _context14.sent;
+          res.json({
+            vendors: vendors
+          });
+          _context14.next = 11;
+          break;
+
+        case 8:
+          _context14.prev = 8;
+          _context14.t0 = _context14["catch"](0);
+          res.json({
+            error: _context14.t0
+          });
+
+        case 11:
+        case "end":
+          return _context14.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
+var getHotelOrders = catchAsyncError(function _callee15(req, res, next) {
+  var hotelId, orders;
+  return regeneratorRuntime.async(function _callee15$(_context15) {
+    while (1) {
+      switch (_context15.prev = _context15.next) {
+        case 0:
+          _context15.prev = 0;
+          hotelId = req.params.hotelId;
+          _context15.next = 4;
+          return regeneratorRuntime.awrap(UserOrder.find({
+            hotelId: hotelId
+          }));
+
+        case 4:
+          orders = _context15.sent;
+          res.json({
+            orders: orders
+          });
+          _context15.next = 11;
+          break;
+
+        case 8:
+          _context15.prev = 8;
+          _context15.t0 = _context15["catch"](0);
+          res.json({
+            error: _context15.t0
+          });
+
+        case 11:
+        case "end":
+          return _context15.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
+var getHotelItems = catchAsyncError(function _callee16(req, res, next) {
+  var hotelId, items;
+  return regeneratorRuntime.async(function _callee16$(_context16) {
+    while (1) {
+      switch (_context16.prev = _context16.next) {
+        case 0:
+          _context16.prev = 0;
+          hotelId = req.params.hotelId;
+          _context16.next = 4;
+          return regeneratorRuntime.awrap(hotelItemPrice.aggregate([{
+            $match: {
+              hotelId: new ObjectId(hotelId)
+            }
+          }, {
+            $lookup: {
+              from: "Items",
+              localField: "itemId",
+              foreignField: "_id",
+              as: "itemDetails"
+            }
+          }, {
+            $unwind: "$itemDetails"
+          }]));
+
+        case 4:
+          items = _context16.sent;
+          res.json({
+            items: items
+          });
+          _context16.next = 11;
+          break;
+
+        case 8:
+          _context16.prev = 8;
+          _context16.t0 = _context16["catch"](0);
+          res.json({
+            error: _context16.t0
+          });
+
+        case 11:
+        case "end":
+          return _context16.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
+var getVendorHotels = catchAsyncError(function _callee17(req, res, next) {
+  var vendorId, hotels;
+  return regeneratorRuntime.async(function _callee17$(_context17) {
+    while (1) {
+      switch (_context17.prev = _context17.next) {
+        case 0:
+          _context17.prev = 0;
+          vendorId = req.params.vendorId;
+          _context17.next = 4;
+          return regeneratorRuntime.awrap(HotelVendorLink.aggregate([{
+            $match: {
+              vendorId: new ObjectId(vendorId)
+            }
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails"
+            }
+          }, {
+            $unwind: "$hotelDetails"
+          }]));
+
+        case 4:
+          hotels = _context17.sent;
+          res.json({
+            hotels: hotels
+          });
+          _context17.next = 11;
+          break;
+
+        case 8:
+          _context17.prev = 8;
+          _context17.t0 = _context17["catch"](0);
+          res.json({
+            error: _context17.t0
+          });
+
+        case 11:
+        case "end":
+          return _context17.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
+var getVendorOrders = catchAsyncError(function _callee18(req, res, next) {
+  var vendorId, orders;
+  return regeneratorRuntime.async(function _callee18$(_context18) {
+    while (1) {
+      switch (_context18.prev = _context18.next) {
+        case 0:
+          _context18.prev = 0;
+          vendorId = req.params.vendorId;
+          console.log(vendorId);
+          _context18.next = 5;
+          return regeneratorRuntime.awrap(UserOrder.find({
+            vendorId: vendorId
+          }));
+
+        case 5:
+          orders = _context18.sent;
+          res.json(orders);
+          _context18.next = 12;
+          break;
+
+        case 9:
+          _context18.prev = 9;
+          _context18.t0 = _context18["catch"](0);
+          res.json({
+            error: _context18.t0
+          });
+
+        case 12:
+        case "end":
+          return _context18.stop();
+      }
+    }
+  }, null, null, [[0, 9]]);
+});
+var getVendorItems = catchAsyncError(function _callee19(req, res, next) {
+  var vendorId, items;
+  return regeneratorRuntime.async(function _callee19$(_context19) {
+    while (1) {
+      switch (_context19.prev = _context19.next) {
+        case 0:
+          _context19.prev = 0;
+          vendorId = req.params.vendorId;
+          _context19.next = 4;
+          return regeneratorRuntime.awrap(hotelItemPrice.aggregate([{
+            $match: {
+              vendorId: new ObjectId(vendorId)
+            }
+          }, {
+            $lookup: {
+              from: "Items",
+              localField: "itemId",
+              foreignField: "_id",
+              as: "itemDetails"
+            }
+          }, {
+            $unwind: "$itemDetails"
+          }]));
+
+        case 4:
+          items = _context19.sent;
+          res.json({
+            items: items
+          });
+          _context19.next = 11;
+          break;
+
+        case 8:
+          _context19.prev = 8;
+          _context19.t0 = _context19["catch"](0);
+          res.json({
+            error: _context19.t0
+          });
+
+        case 11:
+        case "end":
+          return _context19.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
 module.exports = {
   linkHoteltoVendor: linkHoteltoVendor,
   addNewCategory: addNewCategory,
@@ -858,5 +1154,12 @@ module.exports = {
   getHotelOrdersById: getHotelOrdersById,
   addUser: addUser,
   reviewUser: reviewUser,
-  placeOrderByAdmin: placeOrderByAdmin
+  placeOrderByAdmin: placeOrderByAdmin,
+  getAllCategories: getAllCategories,
+  getHotelVendors: getHotelVendors,
+  getHotelOrders: getHotelOrders,
+  getHotelItems: getHotelItems,
+  getVendorHotels: getVendorHotels,
+  getVendorOrders: getVendorOrders,
+  getVendorItems: getVendorItems
 };

@@ -23,24 +23,16 @@ router.post(
 );
 router.post(
   "/addnewitem",
-  authMiddleware.isAuthenticatedUser,
+
   upload.any(),
   admincontroller.addNewItem
 );
-router.get(
-  "/allOrders",
-  authMiddleware.isAuthenticatedUser,
-  admincontroller.getAllOrders
-);
+router.get("/allOrders", admincontroller.getAllOrders);
 router.get("/allHotels", admincontroller.getAllHotels);
-router.get(
-  "/allVendors",
-  authMiddleware.isAuthenticatedUser,
-  admincontroller.getAllVendors
-);
+router.get("/allVendors", admincontroller.getAllVendors);
 router.get(
   "/allItems",
-  authMiddleware.isAuthenticatedUser,
+
   admincontroller.getAllItems
 );
 router.post(
@@ -63,5 +55,12 @@ router.post(
   authMiddleware.isAuthenticatedUser,
   admincontroller.placeOrderByAdmin
 );
+router.get("/getAllCategories", admincontroller.getAllCategories);
+router.get("/getVendors/:hotelId", admincontroller.getHotelVendors);
+router.get("/getOrders/:hotelId", admincontroller.getHotelOrders);
+router.get("/getItems/:hotelId", admincontroller.getHotelItems);
+router.get("/getHotels/:vendorId", admincontroller.getVendorHotels);
+router.get("/getVendorOrders/:vendorId", admincontroller.getVendorOrders);
+router.get("/getVendorItems/:vendorId", admincontroller.getVendorItems);
 
 module.exports = router;

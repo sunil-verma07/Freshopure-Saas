@@ -56,7 +56,8 @@ var UserSchema = new mongoose.Schema({
     "default": false
   },
   isApproved: {
-    type: String
+    type: String,
+    "default": "Under Review"
   }
 }); // JWT TOKEN
 

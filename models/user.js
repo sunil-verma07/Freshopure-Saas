@@ -58,6 +58,7 @@ const UserSchema = new mongoose.Schema({
   },
   isApproved: {
     type: String,
+    default: "Under Review",
   },
 });
 
