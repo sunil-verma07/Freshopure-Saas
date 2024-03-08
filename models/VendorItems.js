@@ -1,25 +1,18 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const VendorItemsSchema = new mongoose.Schema({
-    vendorId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-    },
-    itemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Item',
-    },
-    todayCostPrice:{
-        type: Number,
-        required: 'Cost Price is required',
-    },
-    yesterdayCostPrice:{
-        type: Number,
-    },
-    showPrice:{
-        type: Boolean,
-        default: true,
-    }
-})
+  vendorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  itemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Item",
+  },
+});
 
-module.exports = mongoose.model('VendorItems', VendorItemsSchema, 'VendorItems');
+module.exports = mongoose.model(
+  "VendorItems",
+  VendorItemsSchema,
+  "VendorItems"
+);

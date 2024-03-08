@@ -1,331 +1,655 @@
 const ErrorHandler = require("../utils/errorhander.js");
 const catchAsyncError = require("../middleware/catchAsyncErrors.js");
-const { getDatabase } = require('../dbClient.js');
-const { ObjectId } = require('mongodb');
-const Wishlist = require('../models/wishlist.js');
-const HotelItemPrice = require('../models/hotelItemPrice.js');
-const VendorItems = require('../models/VendorItems.js');
+const { getDatabase } = require("../dbClient.js");
+const { ObjectId } = require("mongodb");
+const Wishlist = require("../models/wishlist.js");
+const HotelItemPrice = require("../models/hotelItemPrice.js");
+const VendorItems = require("../models/VendorItems.js");
 const db = getDatabase();
-const HotelVendorLink = require('../models/hotelVendorLink.js');
-
+const HotelVendorLink = require("../models/hotelVendorLink.js");
+const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
+const SubVendor = require("../models/subVendor.js");
+const { sendWhatsappmessge } = require("../utils/sendWhatsappNotification.js");
+const user = require("../models/user.js");
+const Image = require("../models/image.js");
+const Orders = require("../models/order.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
-    try {
+  try {
+    const { itemId, hotelId, categoryId, price } = req.body;
 
-        const {itemId, hotelId,categoryId,price} = req.body;
+    const vendorId = req.user._id;
 
-        const vendorId = req.user._id;
-
-        if(!itemId || !hotelId || !price || !categoryId){
-            throw new Error('All fields are required.');
-        }
-
-        const linkPresent = await HotelVendorLink.findOne({ vendorId:  new ObjectId(vendorId),hotelId: new Object(hotelId)})
-
-        if(!linkPresent){
-           return res.status(500).json({ message: 'Hotel is not linked to vendor' });
-
-        }
-
-        const itemPresent = await HotelItemPrice.findOne({
-            $and: [
-              { vendorId: new ObjectId(vendorId) },
-              { hotelId: new ObjectId(hotelId) },
-              { itemId: new ObjectId(itemId) },
-            ]
-          });
-
-          if(!itemPresent){
-
-            await HotelItemPrice.create({
-                vendorId: vendorId,  
-                hotelId: hotelId,
-                itemId: itemId,
-                categoryId:categoryId,
-                todayCostPrice:price,
-                });
-
-            res.status(200).json({ message: 'Price updated successfully.'});
-
-
-          }else{
-
-            itemPresent.yesterdayCostPrice=itemPresent.todayCostPrice;
-            itemPresent.todayCostPrice=price;
-
-              await itemPresent.save();
-
-
-            res.status(200).json({ message: 'Price updated successfully.' });
-
-          }
-
-    } catch (error) {
-      console.log(error)
-        res.status(500).json({ error: 'Internal server error' });  
+    if (!itemId || !hotelId || !price || !categoryId) {
+      throw new Error("All fields are required.");
     }
-    
-})
 
+    const linkPresent = await HotelVendorLink.findOne({
+      vendorId: new ObjectId(vendorId),
+      hotelId: new Object(hotelId),
+    });
+
+    if (!linkPresent) {
+      return res.status(500).json({ message: "Hotel is not linked to vendor" });
+    }
+
+    const itemPresent = await HotelItemPrice.findOne({
+      $and: [
+        { vendorId: new ObjectId(vendorId) },
+        { hotelId: new ObjectId(hotelId) },
+        { itemId: new ObjectId(itemId) },
+      ],
+    });
+
+    if (!itemPresent) {
+      await HotelItemPrice.create({
+        vendorId: vendorId,
+        hotelId: hotelId,
+        itemId: itemId,
+        categoryId: categoryId,
+        todayCostPrice: price,
+      });
+
+      res.status(200).json({ message: "Price updated successfully." });
+    } else {
+      itemPresent.yesterdayCostPrice = itemPresent.todayCostPrice;
+      itemPresent.todayCostPrice = price;
+
+      await itemPresent.save();
+
+      res.status(200).json({ message: "Price updated successfully." });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
-      const vendorId = req.user._id;
+    const vendorId = req.user._id;
 
-      const orderData = await HotelVendorLink.aggregate([
-          {
-              $match: { "vendorId": vendorId }
-          },
-          {
-            $lookup: {
-                from: "Users",
-                localField: "hotelId",
-                foreignField: "_id",
-                as: "hotelDetails"
-            }
+    const orderData = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: vendorId },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
         },
-        {
-            $unwind: "$hotelDetails"
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "hotelId",
+          foreignField: "hotelId",
+          as: "hotelOrders",
         },
-          {
-              $lookup: {
-                  from: "orders",
-                  localField: "hotelId",
-                  foreignField: "hotelId",
-                  as: "hotelOrders"
-              }
+      },
+      {
+        $unwind: "$hotelOrders",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "hotelOrders.orderStatus",
+          foreignField: "_id",
+          as: "hotelOrders.orderStatuses",
+        },
+      },
+      {
+        $unwind: "$hotelOrders.orderStatuses",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "hotelOrders.orderedItems.itemId",
+          foreignField: "_id",
+          as: "items",
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "items._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $group: {
+          _id: "$hotelOrders._id",
+          hotelId: { $first: "$hotelId" },
+          hotelDetails: { $first: "$hotelDetails" },
+          orderData: { $first: "$hotelOrders" },
+          orderedItems: {
+            $push: {
+              $mergeObjects: ["$items", { images: "$images" }],
+            },
           },
-          {
-              $unwind: "$hotelOrders"
-          },
-          {
-              $lookup: {
-                  from: "orderstatuses",
-                  localField: "hotelOrders.orderStatus",
-                  foreignField: "_id",
-                  as: "hotelOrders.orderStatuses"
-              }
-          },
-          {
-              $unwind: "$hotelOrders.orderStatuses"
-          },
-          {
-              $lookup: {
-                  from: "Items",
-                  localField: "hotelOrders.orderedItems.itemId",
-                  foreignField: "_id",
-                  as: "items"
-              }
-          },
-          {
-              $unwind: "$items"
-          },
-          {
-              $lookup: {
-                  from: "Images",
-                  localField: "items._id",
-                  foreignField: "itemId",
-                  as: "images"
-              }
-          },
-          {
-              $group: {
-                  _id: "$hotelOrders._id",
-                  hotelId: { $first: "$hotelId" },
-                  hotelDetails: { $first: "$hotelDetails" },
-                  orderData: { $first: "$hotelOrders" },
-                  orderedItems: {
-                      $push: {
-                          $mergeObjects: [
-                              "$items",
-                              { images: "$images" }
-                          ]
-                      }
-                  }
-              }
-          },
-          {
-              $project: {
-                  _id: 0,
-                  hotelId: 1,
-                  hotelDetails:1,
-                  orderData: 1,
-                  orderedItems: 2
-              }
-          }
-      ]);
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          hotelId: 1,
+          hotelDetails: 1,
+          orderData: 1,
+          orderedItems: 2,
+        },
+      },
+    ]);
 
-      res.status(200).json({
-          status: 'success',
-          data: orderData
-      });
+    res.status(200).json({
+      status: "success",
+      data: orderData,
+    });
   } catch (error) {
-      next(error);
+    next(error);
   }
 });
-
 
 const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   try {
-      const vendorId = req.user._id;
+    const vendorId = req.user._id;
 
-      const orderData = await HotelVendorLink.aggregate([
-          {
-              $match: { "vendorId": vendorId }
-          },
-          {
-              $lookup: {
-                  from: "orders",
-                  localField: "hotelId",
-                  foreignField: "hotelId",
-                  as: "hotelOrders"
-              }
-          },
-          {
-              $unwind: "$hotelOrders"
-          },
-          {
-            $lookup: {
-                from: "Users",
-                localField: "hotelId",
-                foreignField: "_id",
-                as: "hotelDetails"
-            }
+    const orderData = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: vendorId },
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "hotelId",
+          foreignField: "hotelId",
+          as: "hotelOrders",
         },
-        {
-            $unwind: "$hotelDetails"
-        },
-         
-          {
-              $group: {
-                  _id: "$hotelOrders._id",
-                  hotelId: { $first: "$hotelId" },
-                  hotelDetails: { $first: "$hotelDetails" },
-                  orderData: { $first: "$hotelOrders" },
-                  
-              }
-          },
-          // {
-          //     $project: {
-          //         _id: 0,
-          //         hotelId: 1,
-          //         hotelDetails: 1,
-          //         orderData: 1,
-          //         orderedItems: 2
-          //     }
-          // }
-      ]);
+      },
 
-      res.status(200).json({
-          status: 'success',
-          data: orderData
-      });
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+
+      {
+        $group: {
+          _id: "$hotelOrders._id",
+          hotelId: { $first: "$hotelId" },
+          hotelDetails: { $first: "$hotelDetails" },
+          orderData: { $first: "$hotelOrders" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          hotelId: 1,
+          hotelDetails: 1,
+          // orderData: 1,
+          // orderedItems: 2,
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      status: "success",
+      data: orderData,
+    });
   } catch (error) {
-      next(error);
+    next(error);
   }
 });
-
-
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
   try {
-      const vendorId = req.user._id;
+    const vendorId = req.user._id;
 
-      // Get today's date
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      const orderData = await HotelVendorLink.aggregate([
-          {
-              $match: { "vendorId": vendorId }
-          },
-          {
-              $lookup: {
-                  from: "Users",
-                  localField: "hotelId",
-                  foreignField: "_id",
-                  as: "hotelDetails"
-              }
-          },
-          {
-              $unwind: "$hotelDetails"
-          },
-          {
-              $lookup: {
-                  from: "orders",
-                  let: { hotelId: "$hotelId" },
-                  pipeline: [
-                      {
-                          $match: {
-                              $expr: {
-                                  $and: [
-                                      { $eq: ["$hotelId", "$$hotelId"] },
-                                      { $gte: ["$createdAt", today] } // Filter orders for today
-                                  ]
-                              }
-                          }
-                      }
+    const orderData = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: vendorId },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orders",
+          let: { hotelId: "$hotelId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$hotelId", "$$hotelId"] },
+                    { $gte: ["$createdAt", today] }, // Filter orders for today
                   ],
-                  as: "hotelOrders"
-              }
-          },
-          {
-              $unwind: "$hotelOrders"
-          },
-          {
-              $unwind: "$hotelOrders.orderedItems" // Unwind orderedItems array
-          },
-          {
-              $group: {
-                  _id: "$hotelOrders.orderedItems.itemId",
-                  totalQuantityOrderedGrams: {
-                      $sum: {
-                          $add: [
-                              { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
-                              "$hotelOrders.orderedItems.quantity.gram" // Add grams
-                          ]
-                      }
-                  }, // Total quantity ordered in grams
-                  itemDetails: { $first: "$hotelOrders.orderedItems" } // Take item details from the first document
-              }
-          },
-          {
-              $lookup: {
-                  from: "Items",
-                  localField: "_id",
-                  foreignField: "_id",
-                  as: "itemDetails"
-              }
-          },
-          {
-              $lookup: {
-                  from: "Images",
-                  localField: "_id",
-                  foreignField: "itemId",
-                  as: "itemImages"
-              }
-          },
-          {
-              $project: {
-                  _id: 0,
-                  totalQuantityOrdered: {
-                      kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
-                      gram: { $mod: ["$totalQuantityOrderedGrams", 1000] } // Calculate remaining grams
-                  }, // Total quantity ordered in kg and grams
-                  itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
-                  itemImages: { $arrayElemAt: ["$itemImages", 0] } // Get the item images
-              }
-          }
-      ]);
+                },
+              },
+            },
+          ],
+          as: "hotelOrders",
+        },
+      },
+      {
+        $unwind: "$hotelOrders",
+      },
+      {
+        $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
+      },
+      {
+        $group: {
+          _id: "$hotelOrders.orderedItems.itemId",
+          totalQuantityOrderedGrams: {
+            $sum: {
+              $add: [
+                { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
+                "$hotelOrders.orderedItems.quantity.gram", // Add grams
+              ],
+            },
+          }, // Total quantity ordered in grams
+          itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "_id",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "_id",
+          foreignField: "itemId",
+          as: "itemImages",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalQuantityOrdered: {
+            kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
+            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
+          }, // Total quantity ordered in kg and grams
+          itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
+          itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
+        },
+      },
+    ]);
 
-      res.status(200).json({
-          status: 'success',
-          data: orderData
-      });
+    res.status(200).json({
+      status: "success",
+      data: orderData,
+    });
   } catch (error) {
-      next(error);
+    next(error);
   }
 });
 
+const vendorItem = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
 
-module.exports = {  setHotelItemPrice,orderHistoryForVendors,hotelsLinkedWithVendor,todayCompiledOrders }
+    const AllItems = await HotelItemPrice.find({ vendorId }).select("itemId");
+    const AssignedItems = await SubVendor.find({ vendorId }).select(
+      "assignedItems"
+    );
+
+    let assignedItemsArray = [];
+    for (let item of AssignedItems) {
+      assignedItemsArray.push(...item.assignedItems);
+    }
+
+    const Items = AllItems.filter(
+      (obj1) =>
+        !assignedItemsArray.some((obj2) => obj1.itemId.equals(obj2.itemId))
+    );
+
+    res.status(200).json({ success: true, Items }); // Sending the items back to the client
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
+const getAllSubVendors = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const data = await SubVendor.aggregate([
+      {
+        $match: { vendorId: vendorId }, // Match documents with the specified vendorId
+      },
+      {
+        $unwind: "$assignedItems", // Deconstruct the assignedItems array
+      },
+      {
+        $lookup: {
+          from: "HotelItemPrice",
+          localField: "assignedItems.itemId",
+          foreignField: "itemId",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails", // Deconstruct the itemDetails array
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "itemDetails.itemId",
+          foreignField: "_id",
+          as: "itemInfo",
+        },
+      },
+      {
+        $unwind: "$itemInfo", // Deconstruct the itemInfo array
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "itemInfo.categoryId",
+          foreignField: "_id",
+          as: "categoryInfo",
+        },
+      },
+      {
+        $unwind: "$categoryInfo", // Deconstruct the categoryInfo array
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails.itemId",
+          foreignField: "itemId",
+          as: "itemImages",
+        },
+      },
+      {
+        $project: {
+          _id: "$_id",
+          vendorId: 1,
+          itemId: "$itemDetails.itemId",
+          itemName: "$itemInfo.name",
+          itemDescription: "$itemInfo.description",
+          category: "$categoryInfo.name",
+          itemImages: "$itemImages.img",
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      status: "success",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const sendCompiledOrders = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id; // Destructure the user object directly
+
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const orderData = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) }, // Convert vendorId to ObjectId
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orders",
+          let: { hotelId: "$hotelId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$hotelId", "$$hotelId"] },
+                    { $gte: ["$createdAt", today] }, // Filter orders for today
+                  ],
+                },
+              },
+            },
+          ],
+          as: "hotelOrders",
+        },
+      },
+      {
+        $unwind: "$hotelOrders",
+      },
+      {
+        $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
+      },
+      {
+        $group: {
+          _id: "$hotelOrders.orderedItems.itemId",
+          totalQuantityOrderedGrams: {
+            $sum: {
+              $add: [
+                { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
+                "$hotelOrders.orderedItems.quantity.gram", // Add grams
+              ],
+            },
+          }, // Total quantity ordered in grams
+          itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "_id",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "_id",
+          foreignField: "itemId",
+          as: "itemImages",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalQuantityOrdered: {
+            kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
+            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
+          }, // Total quantity ordered in kg and grams
+          itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
+          itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
+        },
+      },
+    ]);
+
+    const SubVendorsArray = await SubVendor.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          "assignedItems.itemId": {
+            $in: orderData.map((order) => order.itemDetails._id),
+          },
+        }, // Match documents with the specified vendorId and matching assigned itemIds
+      },
+      {
+        $unwind: "$assignedItems", // Deconstruct the assignedItems array
+      },
+      {
+        $match: {
+          "assignedItems.itemId": {
+            $in: orderData.map((order) => order.itemDetails._id),
+          },
+        }, // Match assignedItems with the itemIds from orderData
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "assignedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails", // Deconstruct the itemDetails array
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "itemDetails.categoryId",
+          foreignField: "_id",
+          as: "categoryInfo",
+        },
+      },
+      {
+        $unwind: "$categoryInfo", // Deconstruct the categoryInfo array
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "itemImages",
+        },
+      },
+      {
+        $project: {
+          _id: "$_id",
+          vendorId: 1,
+          subVendorPhone: "$phone", // Include the phone number of the subvendor
+          itemId: "$assignedItems.itemId",
+          itemName: "$itemDetails.name",
+          itemDescription: "$itemDetails.description",
+          category: "$categoryInfo.name",
+          itemImages: "$itemImages.img",
+        },
+      },
+    ]);
+
+    //   sendWhatsappmessge();
+    res.json({
+      success: true,
+      SubVendorsArray,
+    });
+    // Handle the fetched data as needed
+  } catch (error) {
+    next(error);
+  }
+});
+
+const getHotelItemList = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { HotelId } = req.body;
+    console.log(vendorId, HotelId);
+
+    // Fetch items associated with the vendor and hotelId, populating the associated item's fields
+    const itemList = await HotelItemPrice.find({
+      vendorId,
+      hotelId: HotelId,
+    }).populate({
+      path: "itemId",
+      select: "name description unit imageId", // Select fields to populate from the Item model
+    });
+
+    console.log("Fetched items:", itemList);
+
+    // Map the fetched items to include item details
+    const formattedItemList = itemList.map(async (item) => {
+      const image = await Image.findOne({ itemId: item.itemId._id }); // Find the corresponding image for the item
+
+      return {
+        itemId: item._id,
+        name: item.itemId.name,
+        description: item.itemId.description,
+        unit: item.itemId.unit,
+        imageUrl: image ? image.img : null, // Get the image URL if it exists
+        // Add other item details as needed
+      };
+    });
+
+    const result = await Promise.all(formattedItemList); // Wait for all async operations to complete
+
+    return res.json({ itemList: result });
+  } catch (error) {
+    throw error;
+  }
+});
+
+const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { HotelId } = req.body;
+
+    console.log(vendorId, HotelId);
+
+    const hotelOrders = await Orders.find({
+      hotelId: HotelId,
+      vendorId,
+    }).populate("orderStatus");
+    // .populate("addressId");
+    // .populate({
+    //   path: "orderedItems.itemId",
+    //   populate: { path: "itemId" }, // Populate the associated item details
+    // });
+
+    res.json({ hotelOrders });
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = {
+  setHotelItemPrice,
+  orderHistoryForVendors,
+  hotelsLinkedWithVendor,
+  todayCompiledOrders,
+  vendorItem,
+  getAllSubVendors,
+  sendCompiledOrders,
+  getHotelItemList,
+  getAllOrdersbyHotel,
+};
