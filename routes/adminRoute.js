@@ -8,59 +8,95 @@ const admincontroller = require("../controllers/AdminController.js");
 
 router.post(
   "/addnewcategory",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.addNewCategory
 );
 router.post(
   "/vendorhotellink",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.linkHoteltoVendor
 );
 router.post(
   "/orderDetailById",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.orderDetailById
 );
 router.post(
   "/addnewitem",
-
+  authMiddleware.authMiddleware,
   upload.any(),
   admincontroller.addNewItem
 );
-router.get("/allOrders", admincontroller.getAllOrders);
-router.get("/allHotels", admincontroller.getAllHotels);
-router.get("/allVendors", admincontroller.getAllVendors);
+router.get(
+  "/allOrders",
+  authMiddleware.authMiddleware,
+  admincontroller.getAllOrders
+);
+router.get(
+  "/allHotels",
+  authMiddleware.authMiddleware,
+  admincontroller.getAllHotels
+);
+router.get(
+  "/allVendors",
+  authMiddleware.authMiddleware,
+  admincontroller.getAllVendors
+);
 router.get(
   "/allItems",
-
+  authMiddleware.authMiddleware,
   admincontroller.getAllItems
 );
 router.post(
   "/hotelOrders",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.getHotelOrdersById
 );
-router.post(
-  "/addUser",
-  authMiddleware.isAuthenticatedUser,
-  admincontroller.addUser
-);
+router.post("/addUser", authMiddleware.authMiddleware, admincontroller.addUser);
 router.post(
   "/reviewUser",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.reviewUser
 );
 router.post(
   "/placeorderbyadmin",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   admincontroller.placeOrderByAdmin
 );
-router.get("/getAllCategories", admincontroller.getAllCategories);
-router.get("/getVendors/:hotelId", admincontroller.getHotelVendors);
-router.get("/getOrders/:hotelId", admincontroller.getHotelOrders);
-router.get("/getItems/:hotelId", admincontroller.getHotelItems);
-router.get("/getHotels/:vendorId", admincontroller.getVendorHotels);
-router.get("/getVendorOrders/:vendorId", admincontroller.getVendorOrders);
-router.get("/getVendorItems/:vendorId", admincontroller.getVendorItems);
+router.get(
+  "/getAllCategories",
+  authMiddleware.authMiddleware,
+  admincontroller.getAllCategories
+);
+router.get(
+  "/getVendors/:hotelId",
+  authMiddleware.authMiddleware,
+  admincontroller.getHotelVendors
+);
+router.get(
+  "/getOrders/:hotelId",
+  authMiddleware.authMiddleware,
+  admincontroller.getHotelOrders
+);
+router.get(
+  "/getItems/:hotelId",
+  authMiddleware.authMiddleware,
+  admincontroller.getHotelItems
+);
+router.get(
+  "/getHotels/:vendorId",
+  authMiddleware.authMiddleware,
+  admincontroller.getVendorHotels
+);
+router.get(
+  "/getVendorOrders/:vendorId",
+  authMiddleware.authMiddleware,
+  admincontroller.getVendorOrders
+);
+router.get(
+  "/getVendorItems/:vendorId",
+  authMiddleware.authMiddleware,
+  admincontroller.getVendorItems
+);
 
 module.exports = router;

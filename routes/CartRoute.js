@@ -6,7 +6,7 @@ const cartcontroller = require("../controllers/CartController");
 
 router.post(
   "/additemtocart",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   cartcontroller.addItemToCart
 );
 router.post(
@@ -19,6 +19,6 @@ router.get(
   authMiddleware.authMiddleware,
   cartcontroller.getCartItems
 );
-// router.post("/updatecartitems", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , cartcontroller.updateCartItems)
+// router.post("/updatecartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.updateCartItems)
 
 module.exports = router;

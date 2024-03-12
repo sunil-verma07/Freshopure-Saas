@@ -9,8 +9,8 @@ var authMiddleware = require("../middleware/auth"); // const profileCompleteMidd
 
 var cartcontroller = require("../controllers/CartController");
 
-router.post("/additemtocart", authMiddleware.isAuthenticatedUser, cartcontroller.addItemToCart);
+router.post("/additemtocart", authMiddleware.authMiddleware, cartcontroller.addItemToCart);
 router.post("/removeitemfromcart", authMiddleware.authMiddleware, cartcontroller.removeItemFromCart);
-router.get("/getcartitems", authMiddleware.authMiddleware, cartcontroller.getCartItems); // router.post("/updatecartitems", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , cartcontroller.updateCartItems)
+router.get("/getcartitems", authMiddleware.authMiddleware, cartcontroller.getCartItems); // router.post("/updatecartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.updateCartItems)
 
 module.exports = router;

@@ -9,15 +9,15 @@ var authMiddleware = require("../middleware/auth"); // const profileCompleteMidd
 
 var vendorcontroller = require("../controllers/VendorController.js");
 
-router.post("/updateItemPrice", authMiddleware.isAuthenticatedUser, vendorcontroller.setHotelItemPrice);
-router.get("/orderhistory", authMiddleware.isAuthenticatedUser, vendorcontroller.orderHistoryForVendors);
-router.get("/hotelsLinkedWithVendor", authMiddleware.isAuthenticatedUser, vendorcontroller.hotelsLinkedWithVendor);
-router.get("/todayCompiledOrder", authMiddleware.isAuthenticatedUser, vendorcontroller.todayCompiledOrders);
-router.get("/vendorItems", authMiddleware.isAuthenticatedUser, vendorcontroller.vendorItem);
-router.get("/getallsubvendors", authMiddleware.isAuthenticatedUser, vendorcontroller.getAllSubVendors);
-router.post("/sendcompiledorders", authMiddleware.isAuthenticatedUser, vendorcontroller.sendCompiledOrders);
-router.get("/gethotelitemlist", authMiddleware.isAuthenticatedUser, vendorcontroller.getHotelItemList);
-router.get("/getallordersbyhotel", authMiddleware.isAuthenticatedUser, vendorcontroller.getAllOrdersbyHotel); // // router.get("/getcartitems", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , cartcontroller.getCartItems)
-// router.post("/addnewitem", authMiddleware.isAuthenticatedUser, vendorcontroller.addNewItem)
+router.post("/updateItemPrice", authMiddleware.authMiddleware, vendorcontroller.setHotelItemPrice);
+router.get("/orderhistory", authMiddleware.authMiddleware, vendorcontroller.orderHistoryForVendors);
+router.get("/hotelsLinkedWithVendor", authMiddleware.authMiddleware, vendorcontroller.hotelsLinkedWithVendor);
+router.get("/todayCompiledOrder", authMiddleware.authMiddleware, vendorcontroller.todayCompiledOrders);
+router.get("/vendorItems", authMiddleware.authMiddleware, vendorcontroller.vendorItem);
+router.get("/getallsubvendors", authMiddleware.authMiddleware, vendorcontroller.getAllSubVendors);
+router.post("/sendcompiledorders", authMiddleware.authMiddleware, vendorcontroller.sendCompiledOrders);
+router.get("/gethotelitemlist", authMiddleware.authMiddleware, vendorcontroller.getHotelItemList);
+router.get("/getallordersbyhotel", authMiddleware.authMiddleware, vendorcontroller.getAllOrdersbyHotel); // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
+// router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
 module.exports = router;

@@ -5,27 +5,27 @@ const addresscontroller = require("../controllers/AddressController");
 
 router.post(
   "/addaddress",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   addresscontroller.addAddress
 );
 router.post(
   "/removeaddress",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   addresscontroller.removeAddress
 );
 router.get(
   "/getalladdresses",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   addresscontroller.getAllAddress
 );
 router.get(
   "/getselectedaddress",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   addresscontroller.getSelectedAddress
 );
 router.post(
   "/updateselectedaddress",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   addresscontroller.updateSelectedAddress
 );
 

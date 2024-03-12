@@ -489,7 +489,33 @@ const getHotelOrders = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.params.hotelId;
 
-    const orders = await UserOrder.find({ hotelId });
+    const orders = await UserOrder.aggregate([
+      {
+        $match: { hotelId: new ObjectId(hotelId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+    ]);
 
     res.json({ orders });
   } catch (error) {
@@ -515,6 +541,28 @@ const getHotelItems = catchAsyncError(async (req, res, next) => {
       },
       {
         $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemId",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: "$category",
       },
     ]);
 
@@ -556,7 +604,33 @@ const getVendorOrders = catchAsyncError(async (req, res, next) => {
     const vendorId = req.params.vendorId;
     console.log(vendorId);
 
-    const orders = await UserOrder.find({ vendorId });
+    const orders = await UserOrder.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+    ]);
 
     res.json(orders);
   } catch (error) {
@@ -582,6 +656,28 @@ const getVendorItems = catchAsyncError(async (req, res, next) => {
       },
       {
         $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemId",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: "$category",
       },
     ]);
 

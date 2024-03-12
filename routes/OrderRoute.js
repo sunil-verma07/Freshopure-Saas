@@ -1,14 +1,47 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require("../middleware/auth");
 // const profileCompleteMiddleware = require('../middleware/profileComplete.js')
-const ordercontroller = require('../controllers/OrderController');
+const ordercontroller = require("../controllers/OrderController");
 
-router.post("/placeorder", authMiddleware.isAuthenticatedUser, ordercontroller.placeOrder);
-router.get("/orderhistory", authMiddleware.isAuthenticatedUser, ordercontroller.orderHistory);
-router.post("/orderagain", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , ordercontroller.orderAgain);
-router.post("/orderanalytics", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , ordercontroller.orderAnalytics);
-router.post("/orderpriceanalytics", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , ordercontroller.orderPriceAnalytics);
-router.post("/itemanalyticsforhotel", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , ordercontroller.itemAnalyticsForHotel);
-router.get("/compiledorderforhotel", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , ordercontroller.compiledOrderForHotel);
-module.exports = router; 
+router.post(
+  "/placeorder",
+  authMiddleware.authMiddleware,
+  ordercontroller.placeOrder
+);
+router.get(
+  "/orderhistory",
+  authMiddleware.authMiddleware,
+  ordercontroller.orderHistory
+);
+router.post(
+  "/orderagain",
+  authMiddleware.authMiddleware,
+  authMiddleware.profileComplete,
+  ordercontroller.orderAgain
+);
+router.post(
+  "/orderanalytics",
+  authMiddleware.authMiddleware,
+  authMiddleware.profileComplete,
+  ordercontroller.orderAnalytics
+);
+router.post(
+  "/orderpriceanalytics",
+  authMiddleware.authMiddleware,
+  authMiddleware.profileComplete,
+  ordercontroller.orderPriceAnalytics
+);
+router.post(
+  "/itemanalyticsforhotel",
+  authMiddleware.authMiddleware,
+  authMiddleware.profileComplete,
+  ordercontroller.itemAnalyticsForHotel
+);
+router.get(
+  "/compiledorderforhotel",
+  authMiddleware.authMiddleware,
+  authMiddleware.profileComplete,
+  ordercontroller.compiledOrderForHotel
+);
+module.exports = router;

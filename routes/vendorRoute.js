@@ -6,50 +6,50 @@ const vendorcontroller = require("../controllers/VendorController.js");
 
 router.post(
   "/updateItemPrice",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.setHotelItemPrice
 );
 router.get(
   "/orderhistory",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.orderHistoryForVendors
 );
 router.get(
   "/hotelsLinkedWithVendor",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.hotelsLinkedWithVendor
 );
 router.get(
   "/todayCompiledOrder",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.todayCompiledOrders
 );
 router.get(
   "/vendorItems",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.vendorItem
 );
 router.get(
   "/getallsubvendors",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.getAllSubVendors
 );
 router.post(
   "/sendcompiledorders",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.sendCompiledOrders
 );
 router.get(
   "/gethotelitemlist",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.getHotelItemList
 );
 router.get(
   "/getallordersbyhotel",
-  authMiddleware.isAuthenticatedUser,
+  authMiddleware.authMiddleware,
   vendorcontroller.getAllOrdersbyHotel
 );
-// // router.get("/getcartitems", authMiddleware.isAuthenticatedUser,authMiddleware.profileComplete , cartcontroller.getCartItems)
-// router.post("/addnewitem", authMiddleware.isAuthenticatedUser, vendorcontroller.addNewItem)
+// // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
+// router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
 module.exports = router;

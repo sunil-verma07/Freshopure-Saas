@@ -944,9 +944,29 @@ var getHotelOrders = catchAsyncError(function _callee15(req, res, next) {
           _context15.prev = 0;
           hotelId = req.params.hotelId;
           _context15.next = 4;
-          return regeneratorRuntime.awrap(UserOrder.find({
-            hotelId: hotelId
-          }));
+          return regeneratorRuntime.awrap(UserOrder.aggregate([{
+            $match: {
+              hotelId: new ObjectId(hotelId)
+            }
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "vendorId",
+              foreignField: "_id",
+              as: "vendorDetails"
+            }
+          }, {
+            $unwind: "$vendorDetails"
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails"
+            }
+          }, {
+            $unwind: "$hotelDetails"
+          }]));
 
         case 4:
           orders = _context15.sent;
@@ -992,6 +1012,24 @@ var getHotelItems = catchAsyncError(function _callee16(req, res, next) {
             }
           }, {
             $unwind: "$itemDetails"
+          }, {
+            $lookup: {
+              from: "Images",
+              localField: "itemId",
+              foreignField: "itemId",
+              as: "images"
+            }
+          }, {
+            $unwind: "$images"
+          }, {
+            $lookup: {
+              from: "Category",
+              localField: "categoryId",
+              foreignField: "_id",
+              as: "category"
+            }
+          }, {
+            $unwind: "$category"
           }]));
 
         case 4:
@@ -1072,9 +1110,29 @@ var getVendorOrders = catchAsyncError(function _callee18(req, res, next) {
           vendorId = req.params.vendorId;
           console.log(vendorId);
           _context18.next = 5;
-          return regeneratorRuntime.awrap(UserOrder.find({
-            vendorId: vendorId
-          }));
+          return regeneratorRuntime.awrap(UserOrder.aggregate([{
+            $match: {
+              vendorId: new ObjectId(vendorId)
+            }
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "vendorId",
+              foreignField: "_id",
+              as: "vendorDetails"
+            }
+          }, {
+            $unwind: "$vendorDetails"
+          }, {
+            $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails"
+            }
+          }, {
+            $unwind: "$hotelDetails"
+          }]));
 
         case 5:
           orders = _context18.sent;
@@ -1118,6 +1176,24 @@ var getVendorItems = catchAsyncError(function _callee19(req, res, next) {
             }
           }, {
             $unwind: "$itemDetails"
+          }, {
+            $lookup: {
+              from: "Images",
+              localField: "itemId",
+              foreignField: "itemId",
+              as: "images"
+            }
+          }, {
+            $unwind: "$images"
+          }, {
+            $lookup: {
+              from: "Category",
+              localField: "categoryId",
+              foreignField: "_id",
+              as: "category"
+            }
+          }, {
+            $unwind: "$category"
           }]));
 
         case 4:
