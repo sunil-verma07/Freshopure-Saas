@@ -345,66 +345,7 @@ const getAllSubVendors = catchAsyncErrors(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    const data = await SubVendor.aggregate([
-      {
-        $match: { vendorId: vendorId }, // Match documents with the specified vendorId
-      },
-      {
-        $unwind: "$assignedItems", // Deconstruct the assignedItems array
-      },
-      {
-        $lookup: {
-          from: "HotelItemPrice",
-          localField: "assignedItems.itemId",
-          foreignField: "itemId",
-          as: "itemDetails",
-        },
-      },
-      {
-        $unwind: "$itemDetails", // Deconstruct the itemDetails array
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "itemDetails.itemId",
-          foreignField: "_id",
-          as: "itemInfo",
-        },
-      },
-      {
-        $unwind: "$itemInfo", // Deconstruct the itemInfo array
-      },
-      {
-        $lookup: {
-          from: "Category",
-          localField: "itemInfo.categoryId",
-          foreignField: "_id",
-          as: "categoryInfo",
-        },
-      },
-      {
-        $unwind: "$categoryInfo", // Deconstruct the categoryInfo array
-      },
-      {
-        $lookup: {
-          from: "Images",
-          localField: "itemDetails.itemId",
-          foreignField: "itemId",
-          as: "itemImages",
-        },
-      },
-      {
-        $project: {
-          _id: "$_id",
-          vendorId: 1,
-          itemId: "$itemDetails.itemId",
-          itemName: "$itemInfo.name",
-          itemDescription: "$itemInfo.description",
-          category: "$categoryInfo.name",
-          itemImages: "$itemImages.img",
-        },
-      },
-    ]);
+    const data = await SubVendor.find({ vendorId: vendorId });
 
     res.status(200).json({
       status: "success",

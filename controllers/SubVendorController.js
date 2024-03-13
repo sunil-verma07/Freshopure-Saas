@@ -1,6 +1,7 @@
 const catchAsyncErrors = require("../middleware/catchAsyncErrors");
 const SubVendor = require("../models/subVendor");
 const { ObjectId } = require("mongodb");
+const Items = require("../models/item");
 
 const addVendor = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -150,9 +151,57 @@ const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const _id = "65e1a5dafea2d40fa8336f3f";
+
+    const AssignedItems = await SubVendor.aggregate([
+      { $match: { _id: new ObjectId(_id) } },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "assignedItems.itemId",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "assignedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+    ]);
+
+    if (AssignedItems) {
+      res.status(200).json({
+        success: true,
+        message: "successful",
+        items: AssignedItems,
+      });
+    } else {
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 module.exports = {
   addVendor,
   removeVendor,
   addItemToVendor,
   removeItemsFromVendor,
+  getSubVendorItems,
 };

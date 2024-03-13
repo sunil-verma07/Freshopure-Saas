@@ -560,62 +560,9 @@ var getAllSubVendors = catchAsyncErrors(function _callee6(req, res, next) {
           _context6.prev = 0;
           vendorId = req.user._id;
           _context6.next = 4;
-          return regeneratorRuntime.awrap(SubVendor.aggregate([{
-            $match: {
-              vendorId: vendorId
-            } // Match documents with the specified vendorId
-
-          }, {
-            $unwind: "$assignedItems" // Deconstruct the assignedItems array
-
-          }, {
-            $lookup: {
-              from: "HotelItemPrice",
-              localField: "assignedItems.itemId",
-              foreignField: "itemId",
-              as: "itemDetails"
-            }
-          }, {
-            $unwind: "$itemDetails" // Deconstruct the itemDetails array
-
-          }, {
-            $lookup: {
-              from: "Items",
-              localField: "itemDetails.itemId",
-              foreignField: "_id",
-              as: "itemInfo"
-            }
-          }, {
-            $unwind: "$itemInfo" // Deconstruct the itemInfo array
-
-          }, {
-            $lookup: {
-              from: "Category",
-              localField: "itemInfo.categoryId",
-              foreignField: "_id",
-              as: "categoryInfo"
-            }
-          }, {
-            $unwind: "$categoryInfo" // Deconstruct the categoryInfo array
-
-          }, {
-            $lookup: {
-              from: "Images",
-              localField: "itemDetails.itemId",
-              foreignField: "itemId",
-              as: "itemImages"
-            }
-          }, {
-            $project: {
-              _id: "$_id",
-              vendorId: 1,
-              itemId: "$itemDetails.itemId",
-              itemName: "$itemInfo.name",
-              itemDescription: "$itemInfo.description",
-              category: "$categoryInfo.name",
-              itemImages: "$itemImages.img"
-            }
-          }]));
+          return regeneratorRuntime.awrap(SubVendor.find({
+            vendorId: vendorId
+          }));
 
         case 4:
           data = _context6.sent;

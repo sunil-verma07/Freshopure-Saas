@@ -19,9 +19,10 @@ exports.authMiddleware = function _callee(req, res, next) {
       switch (_context.prev = _context.next) {
         case 0:
           token = req.headers.token;
+          console.log(token, "token");
 
           if (token) {
-            _context.next = 3;
+            _context.next = 4;
             break;
           }
 
@@ -29,32 +30,32 @@ exports.authMiddleware = function _callee(req, res, next) {
             error: "No token provided"
           }));
 
-        case 3:
-          _context.prev = 3;
+        case 4:
+          _context.prev = 4;
           decoded = jwt.verify(token, process.env.JWT_SECRET);
-          _context.next = 7;
+          _context.next = 8;
           return regeneratorRuntime.awrap(User.findById(decoded.id));
 
-        case 7:
+        case 8:
           req.user = _context.sent;
           next();
-          _context.next = 15;
+          _context.next = 16;
           break;
 
-        case 11:
-          _context.prev = 11;
-          _context.t0 = _context["catch"](3);
+        case 12:
+          _context.prev = 12;
+          _context.t0 = _context["catch"](4);
           console.log(_context.t0);
           res.status(401).json({
             error: "Invalid token"
           });
 
-        case 15:
+        case 16:
         case "end":
           return _context.stop();
       }
     }
-  }, null, null, [[3, 11]]);
+  }, null, null, [[4, 12]]);
 };
 
 exports.isAuthenticatedUser = catchAsyncErrors(function _callee2(req, res, next) {

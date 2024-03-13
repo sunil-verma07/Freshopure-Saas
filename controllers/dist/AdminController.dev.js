@@ -704,9 +704,10 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
         case 0:
           _context11.prev = 0;
           _req$body3 = req.body, userId = _req$body3.userId, status = _req$body3.status;
+          console.log(userId, status);
 
           if (!(!status || !userId)) {
-            _context11.next = 4;
+            _context11.next = 5;
             break;
           }
 
@@ -714,17 +715,17 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             error: "Status or userId not received"
           }));
 
-        case 4:
-          _context11.next = 6;
+        case 5:
+          _context11.next = 7;
           return regeneratorRuntime.awrap(User.findOne({
             _id: userId
           }));
 
-        case 6:
+        case 7:
           user = _context11.sent;
 
           if (user) {
-            _context11.next = 9;
+            _context11.next = 10;
             break;
           }
 
@@ -732,13 +733,13 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             error: "User not found"
           }));
 
-        case 9:
+        case 10:
           if (!(status.toLowerCase() === "approved")) {
-            _context11.next = 15;
+            _context11.next = 16;
             break;
           }
 
-          _context11.next = 12;
+          _context11.next = 13;
           return regeneratorRuntime.awrap(User.findOneAndUpdate({
             _id: userId
           }, {
@@ -749,18 +750,18 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             returnDocument: "after"
           }));
 
-        case 12:
+        case 13:
           editedUser = _context11.sent;
-          _context11.next = 19;
+          _context11.next = 20;
           break;
 
-        case 15:
+        case 16:
           if (!(status.toLowerCase() === "rejected")) {
-            _context11.next = 19;
+            _context11.next = 20;
             break;
           }
 
-          _context11.next = 18;
+          _context11.next = 19;
           return regeneratorRuntime.awrap(User.findOneAndUpdate({
             _id: userId
           }, {
@@ -771,27 +772,27 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             returnDocument: "after"
           }));
 
-        case 18:
+        case 19:
           editedUser = _context11.sent;
 
-        case 19:
+        case 20:
           res.status(201).json({
             editedUser: editedUser
           });
-          _context11.next = 25;
+          _context11.next = 26;
           break;
 
-        case 22:
-          _context11.prev = 22;
+        case 23:
+          _context11.prev = 23;
           _context11.t0 = _context11["catch"](0);
           res.send(_context11.t0);
 
-        case 25:
+        case 26:
         case "end":
           return _context11.stop();
       }
     }
-  }, null, null, [[0, 22]]);
+  }, null, null, [[0, 23]]);
 });
 var placeOrderByAdmin = catchAsyncError(function _callee12(req, res, next) {
   var _req$body4, HotelId, addressId, orderedItems, vendorId, orderStatusdoc, orderStatus, currentDate, formattedDate, randomNumber, orderNumber, order;

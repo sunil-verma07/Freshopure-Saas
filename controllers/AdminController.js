@@ -380,6 +380,8 @@ const reviewUser = catchAsyncError(async (req, res, next) => {
   try {
     const { userId, status } = req.body;
 
+    console.log(userId, status);
+
     if (!status || !userId) {
       return res.status(404).json({ error: "Status or userId not received" });
     }

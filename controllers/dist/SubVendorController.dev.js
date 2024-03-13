@@ -7,6 +7,8 @@ var SubVendor = require("../models/subVendor");
 var _require = require("mongodb"),
     ObjectId = _require.ObjectId;
 
+var Items = require("../models/item");
+
 var addVendor = catchAsyncErrors(function _callee(req, res, next) {
   var _req$body, fullName, phone, vendorId, vendor, newVendor;
 
@@ -311,9 +313,86 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
     }
   }, null, null, [[0, 15]]);
 });
+var getSubVendorItems = catchAsyncErrors(function _callee4(req, res, next) {
+  var _id, AssignedItems;
+
+  return regeneratorRuntime.async(function _callee4$(_context5) {
+    while (1) {
+      switch (_context5.prev = _context5.next) {
+        case 0:
+          _context5.prev = 0;
+          _id = "65e1a5dafea2d40fa8336f3f";
+          _context5.next = 4;
+          return regeneratorRuntime.awrap(SubVendor.aggregate([{
+            $match: {
+              _id: new ObjectId(_id)
+            }
+          }, {
+            $lookup: {
+              from: "Images",
+              localField: "assignedItems.itemId",
+              foreignField: "itemId",
+              as: "images"
+            }
+          }, {
+            $unwind: "$images"
+          }, {
+            $lookup: {
+              from: "Items",
+              localField: "assignedItems.itemId",
+              foreignField: "_id",
+              as: "itemDetails"
+            }
+          }, {
+            $unwind: "$itemDetails"
+          }]));
+
+        case 4:
+          AssignedItems = _context5.sent;
+
+          if (!AssignedItems) {
+            _context5.next = 9;
+            break;
+          }
+
+          res.status(200).json({
+            success: true,
+            message: "successful",
+            items: AssignedItems
+          });
+          _context5.next = 10;
+          break;
+
+        case 9:
+          return _context5.abrupt("return", res.status(404).json({
+            success: false,
+            message: "Vendor not found"
+          }));
+
+        case 10:
+          _context5.next = 16;
+          break;
+
+        case 12:
+          _context5.prev = 12;
+          _context5.t0 = _context5["catch"](0);
+          console.log(_context5.t0);
+          res.status(500).json({
+            success: false,
+            error: "Internal server error"
+          });
+
+        case 16:
+        case "end":
+          return _context5.stop();
+      }
+    }
+  }, null, null, [[0, 12]]);
+});
 module.exports = {
   addVendor: addVendor,
   removeVendor: removeVendor,
   addItemToVendor: addItemToVendor,
-  removeItemsFromVendor: removeItemsFromVendor
+  removeItemsFromVendor: removeItemsFromVendor,
+  getSubVendorItems: getSubVendorItems
 };
