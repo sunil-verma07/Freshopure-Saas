@@ -11,9 +11,9 @@ router.post(
   authMiddleware,
   SubVendorController.removeItemsFromVendor
 );
-router.get(
+router.post(
   "/subVendorItem",
-  authMiddleware,
+
   SubVendorController.getSubVendorItems
 );
 

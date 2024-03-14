@@ -1,5 +1,13 @@
 "use strict";
 
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
 var catchAsyncErrors = require("../middleware/catchAsyncErrors");
 
 var SubVendor = require("../models/subVendor");
@@ -158,17 +166,17 @@ var removeVendor = catchAsyncErrors(function _callee2(req, res, next) {
 });
 
 var addItemToVendor = function addItemToVendor(req, res) {
-  var vendorId, itemIds, vendor;
+  var _req$body2, vendorId, itemIds, subVendorPresent, elementFound, items;
+
   return regeneratorRuntime.async(function addItemToVendor$(_context3) {
     while (1) {
       switch (_context3.prev = _context3.next) {
         case 0:
           _context3.prev = 0;
-          vendorId = req.body.vendorId;
-          itemIds = req.body.itemIds; // Check if vendorId and itemIds are provided
+          _req$body2 = req.body, vendorId = _req$body2.vendorId, itemIds = _req$body2.itemIds; // Check if vendorId and itemIds are provided
 
-          if (!(!vendorId || !itemIds || !Array.isArray(itemIds))) {
-            _context3.next = 5;
+          if (!(!vendorId || !itemIds)) {
+            _context3.next = 4;
             break;
           }
 
@@ -177,48 +185,74 @@ var addItemToVendor = function addItemToVendor(req, res) {
             message: "Vendor ID and an array of Item IDs are required"
           }));
 
-        case 5:
-          _context3.next = 7;
+        case 4:
+          _context3.next = 6;
           return regeneratorRuntime.awrap(SubVendor.findOne({
             _id: new ObjectId(vendorId)
           }));
 
-        case 7:
-          vendor = _context3.sent;
+        case 6:
+          subVendorPresent = _context3.sent;
+          _context3.next = 9;
+          return regeneratorRuntime.awrap(SubVendor.findOne({
+            _id: new ObjectId(vendorId),
+            assignedItems: {
+              $elemMatch: {
+                itemId: itemIds[0].itemId
+              }
+            }
+          }));
 
-          if (vendor) {
-            _context3.next = 10;
+        case 9:
+          elementFound = _context3.sent;
+
+          if (elementFound) {
+            _context3.next = 21;
             break;
           }
 
-          return _context3.abrupt("return", res.status(404).json({
-            success: false,
-            message: "Vendor not found"
+          if (!subVendorPresent) {
+            _context3.next = 18;
+            break;
+          }
+
+          items = [].concat(_toConsumableArray(subVendorPresent.assignedItems), _toConsumableArray(itemIds));
+          _context3.next = 15;
+          return regeneratorRuntime.awrap(SubVendor.updateOne({
+            _id: new ObjectId(vendorId)
+          }, {
+            $set: {
+              assignedItems: items
+            }
           }));
 
-        case 10:
-          // Push each itemId to assignedItems array
-          itemIds.forEach(function (itemId) {
-            vendor.assignedItems.push({
-              itemId: itemId
-            });
-          }); // Save the updated vendor
-
-          _context3.next = 13;
-          return regeneratorRuntime.awrap(vendor.save());
-
-        case 13:
-          // Return success message
+        case 15:
           res.status(200).json({
-            success: true,
-            message: "Items added to vendor successfully",
-            vendor: vendor
+            message: "Items assigned to Sub Vendor"
           });
-          _context3.next = 20;
+          _context3.next = 19;
           break;
 
-        case 16:
-          _context3.prev = 16;
+        case 18:
+          res.status(400).json({
+            error: "Item already added"
+          });
+
+        case 19:
+          _context3.next = 22;
+          break;
+
+        case 21:
+          res.status(400).json({
+            error: "Item already added"
+          });
+
+        case 22:
+          _context3.next = 28;
+          break;
+
+        case 24:
+          _context3.prev = 24;
           _context3.t0 = _context3["catch"](0);
           console.log(_context3.t0);
           res.status(500).json({
@@ -226,12 +260,12 @@ var addItemToVendor = function addItemToVendor(req, res) {
             error: "Internal server error"
           });
 
-        case 20:
+        case 28:
         case "end":
           return _context3.stop();
       }
     }
-  }, null, null, [[0, 16]]);
+  }, null, null, [[0, 24]]);
 };
 
 var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
@@ -245,14 +279,14 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
           _id = req.body._id;
           itemIds = req.body.itemIds; // Check if vendorId and itemIds are provided
 
-          if (!(!_id || !itemIds || !Array.isArray(itemIds))) {
+          if (!(!_id || !itemIds)) {
             _context4.next = 5;
             break;
           }
 
           return _context4.abrupt("return", res.status(400).json({
             success: false,
-            message: "Vendor ID and an array of Item IDs are required"
+            message: "Vendor ID and and Item ID are required"
           }));
 
         case 5:
@@ -314,67 +348,70 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
   }, null, null, [[0, 15]]);
 });
 var getSubVendorItems = catchAsyncErrors(function _callee4(req, res, next) {
-  var _id, AssignedItems;
-
+  var subvendorId, pipeline, AssignedItems;
   return regeneratorRuntime.async(function _callee4$(_context5) {
     while (1) {
       switch (_context5.prev = _context5.next) {
         case 0:
           _context5.prev = 0;
-          _id = "65e1a5dafea2d40fa8336f3f";
-          _context5.next = 4;
-          return regeneratorRuntime.awrap(SubVendor.aggregate([{
+          subvendorId = req.body._id;
+          pipeline = [{
             $match: {
-              _id: new ObjectId(_id)
+              _id: new ObjectId(subvendorId)
             }
           }, {
-            $lookup: {
-              from: "Images",
-              localField: "assignedItems.itemId",
-              foreignField: "itemId",
-              as: "images"
-            }
-          }, {
-            $unwind: "$images"
+            $unwind: "$assignedItems"
           }, {
             $lookup: {
               from: "Items",
               localField: "assignedItems.itemId",
               foreignField: "_id",
-              as: "itemDetails"
+              as: "items"
             }
           }, {
-            $unwind: "$itemDetails"
-          }]));
+            $unwind: "$items"
+          }, {
+            $lookup: {
+              from: "Images",
+              localField: "assignedItems.itemId",
+              foreignField: "itemId",
+              as: "items.image"
+            }
+          }, {
+            $unwind: "$items.image"
+          }];
+          _context5.next = 5;
+          return regeneratorRuntime.awrap(SubVendor.aggregate(pipeline));
 
-        case 4:
+        case 5:
           AssignedItems = _context5.sent;
 
           if (!AssignedItems) {
-            _context5.next = 9;
+            _context5.next = 10;
             break;
           }
 
           res.status(200).json({
             success: true,
             message: "successful",
-            items: AssignedItems
+            items: AssignedItems,
+            length: AssignedItems.length
           });
-          _context5.next = 10;
+          _context5.next = 11;
           break;
 
-        case 9:
+        case 10:
           return _context5.abrupt("return", res.status(404).json({
             success: false,
             message: "Vendor not found"
           }));
 
-        case 10:
-          _context5.next = 16;
+        case 11:
+          _context5.next = 17;
           break;
 
-        case 12:
-          _context5.prev = 12;
+        case 13:
+          _context5.prev = 13;
           _context5.t0 = _context5["catch"](0);
           console.log(_context5.t0);
           res.status(500).json({
@@ -382,12 +419,12 @@ var getSubVendorItems = catchAsyncErrors(function _callee4(req, res, next) {
             error: "Internal server error"
           });
 
-        case 16:
+        case 17:
         case "end":
           return _context5.stop();
       }
     }
-  }, null, null, [[0, 12]]);
+  }, null, null, [[0, 13]]);
 });
 module.exports = {
   addVendor: addVendor,

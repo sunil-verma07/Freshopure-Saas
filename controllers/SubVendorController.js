@@ -70,42 +70,42 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
 
 const addItemToVendor = async (req, res) => {
   try {
-    const { vendorId } = req.body;
-
-    const { itemIds } = req.body;
+    const { vendorId, itemIds } = req.body;
 
     // Check if vendorId and itemIds are provided
-    if (!vendorId || !itemIds || !Array.isArray(itemIds)) {
+    if (!vendorId || !itemIds) {
       return res.status(400).json({
         success: false,
         message: "Vendor ID and an array of Item IDs are required",
       });
     }
 
-    // Find vendor by ID
-    const vendor = await SubVendor.findOne({ _id: new ObjectId(vendorId) });
+    const subVendorPresent = await SubVendor.findOne({
+      _id: new ObjectId(vendorId),
+    });
 
-    // Check if vendor exists
-    if (!vendor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Vendor not found" });
+    const elementFound = await SubVendor.findOne({
+      _id: new ObjectId(vendorId),
+      assignedItems: {
+        $elemMatch: {
+          itemId: itemIds[0].itemId,
+        },
+      },
+    });
+    if (!elementFound) {
+      if (subVendorPresent) {
+        const items = [...subVendorPresent.assignedItems, ...itemIds];
+        await SubVendor.updateOne(
+          { _id: new ObjectId(vendorId) },
+          { $set: { assignedItems: items } }
+        );
+        res.status(200).json({ message: "Items assigned to Sub Vendor" });
+      } else {
+        res.status(400).json({ error: "Item already added" });
+      }
+    } else {
+      res.status(400).json({ error: "Item already added" });
     }
-
-    // Push each itemId to assignedItems array
-    itemIds.forEach((itemId) => {
-      vendor.assignedItems.push({ itemId });
-    });
-
-    // Save the updated vendor
-    await vendor.save();
-
-    // Return success message
-    res.status(200).json({
-      success: true,
-      message: "Items added to vendor successfully",
-      vendor,
-    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -119,10 +119,10 @@ const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
     const { itemIds } = req.body;
 
     // Check if vendorId and itemIds are provided
-    if (!_id || !itemIds || !Array.isArray(itemIds)) {
+    if (!_id || !itemIds) {
       return res.status(400).json({
         success: false,
-        message: "Vendor ID and an array of Item IDs are required",
+        message: "Vendor ID and and Item ID are required",
       });
     }
 
@@ -153,39 +153,49 @@ const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
 
 const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
   try {
-    const _id = "65e1a5dafea2d40fa8336f3f";
+    const subvendorId = req.body._id;
 
-    const AssignedItems = await SubVendor.aggregate([
-      { $match: { _id: new ObjectId(_id) } },
+    const pipeline = [
       {
-        $lookup: {
-          from: "Images",
-          localField: "assignedItems.itemId",
-          foreignField: "itemId",
-          as: "images",
+        $match: {
+          _id: new ObjectId(subvendorId),
         },
       },
       {
-        $unwind: "$images",
+        $unwind: "$assignedItems",
       },
       {
         $lookup: {
           from: "Items",
           localField: "assignedItems.itemId",
           foreignField: "_id",
-          as: "itemDetails",
+          as: "items",
         },
       },
       {
-        $unwind: "$itemDetails",
+        $unwind: "$items",
       },
-    ]);
+      {
+        $lookup: {
+          from: "Images",
+          localField: "assignedItems.itemId",
+          foreignField: "itemId",
+          as: "items.image",
+        },
+      },
+      {
+        $unwind: "$items.image",
+      },
+    ];
+
+    const AssignedItems = await SubVendor.aggregate(pipeline);
 
     if (AssignedItems) {
       res.status(200).json({
         success: true,
         message: "successful",
         items: AssignedItems,
+        length: AssignedItems.length,
       });
     } else {
       return res
