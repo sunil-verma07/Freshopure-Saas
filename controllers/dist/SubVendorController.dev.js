@@ -97,7 +97,7 @@ var removeVendor = catchAsyncErrors(function _callee2(req, res, next) {
       switch (_context2.prev = _context2.next) {
         case 0:
           _context2.prev = 0;
-          vendorId = req.user._id; // Assuming vendorId is provided in the request parameters
+          vendorId = req.body; // Assuming vendorId is provided in the request parameters
           // Check if vendorId is provided
 
           if (vendorId) {

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/auth");
 // const profileCompleteMiddleware = require('../middleware/profileComplete.js')
-const vendorcontroller = require("../controllers/VendorController.js");
+const vendorcontroller = require("../controllers/vendorController.js");
 
 router.post(
   "/updateItemPrice",
@@ -39,12 +39,12 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.sendCompiledOrders
 );
-router.get(
+router.post(
   "/gethotelitemlist",
   authMiddleware.authMiddleware,
   vendorcontroller.getHotelItemList
 );
-router.get(
+router.post(
   "/getallordersbyhotel",
   authMiddleware.authMiddleware,
   vendorcontroller.getAllOrdersbyHotel

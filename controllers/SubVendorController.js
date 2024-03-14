@@ -35,7 +35,7 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
 
 const removeVendor = catchAsyncErrors(async (req, res, next) => {
   try {
-    const vendorId = req.user._id; // Assuming vendorId is provided in the request parameters
+    const vendorId = req.body; // Assuming vendorId is provided in the request parameters
 
     // Check if vendorId is provided
     if (!vendorId) {
