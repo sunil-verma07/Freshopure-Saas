@@ -527,34 +527,51 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
     const { HotelId } = req.body;
     console.log(vendorId, HotelId);
 
+    const pipeline = [
+      {
+        $match: {
+          vendorId: new ObjectId(vendorId),
+          hotelId: new ObjectId(HotelId),
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "itemId",
+          foreignField: "_id",
+          as: "items",
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemId",
+          foreignField: "itemId",
+          as: "items.image",
+        },
+      },
+      {
+        $unwind: "$items.image",
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "items.category",
+        },
+      },
+      {
+        $unwind: "$items.category",
+      },
+    ];
     // Fetch items associated with the vendor and hotelId, populating the associated item's fields
-    const itemList = await HotelItemPrice.find({
-      vendorId,
-      hotelId: HotelId,
-    }).populate({
-      path: "itemId",
-      select: "name description unit imageId", // Select fields to populate from the Item model
-    });
+    const itemList = await HotelItemPrice.aggregate(pipeline);
 
-    console.log("Fetched items:", itemList);
-
-    // Map the fetched items to include item details
-    const formattedItemList = itemList.map(async (item) => {
-      const image = await Image.findOne({ itemId: item.itemId._id }); // Find the corresponding image for the item
-
-      return {
-        itemId: item._id,
-        name: item.itemId.name,
-        description: item.itemId.description,
-        unit: item.itemId.unit,
-        imageUrl: image ? image.img : null, // Get the image URL if it exists
-        // Add other item details as needed
-      };
-    });
-
-    const result = await Promise.all(formattedItemList); // Wait for all async operations to complete
-
-    return res.json({ itemList: result });
+    return res.json({ itemList });
   } catch (error) {
     throw error;
   }

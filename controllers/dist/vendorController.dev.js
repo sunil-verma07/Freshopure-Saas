@@ -785,8 +785,73 @@ var sendCompiledOrders = catchAsyncErrors(function _callee7(req, res, next) {
     }
   }, null, null, [[0, 13]]);
 });
-var getHotelItemList = catchAsyncError(function _callee9(req, res, next) {
-  var vendorId, HotelId, itemList, formattedItemList, result;
+var getHotelItemList = catchAsyncError(function _callee8(req, res, next) {
+  var vendorId, HotelId, pipeline, itemList;
+  return regeneratorRuntime.async(function _callee8$(_context8) {
+    while (1) {
+      switch (_context8.prev = _context8.next) {
+        case 0:
+          _context8.prev = 0;
+          vendorId = req.user._id;
+          HotelId = req.body.HotelId;
+          console.log(vendorId, HotelId);
+          pipeline = [{
+            $match: {
+              vendorId: new ObjectId(vendorId),
+              hotelId: new ObjectId(HotelId)
+            }
+          }, {
+            $lookup: {
+              from: "Items",
+              localField: "itemId",
+              foreignField: "_id",
+              as: "items"
+            }
+          }, {
+            $unwind: "$items"
+          }, {
+            $lookup: {
+              from: "Images",
+              localField: "itemId",
+              foreignField: "itemId",
+              as: "items.image"
+            }
+          }, {
+            $unwind: "$items.image"
+          }, {
+            $lookup: {
+              from: "Category",
+              localField: "categoryId",
+              foreignField: "_id",
+              as: "items.category"
+            }
+          }, {
+            $unwind: "$items.category"
+          }]; // Fetch items associated with the vendor and hotelId, populating the associated item's fields
+
+          _context8.next = 7;
+          return regeneratorRuntime.awrap(HotelItemPrice.aggregate(pipeline));
+
+        case 7:
+          itemList = _context8.sent;
+          return _context8.abrupt("return", res.json({
+            itemList: itemList
+          }));
+
+        case 11:
+          _context8.prev = 11;
+          _context8.t0 = _context8["catch"](0);
+          throw _context8.t0;
+
+        case 14:
+        case "end":
+          return _context8.stop();
+      }
+    }
+  }, null, null, [[0, 11]]);
+});
+var getAllOrdersbyHotel = catchAsyncError(function _callee9(req, res, next) {
+  var vendorId, HotelId, hotelOrders;
   return regeneratorRuntime.async(function _callee9$(_context9) {
     while (1) {
       switch (_context9.prev = _context9.next) {
@@ -794,91 +859,15 @@ var getHotelItemList = catchAsyncError(function _callee9(req, res, next) {
           _context9.prev = 0;
           vendorId = req.user._id;
           HotelId = req.body.HotelId;
-          console.log(vendorId, HotelId); // Fetch items associated with the vendor and hotelId, populating the associated item's fields
-
-          _context9.next = 6;
-          return regeneratorRuntime.awrap(HotelItemPrice.find({
-            vendorId: vendorId,
-            hotelId: HotelId
-          }).populate({
-            path: "itemId",
-            select: "name description unit imageId" // Select fields to populate from the Item model
-
-          }));
-
-        case 6:
-          itemList = _context9.sent;
-          console.log("Fetched items:", itemList); // Map the fetched items to include item details
-
-          formattedItemList = itemList.map(function _callee8(item) {
-            var image;
-            return regeneratorRuntime.async(function _callee8$(_context8) {
-              while (1) {
-                switch (_context8.prev = _context8.next) {
-                  case 0:
-                    _context8.next = 2;
-                    return regeneratorRuntime.awrap(Image.findOne({
-                      itemId: item.itemId._id
-                    }));
-
-                  case 2:
-                    image = _context8.sent;
-                    return _context8.abrupt("return", {
-                      itemId: item._id,
-                      name: item.itemId.name,
-                      description: item.itemId.description,
-                      unit: item.itemId.unit,
-                      imageUrl: image ? image.img : null // Get the image URL if it exists
-                      // Add other item details as needed
-
-                    });
-
-                  case 4:
-                  case "end":
-                    return _context8.stop();
-                }
-              }
-            });
-          });
-          _context9.next = 11;
-          return regeneratorRuntime.awrap(Promise.all(formattedItemList));
-
-        case 11:
-          result = _context9.sent;
-          return _context9.abrupt("return", res.json({
-            itemList: result
-          }));
-
-        case 15:
-          _context9.prev = 15;
-          _context9.t0 = _context9["catch"](0);
-          throw _context9.t0;
-
-        case 18:
-        case "end":
-          return _context9.stop();
-      }
-    }
-  }, null, null, [[0, 15]]);
-});
-var getAllOrdersbyHotel = catchAsyncError(function _callee10(req, res, next) {
-  var vendorId, HotelId, hotelOrders;
-  return regeneratorRuntime.async(function _callee10$(_context10) {
-    while (1) {
-      switch (_context10.prev = _context10.next) {
-        case 0:
-          _context10.prev = 0;
-          vendorId = req.user._id;
-          HotelId = req.body.HotelId;
           console.log(vendorId, HotelId);
-          _context10.next = 6;
+          _context9.next = 6;
           return regeneratorRuntime.awrap(Orders.find({
             hotelId: HotelId,
             vendorId: vendorId
           }).populate("orderStatus"));
 
         case 6:
-          hotelOrders = _context10.sent;
+          hotelOrders = _context9.sent;
           // .populate("addressId");
           // .populate({
           //   path: "orderedItems.itemId",
@@ -887,17 +876,17 @@ var getAllOrdersbyHotel = catchAsyncError(function _callee10(req, res, next) {
           res.json({
             hotelOrders: hotelOrders
           });
-          _context10.next = 13;
+          _context9.next = 13;
           break;
 
         case 10:
-          _context10.prev = 10;
-          _context10.t0 = _context10["catch"](0);
-          next(_context10.t0);
+          _context9.prev = 10;
+          _context9.t0 = _context9["catch"](0);
+          next(_context9.t0);
 
         case 13:
         case "end":
-          return _context10.stop();
+          return _context9.stop();
       }
     }
   }, null, null, [[0, 10]]);
