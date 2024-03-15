@@ -16,4 +16,5 @@ router.post("/orderanalytics", authMiddleware.authMiddleware, authMiddleware.pro
 router.post("/orderpriceanalytics", authMiddleware.authMiddleware, authMiddleware.profileComplete, ordercontroller.orderPriceAnalytics);
 router.post("/itemanalyticsforhotel", authMiddleware.authMiddleware, authMiddleware.profileComplete, ordercontroller.itemAnalyticsForHotel);
 router.get("/compiledorderforhotel", authMiddleware.authMiddleware, authMiddleware.profileComplete, ordercontroller.compiledOrderForHotel);
+router.post("/orderDetails", authMiddleware.authMiddleware, ordercontroller.orderDetails);
 module.exports = router;

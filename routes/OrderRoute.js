@@ -44,4 +44,9 @@ router.get(
   authMiddleware.profileComplete,
   ordercontroller.compiledOrderForHotel
 );
+router.post(
+  "/orderDetails",
+  authMiddleware.authMiddleware,
+  ordercontroller.orderDetails
+);
 module.exports = router;

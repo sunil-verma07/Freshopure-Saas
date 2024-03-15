@@ -13,6 +13,7 @@ const Images = require("../models/image.js");
 const Address = require("../models/address.js");
 const UserItems = db.collection("UserItems");
 const HotelItemPrice = require("../models/hotelItemPrice.js");
+const Addresses = require("../models/address.js");
 
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
@@ -494,6 +495,67 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const orderDetails = catchAsyncError(async (req, res, next) => {
+  try {
+    const { orderId } = req.body;
+    console.log(orderId);
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { _id: new ObjectId(orderId) },
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+        },
+      },
+      {
+        $unwind: "$orderStatus",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails",
+        },
+      },
+      {
+        $unwind: "$orderedItems.itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "orderedItems.itemDetails._id",
+          foreignField: "itemId",
+          as: "orderedItems.itemDetails.images",
+        },
+      },
+      {
+        $unwind: "$orderedItems.itemDetails.images",
+      },
+      {
+        $lookup: {
+          from: "addresses",
+          localField: "addressId",
+          foreignField: "_id",
+          as: "address",
+        },
+      },
+      {
+        $unwind: "$address",
+      },
+    ]);
+
+    return res.status(200).json({ success: true, data: orderData });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = {
   placeOrder,
   orderHistory,
@@ -502,4 +564,5 @@ module.exports = {
   orderPriceAnalytics,
   itemAnalyticsForHotel,
   compiledOrderForHotel,
+  orderDetails,
 };
