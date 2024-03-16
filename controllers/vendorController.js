@@ -235,9 +235,9 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
           as: "hotelDetails",
         },
       },
-      {
-        $unwind: "$hotelDetails",
-      },
+      // {
+      //   $unwind: "$hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
+      // },
       {
         $lookup: {
           from: "orders",
@@ -275,6 +275,8 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
             },
           }, // Total quantity ordered in grams
           itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
+          hotelDetails: { $first: "$hotelDetails" }, // Add hotel details using $first
+          hotelOrders: { $push: "$hotelOrders" },
         },
       },
       {
@@ -302,6 +304,8 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
           }, // Total quantity ordered in kg and grams
           itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
           itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
+          hotelDetails: { $first: "$hotelDetails" }, // Include hotel details using $firsst
+          hotelOrders: "$hotelOrders",
         },
       },
     ]);
