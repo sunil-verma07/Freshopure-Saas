@@ -227,14 +227,14 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       {
         $match: { vendorId: vendorId },
       },
-      {
-        $lookup: {
-          from: "Users",
-          localField: "hotelId",
-          foreignField: "_id",
-          as: "hotelDetails",
-        },
-      },
+      // {
+      //   $lookup: {
+      //     from: "Users",
+      //     localField: "hotelId",
+      //     foreignField: "_id",
+      //     as: "hotelDetails",
+      //   },
+      // },
       // {
       //   $unwind: "$hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
       // },
@@ -261,6 +261,17 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
         $unwind: "$hotelOrders",
       },
       {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelOrders.hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelOrders.hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
+      },
+      {
         $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
       },
       {
@@ -275,7 +286,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
             },
           }, // Total quantity ordered in grams
           itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
-          hotelDetails: { $first: "$hotelDetails" }, // Add hotel details using $first
+
           hotelOrders: { $push: "$hotelOrders" },
         },
       },
@@ -304,7 +315,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
           }, // Total quantity ordered in kg and grams
           itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
           itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
-          hotelDetails: { $first: "$hotelDetails" }, // Include hotel details using $firsst
+
           hotelOrders: "$hotelOrders",
         },
       },
