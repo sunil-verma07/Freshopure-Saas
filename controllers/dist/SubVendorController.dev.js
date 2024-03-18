@@ -97,7 +97,7 @@ var removeVendor = catchAsyncErrors(function _callee2(req, res, next) {
       switch (_context2.prev = _context2.next) {
         case 0:
           _context2.prev = 0;
-          vendorId = req.body; // Assuming vendorId is provided in the request parameters
+          vendorId = req.body.vendorId; // Assuming vendorId is provided in the request parameters
           // Check if vendorId is provided
 
           if (vendorId) {
@@ -111,45 +111,44 @@ var removeVendor = catchAsyncErrors(function _callee2(req, res, next) {
           }));
 
         case 4:
-          console.log(vendorId); // Find vendor by ID and remove it
+          _context2.next = 6;
+          return regeneratorRuntime.awrap(SubVendor.findOne({
+            _id: new ObjectId(vendorId)
+          }));
 
-          _context2.next = 7;
-          return regeneratorRuntime.awrap(SubVendor.find(vendorId));
-
-        case 7:
+        case 6:
           removedVendor = _context2.sent;
-          console.log(removeVendor); // Check if vendor was found and removed
 
           if (!removedVendor) {
-            _context2.next = 15;
+            _context2.next = 13;
             break;
           }
 
-          _context2.next = 12;
+          _context2.next = 10;
           return regeneratorRuntime.awrap(SubVendor.deleteOne({
-            vendorId: vendorId
+            _id: vendorId
           }));
 
-        case 12:
+        case 10:
           res.status(200).json({
             success: true,
             message: "Vendor removed successfully"
           });
-          _context2.next = 16;
+          _context2.next = 14;
           break;
 
-        case 15:
+        case 13:
           return _context2.abrupt("return", res.status(404).json({
             success: false,
             message: "Vendor not found"
           }));
 
-        case 16:
-          _context2.next = 22;
+        case 14:
+          _context2.next = 20;
           break;
 
-        case 18:
-          _context2.prev = 18;
+        case 16:
+          _context2.prev = 16;
           _context2.t0 = _context2["catch"](0);
           console.log(_context2.t0);
           res.status(500).json({
@@ -157,12 +156,12 @@ var removeVendor = catchAsyncErrors(function _callee2(req, res, next) {
             error: "Internal server error"
           });
 
-        case 22:
+        case 20:
         case "end":
           return _context2.stop();
       }
     }
-  }, null, null, [[0, 18]]);
+  }, null, null, [[0, 16]]);
 });
 
 var addItemToVendor = function addItemToVendor(req, res) {
@@ -269,18 +268,17 @@ var addItemToVendor = function addItemToVendor(req, res) {
 };
 
 var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
-  var _id, itemIds, updatedVendor;
+  var _req$body3, _id, itemIds, updatedVendor;
 
   return regeneratorRuntime.async(function _callee3$(_context4) {
     while (1) {
       switch (_context4.prev = _context4.next) {
         case 0:
           _context4.prev = 0;
-          _id = req.body._id;
-          itemIds = req.body.itemIds; // Check if vendorId and itemIds are provided
+          _req$body3 = req.body, _id = _req$body3._id, itemIds = _req$body3.itemIds; // Check if vendorId and itemIds are provided
 
           if (!(!_id || !itemIds)) {
-            _context4.next = 5;
+            _context4.next = 4;
             break;
           }
 
@@ -289,8 +287,8 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
             message: "Vendor ID and and Item ID are required"
           }));
 
-        case 5:
-          _context4.next = 7;
+        case 4:
+          _context4.next = 6;
           return regeneratorRuntime.awrap(SubVendor.findOneAndUpdate({
             _id: _id
           }, {
@@ -305,11 +303,11 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
             "new": true
           }));
 
-        case 7:
+        case 6:
           updatedVendor = _context4.sent;
 
           if (!updatedVendor) {
-            _context4.next = 12;
+            _context4.next = 11;
             break;
           }
 
@@ -318,21 +316,21 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
             message: "Items removed from vendor successfully",
             vendor: updatedVendor
           });
-          _context4.next = 13;
+          _context4.next = 12;
           break;
 
-        case 12:
+        case 11:
           return _context4.abrupt("return", res.status(404).json({
             success: false,
             message: "Vendor not found"
           }));
 
-        case 13:
-          _context4.next = 19;
+        case 12:
+          _context4.next = 18;
           break;
 
-        case 15:
-          _context4.prev = 15;
+        case 14:
+          _context4.prev = 14;
           _context4.t0 = _context4["catch"](0);
           console.log(_context4.t0);
           res.status(500).json({
@@ -340,12 +338,12 @@ var removeItemsFromVendor = catchAsyncErrors(function _callee3(req, res, next) {
             error: "Internal server error"
           });
 
-        case 19:
+        case 18:
         case "end":
           return _context4.stop();
       }
     }
-  }, null, null, [[0, 15]]);
+  }, null, null, [[0, 14]]);
 });
 var getSubVendorItems = catchAsyncErrors(function _callee4(req, res, next) {
   var subvendorId, pipeline, AssignedItems;

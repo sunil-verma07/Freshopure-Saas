@@ -1,5 +1,7 @@
 "use strict";
 
+function _readOnlyError(name) { throw new Error("\"" + name + "\" is read-only"); }
+
 function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
 
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
@@ -40,6 +42,8 @@ var user = require("../models/user.js");
 var Image = require("../models/image.js");
 
 var Orders = require("../models/order.js");
+
+var vendorStock = require("../models/vendorStock.js");
 
 var setHotelItemPrice = catchAsyncError(function _callee(req, res, next) {
   var _req$body, itemId, hotelId, categoryId, price, vendorId, linkPresent, itemPresent;
@@ -906,6 +910,62 @@ var getAllOrdersbyHotel = catchAsyncError(function _callee9(req, res, next) {
       }
     }
   }, null, null, [[0, 10]]);
+});
+var addToStock = catchAsyncError(function _callee10(req, res, next) {
+  var _req$body2, itemId, quantity, vendorId, item;
+
+  return regeneratorRuntime.async(function _callee10$(_context10) {
+    while (1) {
+      switch (_context10.prev = _context10.next) {
+        case 0:
+          _context10.prev = 0;
+          _req$body2 = req.body, itemId = _req$body2.itemId, quantity = _req$body2.quantity;
+          vendorId = req.user._id;
+
+          if (!itemId || !quantity) {
+            res.json({
+              message: "all the fields are required!"
+            });
+          }
+
+          item = vendorStock.findOne({
+            itemId: itemId
+          });
+
+          if (!item) {
+            item = (_readOnlyError("item"), new vendorStock({
+              itemId: itemId,
+              vendorId: vendorId,
+              kg: 0,
+              gram: 0,
+              piece: 0
+            }));
+          }
+
+          item.quantity.kg += quantity.kg || 0;
+          item.quantity.gram += quantity.gram || 0;
+          item.quantity.piece += quantity.piece || 0;
+          _context10.next = 11;
+          return regeneratorRuntime.awrap(item.save());
+
+        case 11:
+          res.json({
+            message: "Stock updated successfully"
+          });
+          _context10.next = 17;
+          break;
+
+        case 14:
+          _context10.prev = 14;
+          _context10.t0 = _context10["catch"](0);
+          next(_context10.t0);
+
+        case 17:
+        case "end":
+          return _context10.stop();
+      }
+    }
+  }, null, null, [[0, 14]]);
 });
 module.exports = {
   setHotelItemPrice: setHotelItemPrice,

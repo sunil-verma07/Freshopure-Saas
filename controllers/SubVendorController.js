@@ -35,7 +35,7 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
 
 const removeVendor = catchAsyncErrors(async (req, res, next) => {
   try {
-    const vendorId = req.body; // Assuming vendorId is provided in the request parameters
+    const { vendorId } = req.body; // Assuming vendorId is provided in the request parameters
 
     // Check if vendorId is provided
     if (!vendorId) {
@@ -44,13 +44,14 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
         .json({ success: false, message: "Vendor ID is required" });
     }
 
-    console.log(vendorId);
     // Find vendor by ID and remove it
-    const removedVendor = await SubVendor.find(vendorId);
-    console.log(removeVendor);
+    const removedVendor = await SubVendor.findOne({
+      _id: new ObjectId(vendorId),
+    });
+
     // Check if vendor was found and removed
     if (removedVendor) {
-      await SubVendor.deleteOne({ vendorId });
+      await SubVendor.deleteOne({ _id: vendorId });
       res.status(200).json({
         success: true,
         message: "Vendor removed successfully",
@@ -114,9 +115,7 @@ const addItemToVendor = async (req, res) => {
 
 const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
   try {
-    const { _id } = req.body;
-
-    const { itemIds } = req.body;
+    const { _id, itemIds } = req.body;
 
     // Check if vendorId and itemIds are provided
     if (!_id || !itemIds) {

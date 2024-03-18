@@ -13,6 +13,7 @@ const { sendWhatsappmessge } = require("../utils/sendWhatsappNotification.js");
 const user = require("../models/user.js");
 const Image = require("../models/image.js");
 const Orders = require("../models/order.js");
+const vendorStock = require("../models/vendorStock.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -610,6 +611,39 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     // });
 
     res.json({ hotelOrders });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const addToStock = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId, quantity } = req.body;
+    const vendorId = req.user._id;
+
+    if (!itemId || !quantity) {
+      res.json({ message: "all the fields are required!" });
+    }
+
+    const item = vendorStock.findOne({ itemId: itemId });
+
+    if (!item) {
+      item = new vendorStock({
+        itemId: itemId,
+        vendorId: vendorId,
+        kg: 0,
+        gram: 0,
+        piece: 0,
+      });
+    }
+
+    item.quantity.kg += quantity.kg || 0;
+    item.quantity.gram += quantity.gram || 0;
+    item.quantity.piece += quantity.piece || 0;
+
+    await item.save();
+
+    res.json({ message: "Stock updated successfully" });
   } catch (error) {
     next(error);
   }
