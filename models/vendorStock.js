@@ -10,15 +10,7 @@ const StockSchema = new mongoose.Schema(
     stocks: [
       {
         itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Items" },
-        price: Number,
         quantity: {
-          type: {
-            kg: { type: Number, default: 0 },
-            gram: { type: Number, default: 0 },
-            piece: { type: Number, default: 0 },
-          },
-        },
-        waste: {
           type: {
             kg: { type: Number, default: 0 },
             gram: { type: Number, default: 0 },

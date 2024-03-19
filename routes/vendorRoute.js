@@ -49,6 +49,22 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.getAllOrdersbyHotel
 );
+router.post(
+  "/updateStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateStock
+);
+router.post(
+  "/addStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addItemToStock
+);
+router.get(
+  "/getVendorStocks",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorStocks
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

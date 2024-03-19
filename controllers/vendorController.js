@@ -616,34 +616,148 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const addToStock = catchAsyncError(async (req, res, next) => {
+const updateStock = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId, quantity } = req.body;
     const vendorId = req.user._id;
 
     if (!itemId || !quantity) {
-      res.json({ message: "all the fields are required!" });
+      return res.status(400).json({ message: "All the fields are required!" });
     }
 
-    const item = vendorStock.findOne({ itemId: itemId });
-
+    let item = await vendorStock.findOne({ vendorId });
     if (!item) {
+      // Create a new stock entry if it doesn't exist
       item = new vendorStock({
-        itemId: itemId,
         vendorId: vendorId,
-        kg: 0,
-        gram: 0,
-        piece: 0,
+        stocks: [
+          {
+            itemId: itemId,
+            quantity: {
+              kg: 0,
+              gram: 0,
+              piece: 0,
+            },
+          },
+        ],
       });
     }
 
-    item.quantity.kg += quantity.kg || 0;
-    item.quantity.gram += quantity.gram || 0;
-    item.quantity.piece += quantity.piece || 0;
+    // Update the quantity of the item in the stock
+    const stocks = item.stocks.map((stock) => {
+      if (stock.itemId.toString() === itemId) {
+        return {
+          itemId: itemId,
+          quantity: {
+            kg: quantity.kg || stock.quantity.kg,
+            gram: quantity.gram || stock.quantity.gram,
+            piece: quantity.piece || stock.quantity.piece,
+          },
+        };
+      }
+      return stock;
+    });
 
+    item.stocks = stocks;
     await item.save();
 
     res.json({ message: "Stock updated successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const addItemToStock = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    if (!itemId) {
+      return res.status(400).json({ message: "itemId is required!" });
+    }
+
+    // Check if the item already exists in the stock for the vendor
+    const stock = await vendorStock.findOne({ vendorId });
+    if (stock) {
+      const itemExists = stock.stocks.some(
+        (item) => item.itemId.toString() === itemId
+      );
+      if (itemExists) {
+        return res
+          .status(400)
+          .json({ message: "Item already exists in the stock" });
+      }
+      // Add the new item to the stock
+      stock.stocks.push({ itemId, quantity: { kg: 0, gram: 0, piece: 0 } });
+      await stock.save();
+    } else {
+      // Create a new stock entry if the vendor doesn't have any existing stock
+      await vendorStock.create({
+        vendorId,
+        stocks: [{ itemId, quantity: { kg: 0, gram: 0, piece: 0 } }],
+      });
+    }
+
+    res.json({ message: "Stock created successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const getVendorStocks = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id; // Assuming req.user._id contains the vendorId
+
+    // Aggregate pipeline to fetch vendor stocks with item details and images
+    const stocks = await vendorStock.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $unwind: "$stocks",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "stocks.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "stocks.itemId",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $addFields: {
+          "stocks.itemDetails": "$itemDetails",
+          "stocks.images": "$images",
+        },
+      },
+      {
+        $group: {
+          _id: "$_id",
+          vendorId: { $first: "$vendorId" },
+          stocks: { $push: "$stocks" },
+        },
+      },
+    ]);
+
+    if (stocks.length > 0) {
+      return res.json(stocks[0]); // Assuming each vendor has only one stock entry
+    } else {
+      return res.status(404).json({ message: "Vendor stock not found!" });
+    }
   } catch (error) {
     next(error);
   }
@@ -659,4 +773,8 @@ module.exports = {
   sendCompiledOrders,
   getHotelItemList,
   getAllOrdersbyHotel,
+  updateStock,
+  addItemToStock,
+  addItemToStock,
+  getVendorStocks,
 };
