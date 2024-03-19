@@ -2,6 +2,8 @@ const catchAsyncErrors = require("../middleware/catchAsyncErrors");
 const SubVendor = require("../models/subVendor");
 const { ObjectId } = require("mongodb");
 const Items = require("../models/item");
+const Image = require("../models/image");
+const HotelItemPrice = require("../models/hotelItemPrice.js");
 
 const addVendor = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -207,10 +209,59 @@ const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
+  try {
+     const vendorId = req.user._id;
+
+     const allItemsIds = await HotelItemPrice.find({ vendorId: new ObjectId(vendorId)}).select('itemId')
+
+     const subVendorItems = await SubVendor.find({ vendorId: new ObjectId(vendorId)}).select('assignedItems')
+
+     let assignedItems =[]
+
+     for(const item of subVendorItems){
+      assignedItems.push(...item?.assignedItems)
+     }
+
+     const assignedItemIds = assignedItems.map(item => item.itemId.toString());
+
+
+     // Filter out items from allItemsIds that are not present in assignedItemIds
+     const notAssignedItemIds = allItemsIds.filter(item =>  !assignedItemIds.includes(item.itemId.toString()));
+
+     let notAssignedItemsArray=[]
+
+     for(let item of notAssignedItemIds){
+      let newItem = {
+        itemDetails:null,
+        itemImage:null
+      }
+
+      const itemDetails = await Items.findOne({_id:new ObjectId(item.itemId)})
+
+      console.log(itemDetails)
+      const itemImage = await Image.findOne({itemId:new ObjectId(item.itemId)})
+
+      newItem.itemDetails = itemDetails;
+      newItem.itemImage = itemImage;
+
+      notAssignedItemsArray.push(newItem)
+
+     }
+
+
+     res.status(200).json(notAssignedItemsArray)
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 module.exports = {
   addVendor,
   removeVendor,
   addItemToVendor,
   removeItemsFromVendor,
   getSubVendorItems,
+  getSubVendorAssignableItems
 };
