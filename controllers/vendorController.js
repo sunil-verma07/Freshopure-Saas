@@ -763,6 +763,48 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
+  try {
+    // Extract necessary parameters from the request
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Query the database to find the item in the stock
+    const stock = await vendorStock.findOne({ vendorId: vendorId });
+
+    if (!stock) {
+      return res
+        .status(404)
+        .json({ message: "Stock not found for the vendor." });
+    }
+
+    // Find the index of the item to be deleted
+    const itemIndex = stock.stocks.findIndex(
+      (item) => item.itemId.toString() === itemId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Item not found in the stock." });
+    }
+
+    // Remove the item from the stock
+    stock.stocks.splice(itemIndex, 1);
+
+    // Save the changes to the database
+    await stock.save();
+
+    // Return success response
+    return res
+      .status(200)
+      .json({ message: "Item removed from stock successfully." });
+  } catch (error) {
+    // Handle errors
+    next(error);
+  }
+});
+
+module.exports = deleteItemFromStock;
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -777,4 +819,5 @@ module.exports = {
   addItemToStock,
   addItemToStock,
   getVendorStocks,
+  deleteItemFromStock,
 };

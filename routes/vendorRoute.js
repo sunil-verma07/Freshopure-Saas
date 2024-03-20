@@ -65,6 +65,12 @@ router.get(
   vendorcontroller.getVendorStocks
 );
 
+router.post(
+  "/deleteItemStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.deleteItemFromStock
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
