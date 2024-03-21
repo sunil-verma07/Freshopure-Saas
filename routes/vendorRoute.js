@@ -83,6 +83,12 @@ router.post(
   vendorcontroller.addHotelItem
 );
 
+router.get(
+  "/gethotelAssignableItems",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getHotelAssignableItems
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

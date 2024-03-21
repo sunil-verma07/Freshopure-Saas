@@ -14,6 +14,8 @@ const user = require("../models/user.js");
 const Image = require("../models/image.js");
 const Orders = require("../models/order.js");
 const vendorStock = require("../models/vendorStock.js");
+const Items = require("../models/item");
+const { isObjectIdOrHexString } = require("mongoose");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -816,8 +818,17 @@ const deleteHotelItem = catchAsyncError(async (req, res, next) => {
     }
 
     // Find and delete the document based on vendorId, hotelId, and itemId
-    await HotelItemPrice.findOneAndDelete({ vendorId, hotelId, itemId });
+    const item = await HotelItemPrice.findOne({
+      vendorId: new ObjectId(vendorId),
+      hotelId: new ObjectId(hotelId),
+      itemId: new ObjectId(itemId),
+    });
 
+    if (!item) {
+      return res.json({ message: "Item Not Found" });
+    }
+
+    await HotelItemPrice.deleteOne({ _id: item._id });
     // Send success response
     res.json({ message: "Document deleted successfully" });
   } catch (error) {
@@ -861,6 +872,68 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const { categoryIds, hotelId } = req.body;
+    const vendorId = req.user._id;
+
+    console.log(categoryIds, hotelId, "abcd");
+
+    if (!categoryIds || !hotelId) {
+      return res
+        .status(400)
+        .json({ message: "Category IDs or Hotel ID not provided" });
+    }
+
+    let allItemsIds = [];
+
+    // Iterate over each categoryId
+    for (let category of categoryIds) {
+      const items = await Items.find({ categoryId: category }).select("itemId");
+      allItemsIds.push(...items); // Merge items into allItemsIds array
+    }
+
+    const hotelItems = await HotelItemPrice.find({
+      vendorId: new ObjectId(vendorId),
+      hotelId: new ObjectId(hotelId),
+    }).select("itemId");
+
+    const assignedItemIds = hotelItems.map((item) => item.itemId.toString());
+
+    // Filter out items from allItemsIds that are not present in assignedItemIds
+    const notAssignedItemIds = allItemsIds.filter(
+      (item) => item._id && !assignedItemIds.includes(item._id.toString())
+    );
+
+    console.log(hotelItems);
+
+    let assignItems = [];
+
+    // Retrieve item details for not assigned items
+    for (let item of notAssignedItemIds) {
+      let newItem = {
+        itemDetails: null,
+      };
+
+      const itemDetails = await Items.findOne({
+        _id: new ObjectId(item._id),
+      });
+
+      newItem.itemDetails = itemDetails;
+
+      assignItems.push(newItem);
+    }
+
+    res.status(200).json({
+      assignItems,
+      message: "filtered",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -878,4 +951,5 @@ module.exports = {
   deleteItemFromStock,
   deleteHotelItem,
   addHotelItem,
+  getHotelAssignableItems,
 };
