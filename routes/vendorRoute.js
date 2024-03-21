@@ -71,6 +71,18 @@ router.post(
   vendorcontroller.deleteItemFromStock
 );
 
+router.post(
+  "/deleteHotelItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.deleteHotelItem
+);
+
+router.post(
+  "/addHotelItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addHotelItem
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

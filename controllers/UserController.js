@@ -21,8 +21,8 @@ const { isAuthenticatedUser } = require("../middleware/auth.js");
 
 const register = catchAsyncErrors(async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, role } = req.body;
-    if (!fullName || !email || !password || !phone || !role) {
+    const { organization, fullName, email, phone, password, role } = req.body;
+    if (!organization || !fullName || !email || !password || !phone || !role) {
       return res
         .status(400)
         .json({ success: false, message: "Please enter all feilds properly!" });
@@ -39,6 +39,7 @@ const register = catchAsyncErrors(async (req, res, next) => {
         const userRole = await Role.findOne({ name: role });
 
         const newUser = await User.create({
+          organization: organization,
           email: email,
           phone: phone,
           password: hashedPassword,

@@ -803,7 +803,63 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
   }
 });
 
-module.exports = deleteItemFromStock;
+const deleteHotelItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId, itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Check if vendorId, hotelId, and itemId are provided
+    if (!vendorId || !hotelId || !itemId) {
+      return res
+        .status(400)
+        .json({ message: "vendorId, hotelId, and itemId are required!" });
+    }
+
+    // Find and delete the document based on vendorId, hotelId, and itemId
+    await HotelItemPrice.findOneAndDelete({ vendorId, hotelId, itemId });
+
+    // Send success response
+    res.json({ message: "Document deleted successfully" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const addHotelItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId, itemId, categoryId } = req.body;
+
+    const vendorId = req.user._id;
+
+    // Validate required fields
+    if (!vendorId || !hotelId || !itemId || !categoryId) {
+      return res.status(400).json({
+        message:
+          "vendorId, hotelId, itemId, categoryId, and todayCostPrice are required fields",
+      });
+    }
+
+    // Create new HotelItemPrice document
+    const hotelItemPrice = new HotelItemPrice({
+      vendorId,
+      hotelId,
+      itemId,
+      categoryId,
+      todayCostPrice: 0,
+      showPrice: true, // Default to true if not provided
+    });
+
+    // Save the new document to the database
+    await hotelItemPrice.save();
+
+    // Send success response
+    res.json({ message: "Document added successfully", hotelItemPrice });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
 
 module.exports = {
   setHotelItemPrice,
@@ -820,4 +876,6 @@ module.exports = {
   addItemToStock,
   getVendorStocks,
   deleteItemFromStock,
+  deleteHotelItem,
+  addHotelItem,
 };
