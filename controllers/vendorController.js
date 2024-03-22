@@ -886,10 +886,14 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
         .json({ message: "Category IDs or Hotel ID not provided" });
     }
 
+    const categoryIdsArray = categoryIds.map((item) =>
+      item.categoryId.toString()
+    );
+
     let allItemsIds = [];
 
     // Iterate over each categoryId
-    for (let category of categoryIds) {
+    for (let category of categoryIdsArray) {
       const items = await Items.find({ categoryId: category }).select("itemId");
       allItemsIds.push(...items); // Merge items into allItemsIds array
     }
@@ -918,6 +922,57 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
 
       const itemDetails = await Items.findOne({
         _id: new ObjectId(item._id),
+      });
+
+      newItem.itemDetails = itemDetails;
+
+      assignItems.push(newItem);
+    }
+
+    res.status(200).json({
+      assignItems,
+      message: "filtered",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
+const addStockItemOptions = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const vendorItems = await HotelItemPrice.find({
+      vendorId: new ObjectId(vendorId),
+    }).select("itemId");
+
+    const allItemsIds = vendorItems.map((item) => item.itemId.toString());
+
+    let item = await vendorStock.findOne({ vendorId });
+
+    // Update the quantity of the item in the stock
+    let assignedItemIds = [];
+    item.stocks.map((stock) => {
+      assignedItemIds.push(stock.itemId.toString());
+    });
+    // Filter out items from allItemsIds that are not present in assignedItemIds
+    const notAssignedItemIds = allItemsIds.filter(
+      (item) => item && !assignedItemIds.includes(item.toString())
+    );
+
+    console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
+
+    let assignItems = [];
+
+    // Retrieve item details for not assigned items
+    for (let item of notAssignedItemIds) {
+      let newItem = {
+        itemDetails: null,
+      };
+
+      const itemDetails = await Items.findOne({
+        _id: new ObjectId(item),
       });
 
       newItem.itemDetails = itemDetails;
@@ -972,4 +1027,5 @@ module.exports = {
   addHotelItem,
   getHotelAssignableItems,
   getVendorCategories,
+  addStockItemOptions,
 };

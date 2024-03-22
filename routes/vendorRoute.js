@@ -95,6 +95,12 @@ router.get(
   vendorcontroller.getVendorCategories
 );
 
+router.get(
+  "/addStockOptions",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addStockItemOptions
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
