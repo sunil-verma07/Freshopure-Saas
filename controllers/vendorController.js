@@ -16,6 +16,7 @@ const Orders = require("../models/order.js");
 const vendorStock = require("../models/vendorStock.js");
 const Items = require("../models/item");
 const { isObjectIdOrHexString } = require("mongoose");
+const vendorCategories = require("../models/vendorCategories.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -934,6 +935,24 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const getVendorCategories = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const vendor = await vendorCategories.findOne({ vendorId: vendorId });
+
+    console.log(vendor);
+
+    if (!vendor) {
+      return res.json({ message: "vendor not found!" });
+    }
+
+    return res.json({ message: "successful", vendor });
+  } catch (error) {
+    return res.json({ message: "internal error!" });
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -952,4 +971,5 @@ module.exports = {
   deleteHotelItem,
   addHotelItem,
   getHotelAssignableItems,
+  getVendorCategories,
 };
