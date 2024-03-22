@@ -4,7 +4,7 @@ const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
-// const msg91 = require('msg91').default;
+
 const cookieParser = require("cookie-parser");
 
 aws.config.update({
