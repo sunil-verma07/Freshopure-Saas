@@ -22,7 +22,6 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
-// const paymentRoutes = require("./routes/paymentRoute");
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
