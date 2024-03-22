@@ -65,7 +65,7 @@ app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
 app.use("/subvendor", subVendorRoute);
-// app.use("/api", paymentRoutes);
+
 
 const port = process.env.PORT;
 app.listen(port, () => {
