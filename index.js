@@ -33,7 +33,7 @@ const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
 
-// msg91.initialize({ authKey: process.env.AUTHKEY });
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
