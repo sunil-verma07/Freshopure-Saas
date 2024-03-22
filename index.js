@@ -4,7 +4,7 @@ const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
-// const msg91 = require('msg91').default;
+
 const cookieParser = require("cookie-parser");
 
 aws.config.update({
@@ -22,7 +22,6 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
-// const paymentRoutes = require("./routes/paymentRoute");
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
@@ -34,13 +33,13 @@ const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
 
-// msg91.initialize({ authKey: process.env.AUTHKEY });
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const corsOptions = {
   origin: ["http://localhost:3000"],
-  credentials: true, //access-control-allow-credentials:true
+  credentials: true, //access-control-allow-credentials
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
@@ -66,7 +65,7 @@ app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
 app.use("/subvendor", subVendorRoute);
-// app.use("/api", paymentRoutes);
+
 
 const port = process.env.PORT;
 app.listen(port, () => {

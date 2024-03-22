@@ -16,6 +16,9 @@ const Orders = require("../models/order.js");
 const vendorStock = require("../models/vendorStock.js");
 const puppeteer = require('puppeteer');
 const UserOrder = require("../models/order.js");
+const Items = require("../models/item");
+const { isObjectIdOrHexString } = require("mongoose");
+const vendorCategories = require("../models/vendorCategories.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -608,31 +611,49 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const addToStock = catchAsyncError(async (req, res, next) => {
+const updateStock = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId, quantity } = req.body;
     const vendorId = req.user._id;
 
     if (!itemId || !quantity) {
-      res.json({ message: "all the fields are required!" });
+      return res.status(400).json({ message: "All the fields are required!" });
     }
 
-    const item = vendorStock.findOne({ itemId: itemId });
-
+    let item = await vendorStock.findOne({ vendorId });
     if (!item) {
+      // Create a new stock entry if it doesn't exist
       item = new vendorStock({
-        itemId: itemId,
         vendorId: vendorId,
-        kg: 0,
-        gram: 0,
-        piece: 0,
+        stocks: [
+          {
+            itemId: itemId,
+            quantity: {
+              kg: 0,
+              gram: 0,
+              piece: 0,
+            },
+          },
+        ],
       });
     }
 
-    item.quantity.kg += quantity.kg || 0;
-    item.quantity.gram += quantity.gram || 0;
-    item.quantity.piece += quantity.piece || 0;
+    // Update the quantity of the item in the stock
+    const stocks = item.stocks.map((stock) => {
+      if (stock.itemId.toString() === itemId) {
+        return {
+          itemId: itemId,
+          quantity: {
+            kg: quantity.kg || stock.quantity.kg,
+            gram: quantity.gram || stock.quantity.gram,
+            piece: quantity.piece || stock.quantity.piece,
+          },
+        };
+      }
+      return stock;
+    });
 
+    item.stocks = stocks;
     await item.save();
 
     res.json({ message: "Stock updated successfully" });
@@ -928,6 +949,341 @@ const generateInlineStyles = (styles) => {
   } catch (error) {
     console.error('Error creating PDF:', error);
     res.status(500).send('Error creating PDF',error);
+const addItemToStock = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    if (!itemId) {
+      return res.status(400).json({ message: "itemId is required!" });
+    }
+
+    // Check if the item already exists in the stock for the vendor
+    const stock = await vendorStock.findOne({ vendorId });
+    if (stock) {
+      const itemExists = stock.stocks.some(
+        (item) => item.itemId.toString() === itemId
+      );
+      if (itemExists) {
+        return res
+          .status(400)
+          .json({ message: "Item already exists in the stock" });
+      }
+      // Add the new item to the stock
+      stock.stocks.push({ itemId, quantity: { kg: 0, gram: 0, piece: 0 } });
+      await stock.save();
+    } else {
+      // Create a new stock entry if the vendor doesn't have any existing stock
+      await vendorStock.create({
+        vendorId,
+        stocks: [{ itemId, quantity: { kg: 0, gram: 0, piece: 0 } }],
+      });
+    }
+
+    res.json({ message: "Stock created successfully" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const getVendorStocks = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id; // Assuming req.user._id contains the vendorId
+
+    // Aggregate pipeline to fetch vendor stocks with item details and images
+    const stocks = await vendorStock.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $unwind: "$stocks",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "stocks.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "stocks.itemId",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $addFields: {
+          "stocks.itemDetails": "$itemDetails",
+          "stocks.images": "$images",
+        },
+      },
+      {
+        $group: {
+          _id: "$_id",
+          vendorId: { $first: "$vendorId" },
+          stocks: { $push: "$stocks" },
+        },
+      },
+    ]);
+
+    if (stocks.length > 0) {
+      return res.json(stocks[0]); // Assuming each vendor has only one stock entry
+    } else {
+      return res.status(404).json({ message: "Vendor stock not found!" });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
+  try {
+    // Extract necessary parameters from the request
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Query the database to find the item in the stock
+    const stock = await vendorStock.findOne({ vendorId: vendorId });
+
+    if (!stock) {
+      return res
+        .status(404)
+        .json({ message: "Stock not found for the vendor." });
+    }
+
+    // Find the index of the item to be deleted
+    const itemIndex = stock.stocks.findIndex(
+      (item) => item.itemId.toString() === itemId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Item not found in the stock." });
+    }
+
+    // Remove the item from the stock
+    stock.stocks.splice(itemIndex, 1);
+
+    // Save the changes to the database
+    await stock.save();
+
+    // Return success response
+    return res
+      .status(200)
+      .json({ message: "Item removed from stock successfully." });
+  } catch (error) {
+    // Handle errors
+    next(error);
+  }
+});
+
+const deleteHotelItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId, itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Check if vendorId, hotelId, and itemId are provided
+    if (!vendorId || !hotelId || !itemId) {
+      return res
+        .status(400)
+        .json({ message: "vendorId, hotelId, and itemId are required!" });
+    }
+
+    // Find and delete the document based on vendorId, hotelId, and itemId
+    const item = await HotelItemPrice.findOne({
+      vendorId: new ObjectId(vendorId),
+      hotelId: new ObjectId(hotelId),
+      itemId: new ObjectId(itemId),
+    });
+
+    if (!item) {
+      return res.json({ message: "Item Not Found" });
+    }
+
+    await HotelItemPrice.deleteOne({ _id: item._id });
+    // Send success response
+    res.json({ message: "Document deleted successfully" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const addHotelItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId, itemId, categoryId } = req.body;
+
+    const vendorId = req.user._id;
+
+    // Validate required fields
+    if (!vendorId || !hotelId || !itemId || !categoryId) {
+      return res.status(400).json({
+        message:
+          "vendorId, hotelId, itemId, categoryId, and todayCostPrice are required fields",
+      });
+    }
+
+    // Create new HotelItemPrice document
+    const hotelItemPrice = new HotelItemPrice({
+      vendorId,
+      hotelId,
+      itemId,
+      categoryId,
+      todayCostPrice: 0,
+      showPrice: true, // Default to true if not provided
+    });
+
+    // Save the new document to the database
+    await hotelItemPrice.save();
+
+    // Send success response
+    res.json({ message: "Document added successfully", hotelItemPrice });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const { categoryIds, hotelId } = req.body;
+    const vendorId = req.user._id;
+
+    console.log(categoryIds, hotelId, "abcd");
+
+    if (!categoryIds || !hotelId) {
+      return res
+        .status(400)
+        .json({ message: "Category IDs or Hotel ID not provided" });
+    }
+
+    const categoryIdsArray = categoryIds.map((item) =>
+      item.categoryId.toString()
+    );
+
+    let allItemsIds = [];
+
+    // Iterate over each categoryId
+    for (let category of categoryIdsArray) {
+      const items = await Items.find({ categoryId: category }).select("itemId");
+      allItemsIds.push(...items); // Merge items into allItemsIds array
+    }
+
+    const hotelItems = await HotelItemPrice.find({
+      vendorId: new ObjectId(vendorId),
+      hotelId: new ObjectId(hotelId),
+    }).select("itemId");
+
+    const assignedItemIds = hotelItems.map((item) => item.itemId.toString());
+
+    // Filter out items from allItemsIds that are not present in assignedItemIds
+    const notAssignedItemIds = allItemsIds.filter(
+      (item) => item._id && !assignedItemIds.includes(item._id.toString())
+    );
+
+    console.log(hotelItems);
+
+    let assignItems = [];
+
+    // Retrieve item details for not assigned items
+    for (let item of notAssignedItemIds) {
+      let newItem = {
+        itemDetails: null,
+      };
+
+      const itemDetails = await Items.findOne({
+        _id: new ObjectId(item._id),
+      });
+
+      newItem.itemDetails = itemDetails;
+
+      assignItems.push(newItem);
+    }
+
+    res.status(200).json({
+      assignItems,
+      message: "filtered",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
+const addStockItemOptions = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const vendorItems = await HotelItemPrice.find({
+      vendorId: new ObjectId(vendorId),
+    }).select("itemId");
+
+    const allItemsIds = vendorItems.map((item) => item.itemId.toString());
+
+    let item = await vendorStock.findOne({ vendorId });
+
+    // Update the quantity of the item in the stock
+    let assignedItemIds = [];
+    item.stocks.map((stock) => {
+      assignedItemIds.push(stock.itemId.toString());
+    });
+    // Filter out items from allItemsIds that are not present in assignedItemIds
+    const notAssignedItemIds = allItemsIds.filter(
+      (item) => item && !assignedItemIds.includes(item.toString())
+    );
+
+    console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
+
+    let assignItems = [];
+
+    // Retrieve item details for not assigned items
+    for (let item of notAssignedItemIds) {
+      let newItem = {
+        itemDetails: null,
+      };
+
+      const itemDetails = await Items.findOne({
+        _id: new ObjectId(item),
+      });
+
+      newItem.itemDetails = itemDetails;
+
+      assignItems.push(newItem);
+    }
+
+    res.status(200).json({
+      assignItems,
+      message: "filtered",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
+const getVendorCategories = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const vendor = await vendorCategories.findOne({ vendorId: vendorId });
+
+    console.log(vendor);
+
+    if (!vendor) {
+      return res.json({ message: "vendor not found!" });
+    }
+
+    return res.json({ message: "successful", vendor });
+  } catch (error) {
+    return res.json({ message: "internal error!" });
   }
 });
 
@@ -942,4 +1298,14 @@ module.exports = {
   getHotelItemList,
   getAllOrdersbyHotel,
   generateInvoice
+  updateStock,
+  addItemToStock,
+  addItemToStock,
+  getVendorStocks,
+  deleteItemFromStock,
+  deleteHotelItem,
+  addHotelItem,
+  getHotelAssignableItems,
+  getVendorCategories,
+  addStockItemOptions,
 };

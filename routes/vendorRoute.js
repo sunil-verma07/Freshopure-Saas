@@ -55,6 +55,58 @@ router.post(
   // authMiddleware.authMiddleware,
   vendorcontroller.generateInvoice
 );
+router.post(
+  "/updateStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateStock
+);
+router.post(
+  "/addStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addItemToStock
+);
+router.get(
+  "/getVendorStocks",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorStocks
+);
+
+router.post(
+  "/deleteItemStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.deleteItemFromStock
+);
+
+router.post(
+  "/deleteHotelItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.deleteHotelItem
+);
+
+router.post(
+  "/addHotelItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addHotelItem
+);
+
+router.post(
+  "/gethotelAssignableItems",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getHotelAssignableItems
+);
+
+router.get(
+  "/getVendorCategories",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorCategories
+);
+
+router.get(
+  "/addStockOptions",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addStockItemOptions
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

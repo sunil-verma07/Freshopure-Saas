@@ -211,46 +211,53 @@ const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
 
 const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
   try {
-     const vendorId = req.user._id;
+    const vendorId = req.user._id;
 
-     const allItemsIds = await HotelItemPrice.find({ vendorId: new ObjectId(vendorId)}).select('itemId')
+    const allItemsIds = await HotelItemPrice.find({
+      vendorId: new ObjectId(vendorId),
+    }).select("itemId");
 
-     const subVendorItems = await SubVendor.find({ vendorId: new ObjectId(vendorId)}).select('assignedItems')
+    const subVendorItems = await SubVendor.find({
+      vendorId: new ObjectId(vendorId),
+    }).select("assignedItems");
 
-     let assignedItems =[]
+    let assignedItems = [];
 
-     for(const item of subVendorItems){
-      assignedItems.push(...item?.assignedItems)
-     }
+    for (const item of subVendorItems) {
+      assignedItems.push(...item?.assignedItems);
+    }
 
-     const assignedItemIds = assignedItems.map(item => item.itemId.toString());
+    const assignedItemIds = assignedItems.map((item) => item.itemId.toString());
 
+    // Filter out items from allItemsIds that are not present in assignedItemIds
+    const notAssignedItemIds = allItemsIds.filter(
+      (item) => !assignedItemIds.includes(item.itemId.toString())
+    );
 
-     // Filter out items from allItemsIds that are not present in assignedItemIds
-     const notAssignedItemIds = allItemsIds.filter(item =>  !assignedItemIds.includes(item.itemId.toString()));
+    let notAssignedItemsArray = [];
 
-     let notAssignedItemsArray=[]
-
-     for(let item of notAssignedItemIds){
+    for (let item of notAssignedItemIds) {
       let newItem = {
-        itemDetails:null,
-        itemImage:null
-      }
+        itemDetails: null,
+        itemImage: null,
+      };
 
-      const itemDetails = await Items.findOne({_id:new ObjectId(item.itemId)})
+      const itemDetails = await Items.findOne({
+        _id: new ObjectId(item.itemId),
+      });
 
-      console.log(itemDetails)
-      const itemImage = await Image.findOne({itemId:new ObjectId(item.itemId)})
+      console.log(itemDetails);
+      const itemImage = await Image.findOne({
+        itemId: new ObjectId(item.itemId),
+      });
 
       newItem.itemDetails = itemDetails;
       newItem.itemImage = itemImage;
 
-      notAssignedItemsArray.push(newItem)
+      notAssignedItemsArray.push(newItem);
+    }
 
-     }
-
-
-     res.status(200).json(notAssignedItemsArray)
+    res.status(200).json(notAssignedItemsArray);
   } catch (error) {
     console.log(error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -263,5 +270,5 @@ module.exports = {
   addItemToVendor,
   removeItemsFromVendor,
   getSubVendorItems,
-  getSubVendorAssignableItems
+  getSubVendorAssignableItems,
 };
