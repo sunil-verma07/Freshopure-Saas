@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const VendorCategorySchema = new mongoose.Schema({
+const CategorySchema = new mongoose.Schema({
   name: {
     type: String,
     required: "Category name is required",
@@ -16,8 +16,4 @@ const VendorCategorySchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model(
-  "VendorCategory",
-  VendorCategorySchema,
-  "VendorCategory"
-);
+module.exports = mongoose.model("Category", CategorySchema, "Category");
