@@ -4,7 +4,7 @@ const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
-// const msg91 = require('msg91').default;
+
 const cookieParser = require("cookie-parser");
 
 aws.config.update({
@@ -22,7 +22,6 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
-// const paymentRoutes = require("./routes/paymentRoute");
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
