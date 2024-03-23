@@ -49,6 +49,12 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.getAllOrdersbyHotel
 );
+
+router.post(
+  "/generatePdf",
+  // authMiddleware.authMiddleware,
+  vendorcontroller.generateInvoice
+);
 router.post(
   "/updateStock",
   authMiddleware.authMiddleware,

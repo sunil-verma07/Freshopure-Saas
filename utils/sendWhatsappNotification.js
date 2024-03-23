@@ -1,21 +1,9 @@
+const HotelVendorLink = require("../models/hotelVendorLink.js");
+const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
+
 async function sendWhatsappmessge(dataItems) {
   try {
-    const vendorsOrders = [];
-    // for (let item of dataItems) {
-    //   let string = ``;
-    //   let phone = item[0]?.mobile;
-    //   if (phone == undefined) {
-    //     continue;
-    //   }
-    //   if (item.length) {
-    //     let str = ``;
-    //     for (let x of item) {
-    //       str += `${x.itemName}    -   ${x.hotelOrders} \\n\\n`;
-    //     }
-    //     string += str;
-    //   }
-    //   vendorsOrders.push({ string, phone });
-    // }
+   
 
     function formatDate(date) {
       const options = { day: "numeric", month: "long", year: "numeric" };
@@ -81,4 +69,106 @@ async function sendWhatsappmessge(dataItems) {
     console.log(error);
   }
 }
-module.exports = { sendWhatsappmessge };
+
+
+const distributeAmongSubvendors = catchAsyncErrors(async (req, res, next) => {
+
+  try {
+    const vendorId = req.user._id;
+
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const orderData = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: vendorId },
+      },
+    
+      {
+        $lookup: {
+          from: "orders",
+          let: { hotelId: "$hotelId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$hotelId", "$$hotelId"] },
+                    { $gte: ["$createdAt", today] }, // Filter orders for today
+                  ],
+                },
+              },
+            },
+          ],
+          as: "hotelOrders",
+        },
+      },
+      {
+        $unwind: "$hotelOrders",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelOrders.hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelOrders.hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
+      },
+      {
+        $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
+      },
+      {
+        $group: {
+          _id: "$hotelOrders.orderedItems.itemId",
+          totalQuantityOrderedGrams: {
+            $sum: {
+              $add: [
+                { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
+                "$hotelOrders.orderedItems.quantity.gram", // Add grams
+              ],
+            },
+          }, // Total quantity ordered in grams
+          itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
+
+          hotelOrders: { $push: "$hotelOrders" },
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "_id",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      
+      {
+        $project: {
+          _id: 0,
+          totalQuantityOrdered: {
+            kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
+            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
+          }, // Total quantity ordered in kg and grams
+          itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
+
+          hotelOrders: "$hotelOrders",
+        },
+      },
+    ]);
+    
+    res.status(200).json({
+      status: "success",
+      data: orderData,
+    });
+
+  } catch (error) {
+    console.log(error)
+  }
+})
+
+
+module.exports = { sendWhatsappmessge ,distributeAmongSubvendors};

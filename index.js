@@ -33,13 +33,13 @@ const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
 
-// msg91.initialize({ authKey: process.env.AUTHKEY });
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const corsOptions = {
   origin: ["http://localhost:3000"],
-  credentials: true, //access-control-allow-credentials:true
+  credentials: true, //access-control-allow-credentials
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
@@ -65,7 +65,7 @@ app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
 app.use("/subvendor", subVendorRoute);
-// app.use("/api", paymentRoutes);
+
 
 const port = process.env.PORT;
 app.listen(port, () => {
