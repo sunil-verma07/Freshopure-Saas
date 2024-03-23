@@ -54,4 +54,5 @@ router.get(
   authMiddleware.authMiddleware,
   ordercontroller.allHotelOrders
 );
+
 module.exports = router;

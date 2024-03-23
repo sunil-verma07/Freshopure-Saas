@@ -148,58 +148,11 @@ const allHotelOrders = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
 
-    const orderData = await UserOrder.aggregate([
-      {
-        $match: { hotelId: hotelId },
-      },
-      {
-        $lookup: {
-          from: "orderstatuses",
-          localField: "orderStatus",
-          foreignField: "_id",
-          as: "orderStatuses",
-        },
-      },
-      {
-        $unwind: "$orderStatuses",
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "orderedItems.itemId",
-          foreignField: "_id",
-          as: "orderedItems.itemDetails",
-        },
-      },
-      {
-        $unwind: "$orderedItems.itemDetails",
-      },
-      {
-        $lookup: {
-          from: "Images",
-          localField: "orderedItems.itemDetails._id",
-          foreignField: "itemId",
-          as: "orderedItems.itemDetails.images",
-        },
-      },
-      {
-        $unwind: "$orderedItems.itemDetails.images",
-      },
-      {
-        $group: {
-          _id: "$_id",
-          hotelId: { $first: "$hotelId" },
-          orderNumber: { $first: "$orderNumber" },
-          isReviewed: { $first: "$isReviewed" },
-          orderStatuses: { $first: "$orderStatuses" },
-          orderedItems: { $push: "$orderedItems" },
-          isItemAdded: { $first: "$isItemAdded" },
-          createdAt: { $first: "$createdAt" },
-          updatedAt: { $first: "$updatedAt" },
-        },
-      },
-    ]);
-    res.status(200).json({ orderData });
+    const hotelOrders = await UserOrder.find({
+      hotelId: hotelId,
+    }).populate("orderStatus");
+
+    res.status(200).json({ hotelOrders });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
