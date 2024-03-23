@@ -233,7 +233,17 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       {
         $match: { vendorId: vendorId },
       },
-    
+      // {
+      //   $lookup: {
+      //     from: "Users",
+      //     localField: "hotelId",
+      //     foreignField: "_id",
+      //     as: "hotelDetails",
+      //   },
+      // },
+      // {
+      //   $unwind: "$hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
+      // },
       {
         $lookup: {
           from: "orders",
@@ -662,7 +672,8 @@ const updateStock = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const generateInvoice = catchAsyncError(async(req,res,next)=>{
+
+const generateInvoice = catchAsyncError(async (req, res, next) => {
 
   const { orderId } = req.body;
   console.log(orderId);
@@ -754,12 +765,12 @@ const generateInvoice = catchAsyncError(async(req,res,next)=>{
   const styles = {
     container: {
       fontFamily: 'Arial, sans-serif',
-      marginBottom:'30px',
-      width:'520px',
+      marginBottom: '30px',
+      width: '520px',
       margin: 'auto',
-      paddingRight:'10px',
+      paddingRight: '10px',
       borderRadius: '8px',
-      background:'#fff'
+      background: '#fff'
     },
     header: {
       display: 'flex',
@@ -780,17 +791,17 @@ const generateInvoice = catchAsyncError(async(req,res,next)=>{
       padding: '4px',
       textAlign: 'left',
       background: '#f2f2f2',
-      fontSize:'10px',
+      fontSize: '10px',
     },
     td: {
       border: '1px solid #ddd',
       padding: '4px',
-      fontSize:'8px',
+      fontSize: '8px',
     },
     total: {
       textAlign: 'right',
-      fontSize:'12px',
-      fontWeight:'600'
+      fontSize: '12px',
+      fontWeight: '600'
     },
   };
 
@@ -802,7 +813,7 @@ const generateInvoice = catchAsyncError(async(req,res,next)=>{
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-// Use 24-hour format
+      // Use 24-hour format
     };
   
     const formattedDateTime = new Intl.DateTimeFormat('en-US', options).format(createdOn);
@@ -810,19 +821,19 @@ const generateInvoice = catchAsyncError(async(req,res,next)=>{
     return `${formattedDateTime}`;
   };
 
-  const totalPrice = (items)=>{
-    let totalPrice=0
-    for(let item of items){
-       totalPrice = totalPrice + (item.price*item.quantity?.kg + item.price*(item.quantity?.gram/1000))
+  const totalPrice = (items) => {
+    let totalPrice = 0
+    for (let item of items) {
+      totalPrice = totalPrice + (item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000))
     }
 
     return totalPrice;
   }
 
   
-const generateInlineStyles = (styles) => {
-  return Object.keys(styles).map(key => `${key}:${styles[key]}`).join(';');
-};
+  const generateInlineStyles = (styles) => {
+    return Object.keys(styles).map(key => `${key}:${styles[key]}`).join(';');
+  };
 
   let html = `
     <div style="${generateInlineStyles(styles.container)}">
@@ -890,7 +901,7 @@ const generateInlineStyles = (styles) => {
               <td style="${generateInlineStyles(styles.td)}">${item?.itemDetails?.category?.name}</td>
               <td style="${generateInlineStyles(styles.td)}">${item.quantity?.kg} Kg   ${item?.quantity?.gram} Grams</td>
               <td style="${generateInlineStyles(styles.td)}">${item.price}</td>
-              <td style="${generateInlineStyles(styles.td)}">${item.price*item.quantity?.kg + item.price*(item.quantity?.gram/1000)}</td>
+              <td style="${generateInlineStyles(styles.td)}">${item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -948,7 +959,11 @@ const generateInlineStyles = (styles) => {
 
   } catch (error) {
     console.error('Error creating PDF:', error);
-    res.status(500).send('Error creating PDF',error);
+    res.status(500).send('Error creating PDF', error);
+    
+  }
+})
+
 const addItemToStock = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId } = req.body;
