@@ -49,4 +49,9 @@ router.post(
   authMiddleware.authMiddleware,
   ordercontroller.orderDetails
 );
+router.get(
+  "/allHotelOrders",
+  authMiddleware.authMiddleware,
+  ordercontroller.allHotelOrders
+);
 module.exports = router;

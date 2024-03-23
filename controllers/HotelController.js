@@ -11,7 +11,7 @@ const category = require("../models/category.js");
 
 const getAllItemsForHotel = catchAsyncError(async (req, res, next) => {
   try {
-    const { categoryId, vendorId } = req.body;
+    const { categoryId } = req.body;
     const HotelId = req.user._id;
 
     const data = await HotelItemPrice.aggregate([
