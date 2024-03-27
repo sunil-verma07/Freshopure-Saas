@@ -44,8 +44,7 @@ const removeAddress = catchAsyncError(async (req, res, next) => {
       return res.status(404).json({ error: "Address not found" });
     }
 
-    console.log(currentAddress);
-    if (currentAddress.selected == true) {
+    if (currentAddress.selected === true) {
       throw new Error("Selected Address Cannot be removed");
     } else {
       await Address.deleteOne({ _id: new ObjectId(addressId) });
@@ -58,7 +57,7 @@ const removeAddress = catchAsyncError(async (req, res, next) => {
       console.log(error);
       res.status(500).json({ error: "Internal server" });
     }
-  }
+  } 
 });
 
 const getAllAddress = catchAsyncError(async (req, res, next) => {
@@ -99,7 +98,7 @@ const updateSelectedAddress = catchAsyncError(async (req, res, next) => {
     const UserId = req.user._id;
     const { addressId } = req.body;
     await Address.updateMany(
-      { UserId: new ObjectId(UserId), selected: true },
+      { HotelId: new ObjectId(UserId), selected: true },
       { $set: { selected: false } }
     );
     await Address.updateOne(
