@@ -24,9 +24,12 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       throw new Error("Vendor not found");
     }
 
-    const selected_address = await Addresses.findOne({ hotelId: hotelId,isSelected:true });
+    const address = await Addresses.findOne({ HotelId: hotelId,selected:true });
 
-
+    if (!address) {
+      throw new Error("Address not found");
+    }
+    
     const orderStatus = "65cef0c27ebbb69ab54c55f4";
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
 
@@ -61,7 +64,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         hotelId,
         orderNumber,
         orderStatus,
-        addressId,
+        address,
         orderedItems,
       });
 
@@ -511,7 +514,6 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
-    console.log(orderId);
     const orderData = await UserOrder.aggregate([
       {
         $match: { _id: new ObjectId(orderId) },
@@ -549,17 +551,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderedItems.itemDetails.images",
       },
-      {
-        $lookup: {
-          from: "addresses",
-          localField: "addressId",
-          foreignField: "_id",
-          as: "address",
-        },
-      },
-      {
-        $unwind: "$address",
-      },
+     
     ]);
 
     return res.status(200).json({ success: true, data: orderData });
