@@ -18,16 +18,18 @@ const Addresses = require("../models/address.js");
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
-    const { addressId, vendorId } = req.body;
+    const { vendorId } = req.body;
 
-    console.log(addressId, vendorId);
-    if (!addressId) {
-      throw new Error("Address not found");
-    }
     if (!vendorId) {
       throw new Error("Vendor not found");
     }
 
+    const address = await Addresses.findOne({ HotelId: hotelId,selected:true });
+
+    if (!address) {
+      throw new Error("Address not found");
+    }
+    
     const orderStatus = "65cef0c27ebbb69ab54c55f4";
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
 
@@ -62,7 +64,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         hotelId,
         orderNumber,
         orderStatus,
-        addressId,
+        address,
         orderedItems,
       });
 
@@ -512,7 +514,6 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
-    console.log(orderId);
     const orderData = await UserOrder.aggregate([
       {
         $match: { _id: new ObjectId(orderId) },
@@ -528,6 +529,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderStatus",
       },
+
       {
         $lookup: {
           from: "Items",
@@ -536,9 +538,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
           as: "orderedItems.itemDetails",
         },
       },
-      {
-        $unwind: "$orderedItems.itemDetails",
-      },
+      // {
+      //   $unwind: "$orderedItems.itemDetails",
+      // },
       {
         $lookup: {
           from: "Images",
@@ -550,17 +552,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderedItems.itemDetails.images",
       },
-      {
-        $lookup: {
-          from: "addresses",
-          localField: "addressId",
-          foreignField: "_id",
-          as: "address",
-        },
-      },
-      {
-        $unwind: "$address",
-      },
+     
     ]);
 
     return res.status(200).json({ success: true, data: orderData });

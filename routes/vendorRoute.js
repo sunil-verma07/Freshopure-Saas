@@ -60,6 +60,7 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.updateStock
 );
+
 router.post(
   "/addStock",
   authMiddleware.authMiddleware,

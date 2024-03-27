@@ -713,17 +713,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       $unwind: "$vendorDetails",
     },
 
-    {
-      $lookup: {
-        from: "addresses",
-        localField: "addressId",
-        foreignField: "_id",
-        as: "address",
-      },
-    },
-    {
-      $unwind: "$address",
-    },
     // {
     //   $unwind: "$orderedItems" // Unwind the orderedItems array
     // },

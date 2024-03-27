@@ -5,6 +5,10 @@ const CategorySchema = new mongoose.Schema({
     type: String,
     required: "Category name is required",
   },
+  img:{
+    type: String,
+    required: "Category image is required",   
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
