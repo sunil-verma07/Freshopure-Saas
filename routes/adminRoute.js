@@ -9,6 +9,7 @@ const admincontroller = require("../controllers/AdminController.js");
 router.post(
   "/addnewcategory",
   authMiddleware.authMiddleware,
+  upload.any(),
   admincontroller.addNewCategory
 );
 router.post(

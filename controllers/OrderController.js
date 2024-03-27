@@ -529,6 +529,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderStatus",
       },
+
       {
         $lookup: {
           from: "Items",
@@ -537,9 +538,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
           as: "orderedItems.itemDetails",
         },
       },
-      {
-        $unwind: "$orderedItems.itemDetails",
-      },
+      // {
+      //   $unwind: "$orderedItems.itemDetails",
+      // },
       {
         $lookup: {
           from: "Images",

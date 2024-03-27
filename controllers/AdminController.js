@@ -22,17 +22,41 @@ const hotelItemPrice = require("../models/hotelItemPrice.js");
 const addNewCategory = catchAsyncError(async (req, res, next) => {
   try {
     const { name } = req.body;
+    const images = req.files;
     const createdBy = req.user._id;
     const isActive = true;
 
-    if (!name) {
+    if (!name ) { 
       throw new Error("Category Name is required.");
     }
+    if (!images ) { 
+      throw new Error("Category Image is required.");
+    }
+
+    let imagesReqBody = [];
+    for (let i = 0; i < images.length; ++i) {
+      const image = images[i];
+      const result = await itemImageS3.uploadFile(image);
+      // console.log(result)
+      await unlinkFile(image.path);
+      if (image.fieldname == "image") isDisplayImage = true;
+      const imageReqBody = {
+        imageLink: `/category/image/${result.Key}`,
+      };
+      // console.log(imageReqBody,result);
+      imagesReqBody.push(imageReqBody);
+    }
+
+    const itemImageReqBody = {
+     
+      itemId: newItem._id,
+    };
 
     const category = new Category({
-      name,
-      createdBy,
-      isActive,
+      name:name,
+      img: imagesReqBody[0].imageLink,
+      createdBy:createdBy,
+      isActive:true,
     });
 
     await category.save();
