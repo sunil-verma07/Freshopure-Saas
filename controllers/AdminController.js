@@ -38,6 +38,7 @@ const addNewCategory = catchAsyncError(async (req, res, next) => {
     await category.save();
     res.status(200).json({ message: "Category Added" });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
