@@ -1297,7 +1297,7 @@ module.exports = {
   sendCompiledOrders,
   getHotelItemList,
   getAllOrdersbyHotel,
-  generateInvoice
+  generateInvoice,
   updateStock,
   addItemToStock,
   addItemToStock,

@@ -18,15 +18,14 @@ const Addresses = require("../models/address.js");
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
-    const { addressId, vendorId } = req.body;
+    const { vendorId } = req.body;
 
-    console.log(addressId, vendorId);
-    if (!addressId) {
-      throw new Error("Address not found");
-    }
     if (!vendorId) {
       throw new Error("Vendor not found");
     }
+
+    const selected_address = await Addresses.findOne({ hotelId: hotelId,isSelected:true });
+
 
     const orderStatus = "65cef0c27ebbb69ab54c55f4";
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
