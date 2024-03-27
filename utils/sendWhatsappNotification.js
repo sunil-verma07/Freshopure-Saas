@@ -3,8 +3,6 @@ const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 
 async function sendWhatsappmessge(dataItems) {
   try {
-   
-
     function formatDate(date) {
       const options = { day: "numeric", month: "long", year: "numeric" };
       return new Date(date).toLocaleDateString("en-US", options);
@@ -70,9 +68,7 @@ async function sendWhatsappmessge(dataItems) {
   }
 }
 
-
 const distributeAmongSubvendors = catchAsyncErrors(async (req, res, next) => {
-
   try {
     const vendorId = req.user._id;
 
@@ -84,7 +80,7 @@ const distributeAmongSubvendors = catchAsyncErrors(async (req, res, next) => {
       {
         $match: { vendorId: vendorId },
       },
-    
+
       {
         $lookup: {
           from: "orders",
@@ -145,7 +141,7 @@ const distributeAmongSubvendors = catchAsyncErrors(async (req, res, next) => {
           as: "itemDetails",
         },
       },
-      
+
       {
         $project: {
           _id: 0,
@@ -159,16 +155,14 @@ const distributeAmongSubvendors = catchAsyncErrors(async (req, res, next) => {
         },
       },
     ]);
-    
+
     res.status(200).json({
       status: "success",
       data: orderData,
     });
-
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
-})
+});
 
-
-module.exports = { sendWhatsappmessge ,distributeAmongSubvendors};
+module.exports = { sendWhatsappmessge, distributeAmongSubvendors };

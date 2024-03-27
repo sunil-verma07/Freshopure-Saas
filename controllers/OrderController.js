@@ -143,6 +143,20 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const allHotelOrders = catchAsyncError(async (req, res, next) => {
+  try {
+    const hotelId = req.user._id;
+
+    const hotelOrders = await UserOrder.find({
+      hotelId: hotelId,
+    }).populate("orderStatus");
+
+    res.status(200).json({ hotelOrders });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 const orderAgain = catchAsyncError(async (req, res, next) => {
   try {
     const UserId = req.hotel._id;
@@ -564,4 +578,5 @@ module.exports = {
   itemAnalyticsForHotel,
   compiledOrderForHotel,
   orderDetails,
+  allHotelOrders,
 };
