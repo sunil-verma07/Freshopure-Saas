@@ -28,7 +28,7 @@ const register = catchAsyncErrors(async (req, res, next) => {
         .json({ success: false, message: "Please enter all feilds properly!" });
     } else {
       const user = await User.findOne({ email: email }).select("+password");
-      console.log(user);
+
       if (user) {
         return res
           .status(400)

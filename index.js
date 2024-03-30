@@ -39,12 +39,11 @@ app.use(bodyParser.json());
 
 const corsOptions = {
   origin: ["http://localhost:3000"],
-  credentials: true, //access-control-allow-credentials
+  credentials: true, 
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
-// Set headers to allow CORS
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", ["http://localhost:3000"]);
   res.header(

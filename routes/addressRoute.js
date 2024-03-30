@@ -18,11 +18,7 @@ router.get(
   authMiddleware.authMiddleware,
   addresscontroller.getAllAddress
 );
-router.get(
-  "/getselectedaddress",
-  authMiddleware.authMiddleware,
-  addresscontroller.getSelectedAddress
-);
+
 router.post(
   "/updateselectedaddress",
   authMiddleware.authMiddleware,

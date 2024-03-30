@@ -25,7 +25,10 @@ const addAddress = catchAsyncError(async (req, res, next) => {
       pinCode,
     });
     await address.save();
-    res.status(200).json({ message: "Address Added" });
+
+    const hotelAddresses = await getAddressFunc(HotelId)
+
+    res.status(200).json({ message: "Address Added" ,hotelAddresses:hotelAddresses});
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -48,7 +51,10 @@ const removeAddress = catchAsyncError(async (req, res, next) => {
       throw new Error("Selected Address Cannot be removed");
     } else {
       await Address.deleteOne({ _id: new ObjectId(addressId) });
-      res.status(200).json({ message: "Address removed" });
+
+      const hotelAddresses = await getAddressFunc(UserId)
+      
+      res.status(200).json({ message: "Address removed" ,hotelAddresses:hotelAddresses});
     }
   } catch (error) {
     if (error.message == "Selected Address Cannot be removed") {
@@ -64,31 +70,13 @@ const getAllAddress = catchAsyncError(async (req, res, next) => {
   try {
     // console.log("controller");
     const UserId = req.user._id;
-    // console.log(UserId);
-    // const { addressId } = req.body;
-    let hotelAddresses = await Address.find({
-      HotelId: new ObjectId(UserId),
-      selected: false,
-    });
 
-    // console.log(hotelAddresses);
+    const hotelAddresses = await getAddressFunc(UserId)
+    
+
     res.status(200).json({ hotelAddresses });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-const getSelectedAddress = catchAsyncError(async (req, res, next) => {
-  try {
-    const UserId = req.user._id;
-    let address = await Address.findOne({
-      HotelId: new ObjectId(UserId),
-      selected: true,
-    });
-    console.log(UserId);
-    res.status(200).json({ address });
-  } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -105,16 +93,34 @@ const updateSelectedAddress = catchAsyncError(async (req, res, next) => {
       { _id: new ObjectId(addressId) },
       { $set: { selected: true } }
     );
-    res.status(200).json({ message: "Updated selected address" });
+
+    const hotelAddresses = await getAddressFunc(UserId)
+
+    res.status(200).json({ message: "Updated selected address" ,hotelAddresses:hotelAddresses});
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
+
+const getAddressFunc = async(hotelId)=>{
+
+  const selectedAddress = await Address.findOne({
+    HotelId: new ObjectId(hotelId),
+    selected: true,
+  });
+
+  const allAddresses = await Address.find({
+    HotelId: new ObjectId(hotelId),
+    selected: false,
+  });
+
+  return {selectedAddress: selectedAddress, allAddresses: allAddresses}
+}
+
 module.exports = {
   addAddress,
   removeAddress,
   getAllAddress,
-  getSelectedAddress,
   updateSelectedAddress,
 };
