@@ -49,7 +49,11 @@ const addItemToCart = catchAsyncError(async (req, res, next) => {
                     { upsert: true }
                 );
             }
-            res.status(200).json({ message: 'Items added to cart' });
+
+            const cartData = await getCartDataFunc(UserId)
+
+            
+            res.status(200).json({ message: 'Items added to cart',data: cartData});
         
     } catch (error) {
         console.log(error)
@@ -68,7 +72,9 @@ const removeItemFromCart = catchAsyncError(async (req, res, next) => {
             if (indexToRemove != -1) {
                 hotelPresent[0].cartItems.splice(indexToRemove, 1);
                 await Cart.updateOne({ hotelId: new ObjectId(UserId) }, { $set: { cartItems: hotelPresent[0].cartItems } })
-                res.status(200).json({ message: 'Item Removed From Cart' });
+
+                const cartData = await getCartDataFunc(UserId)
+                res.status(200).json({ message: 'Item Removed From Cart',data:cartData });
             } else {
                 res.status(400).json({ error: 'No items Found' });
             }
@@ -84,46 +90,9 @@ const removeItemFromCart = catchAsyncError(async (req, res, next) => {
 const getCartItems = catchAsyncError(async (req, res, next) => {
     try {
         const hotelId = req.user._id;
-        
-        const cartData = await Cart.aggregate([
-            {
-                $match: { "hotelId": hotelId }
-            },
-            {
-                $unwind: "$cartItems" // Unwind the cartItems array
-            },
-            {
-                $lookup: {
-                    from: "Items", // Assuming the name of the Items collection is "Items"
-                    localField: "cartItems.itemId",
-                    foreignField: "_id",
-                    as: "itemDetails" // Store the matched item details in itemDetails array
-                }
-            },
-            {
-                $unwind: "$itemDetails" // Unwind the itemDetails array
-            },
-            {
-                $lookup: {
-                    from: "Images", // Assuming the name of the Items collection is "Items"
-                    localField: "cartItems.itemId",
-                    foreignField: "itemId",
-                    as: "itemDetails.image" // Store the matched item details in itemDetails array
-                }
-            },
-            {
-                $unwind: "$itemDetails.image" // Unwind the itemDetails array
-            },
-            // {
-            //     $group: {
-            //         _id: "$_id", // Group by cart document id
-            //         hotelId: { $first: "$hotelId" }, // Retain hotelId
-            //         cartItems: { $push: "$cartItems" }, // Reconstruct cartItems array
-            //         itemDetails: { $push: "$itemDetails" } // Reconstruct itemDetails array
-            //     }
-            // }
-            
-        ])
+
+        const cartData = await getCartDataFunc(hotelId)
+      
         res.status(200).json({ cartData });
         
        
@@ -131,6 +100,43 @@ const getCartItems = catchAsyncError(async (req, res, next) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 })
+
+const getCartDataFunc = async(hotelId)=>{
+    const cartData = await Cart.aggregate([
+        {
+            $match: { "hotelId": hotelId }
+        },
+        {
+            $unwind: "$cartItems" // Unwind the cartItems array
+        },
+        {
+            $lookup: {
+                from: "Items", // Assuming the name of the Items collection is "Items"
+                localField: "cartItems.itemId",
+                foreignField: "_id",
+                as: "itemDetails" // Store the matched item details in itemDetails array
+            }
+        },
+        {
+            $unwind: "$itemDetails" // Unwind the itemDetails array
+        },
+        {
+            $lookup: {
+                from: "Images", // Assuming the name of the Items collection is "Items"
+                localField: "cartItems.itemId",
+                foreignField: "itemId",
+                as: "itemDetails.image" // Store the matched item details in itemDetails array
+            }
+        },
+        {
+            $unwind: "$itemDetails.image" // Unwind the itemDetails array
+        },
+      
+        
+    ])
+
+    return cartData;
+}
 
 
 module.exports = { addItemToCart, removeItemFromCart, getCartItems }

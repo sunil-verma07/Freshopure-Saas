@@ -66,7 +66,6 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
 
     // Vendor removed successfully
   } catch (error) {
-    console.log(error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
@@ -74,6 +73,7 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
 const addItemToVendor = async (req, res) => {
   try {
     const { vendorId, itemIds } = req.body;
+    const subvendorId = req.body._id;
 
     // Check if vendorId and itemIds are provided
     if (!vendorId || !itemIds) {
@@ -102,7 +102,10 @@ const addItemToVendor = async (req, res) => {
           { _id: new ObjectId(vendorId) },
           { $set: { assignedItems: items } }
         );
-        res.status(200).json({ message: "Items assigned to Sub Vendor" });
+
+        const AssignedItems = await getSubVendorItemsFunc(subvendorId)
+
+        res.status(200).json({ message: "Items assigned to Sub Vendor",items:AssignedItems });
       } else {
         res.status(400).json({ error: "Item already added" });
       }
@@ -118,6 +121,7 @@ const addItemToVendor = async (req, res) => {
 const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
   try {
     const { _id, itemIds } = req.body;
+    const subvendorId = req.body._id;
 
     // Check if vendorId and itemIds are provided
     if (!_id || !itemIds) {
@@ -134,12 +138,16 @@ const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
       { new: true }
     );
 
+    const AssignedItems = await getSubVendorItemsFunc(subvendorId)
+
+
     // Check if vendor was found and updated
     if (updatedVendor) {
       res.status(200).json({
         success: true,
         message: "Items removed from vendor successfully",
         vendor: updatedVendor,
+        items: AssignedItems,
       });
     } else {
       return res
@@ -156,40 +164,7 @@ const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
   try {
     const subvendorId = req.body._id;
 
-    const pipeline = [
-      {
-        $match: {
-          _id: new ObjectId(subvendorId),
-        },
-      },
-      {
-        $unwind: "$assignedItems",
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "assignedItems.itemId",
-          foreignField: "_id",
-          as: "items",
-        },
-      },
-      {
-        $unwind: "$items",
-      },
-      {
-        $lookup: {
-          from: "Images",
-          localField: "assignedItems.itemId",
-          foreignField: "itemId",
-          as: "items.image",
-        },
-      },
-      {
-        $unwind: "$items.image",
-      },
-    ];
-
-    const AssignedItems = await SubVendor.aggregate(pipeline);
+    const AssignedItems = await getSubVendorItemsFunc(subvendorId)
 
     if (AssignedItems) {
       res.status(200).json({
@@ -263,6 +238,46 @@ const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
+
+
+const getSubVendorItemsFunc = async(subvendorId)=>{
+  const pipeline = [
+    {
+      $match: {
+        _id: new ObjectId(subvendorId),
+      },
+    },
+    {
+      $unwind: "$assignedItems",
+    },
+    {
+      $lookup: {
+        from: "Items",
+        localField: "assignedItems.itemId",
+        foreignField: "_id",
+        as: "items",
+      },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $lookup: {
+        from: "Images",
+        localField: "assignedItems.itemId",
+        foreignField: "itemId",
+        as: "items.image",
+      },
+    },
+    {
+      $unwind: "$items.image",
+    },
+  ];
+
+  const AssignedItems = await SubVendor.aggregate(pipeline);
+
+  return AssignedItems
+}
 
 module.exports = {
   addVendor,

@@ -529,7 +529,6 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderStatus",
       },
-
       {
         $lookup: {
           from: "Items",
@@ -538,9 +537,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
           as: "orderedItems.itemDetails",
         },
       },
-      // {
-      //   $unwind: "$orderedItems.itemDetails",
-      // },
+      {
+        $unwind: "$orderedItems.itemDetails",
+      },
       {
         $lookup: {
           from: "Images",
@@ -550,9 +549,46 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
         },
       },
       {
-        $unwind: "$orderedItems.itemDetails.images",
+        $unwind: {
+          path: "$orderedItems.itemDetails.images",
+          preserveNullAndEmptyArrays: true // Preserve documents without images
+        }
       },
-     
+      {
+        $lookup: {
+          from: "Prices",
+          localField: "orderedItems.itemDetails._id",
+          foreignField: "itemId",
+          as: "orderedItems.itemDetails.price",
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderedItems.itemDetails.price",
+          preserveNullAndEmptyArrays: true // Preserve documents without price
+        }
+      },
+      {
+        $lookup: {
+          from: "Categories",
+          localField: "orderedItems.itemDetails.categoryId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails.category",
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderedItems.itemDetails.category",
+          preserveNullAndEmptyArrays: true // Preserve documents without category
+        }
+      },
+      {
+        $group: {
+          _id: "$_id",
+          orderStatus: { $first: "$orderStatus" },
+          orderedItems: { $push: "$orderedItems" }
+        }
+      },
     ]);
 
     return res.status(200).json({ success: true, data: orderData });
@@ -561,6 +597,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 module.exports = {
   placeOrder,
