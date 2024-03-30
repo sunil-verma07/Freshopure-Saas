@@ -18,11 +18,6 @@ const Addresses = require("../models/address.js");
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
-    const { vendorId } = req.body;
-
-    if (!vendorId) {
-      throw new Error("Vendor not found");
-    }
 
     const address = await Addresses.findOne({
       HotelId: hotelId,
@@ -37,41 +32,42 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
 
     if (cart_doc) {
-      const orderedItems = [];
-
+      const ordersByVendor = {}; // Object to store orders grouped by vendor
+      console.log(cart_doc, "cart");
       for (let item of cart_doc.cartItems) {
-        let itemSellPrice = await HotelItemPrice.findOne({
+        const vendorId = item.vendorId; // Assuming vendorId exists in cart item
+        if (!ordersByVendor[vendorId]) {
+          ordersByVendor[vendorId] = {
+            vendorId,
+            hotelId,
+            orderStatus,
+            address,
+            orderedItems: [],
+          };
+        }
+
+        const itemSellPrice = await HotelItemPrice.findOne({
           itemId: item.itemId,
+          vendorId: item.vendorId,
         });
 
         if (!itemSellPrice) {
           return res.status(404).json({ message: "Item is not linked" });
         }
-        orderedItems.push({
+
+        ordersByVendor[vendorId].orderedItems.push({
           itemId: item.itemId,
           price: itemSellPrice.todayCostPrice,
           quantity: item.quantity,
         });
       }
 
-      const currentDate = new Date();
-      const formattedDate = currentDate
-        .toISOString()
-        .substring(0, 10)
-        .replace(/-/g, "");
-      const randomNumber = Math.floor(Math.random() * 10000);
-      const orderNumber = `${formattedDate}-${randomNumber}`;
-
-      const order = new UserOrder({
-        vendorId,
-        hotelId,
-        orderNumber,
-        orderStatus,
-        address,
-        orderedItems,
-      });
-
-      await order.save();
+      const savedOrders = [];
+      for (const vendorId in ordersByVendor) {
+        const order = new UserOrder(ordersByVendor[vendorId]);
+        await order.save();
+        savedOrders.push(order);
+      }
 
       await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
 
