@@ -26,10 +26,10 @@ const addNewCategory = catchAsyncError(async (req, res, next) => {
     const createdBy = req.user._id;
     const isActive = true;
 
-    if (!name ) { 
+    if (!name) {
       throw new Error("Category Name is required.");
     }
-    if (!images ) { 
+    if (!images) {
       throw new Error("Category Image is required.");
     }
 
@@ -47,16 +47,11 @@ const addNewCategory = catchAsyncError(async (req, res, next) => {
       imagesReqBody.push(imageReqBody);
     }
 
-    const itemImageReqBody = {
-     
-      itemId: newItem._id,
-    };
-
     const category = new Category({
-      name:name,
+      name: name,
       img: imagesReqBody[0].imageLink,
-      createdBy:createdBy,
-      isActive:true,
+      createdBy: createdBy,
+      isActive: true,
     });
 
     await category.save();

@@ -24,12 +24,15 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       throw new Error("Vendor not found");
     }
 
-    const address = await Addresses.findOne({ HotelId: hotelId,selected:true });
+    const address = await Addresses.findOne({
+      HotelId: hotelId,
+      selected: true,
+    });
 
     if (!address) {
       throw new Error("Address not found");
     }
-    
+
     const orderStatus = "65cef0c27ebbb69ab54c55f4";
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
 
@@ -529,6 +532,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderStatus",
       },
+      {
+        $unwind: "$orderedItems",
+      },
 
       {
         $lookup: {
@@ -538,9 +544,11 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
           as: "orderedItems.itemDetails",
         },
       },
-      // {
-      //   $unwind: "$orderedItems.itemDetails",
-      // },
+
+      {
+        $unwind: "$orderedItems.itemDetails", // Unwind here to get all item details
+      },
+
       {
         $lookup: {
           from: "Images",
@@ -552,10 +560,23 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$orderedItems.itemDetails.images",
       },
-     
     ]);
 
-    return res.status(200).json({ success: true, data: orderData });
+    const processedData = {
+      _id: orderData[0]._id, // Assuming all objects in the response have the same _id
+      hotelId: orderData[0].hotelId,
+      vendorId: orderData[0].vendorId,
+      orderNumber: orderData[0].orderNumber,
+      isReviewed: orderData[0].isReviewed,
+      orderStatus: orderData[0].orderStatus,
+      address: orderData[0].address,
+      orderedItems: [],
+    };
+
+    for (const item of orderData) {
+      processedData.orderedItems.push(item.orderedItems);
+    }
+    return res.status(200).json({ success: true, data: processedData });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
