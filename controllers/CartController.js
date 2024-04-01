@@ -10,7 +10,7 @@ const Images = require("../models/image.js");
 
 const addItemToCart = catchAsyncError(async (req, res, next) => {
   try {
-    const { orderedItem } = req.body;
+    const { orderedItem} = req.body;
     const UserId = req.user._id;
 
     // const hotelPresent = await Cart.findOne({ UserId });
