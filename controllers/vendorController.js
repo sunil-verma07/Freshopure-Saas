@@ -63,7 +63,11 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
 
       await itemPresent.save();
 
-      res.status(200).json({ message: "Price updated successfully." });
+      const items = await getHotelItemsFunc(hotelId, vendorId);
+
+      res
+        .status(200)
+        .json({ message: "Price updated successfully.", data: items });
     }
   } catch (error) {
     console.log(error);
@@ -592,7 +596,7 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
     // Fetch items associated with the vendor and hotelId, populating the associated item's fields
     const itemList = await HotelItemPrice.aggregate(pipeline);
 
-    return res.json({ itemList });
+    return res.json({ data: itemList });
   } catch (error) {
     throw error;
   }
@@ -666,7 +670,13 @@ const updateStock = catchAsyncError(async (req, res, next) => {
     item.stocks = stocks;
     await item.save();
 
-    res.json({ message: "Stock updated successfully" });
+    const vendorStocks = await getVendorStockFunc(vendorId);
+    if (vendorStocks.length > 0) {
+      res.json({
+        message: "Stock updated successfully",
+        data: vendorStocks[0],
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -1001,7 +1011,14 @@ const addItemToStock = catchAsyncError(async (req, res, next) => {
       });
     }
 
-    res.json({ message: "Stock created successfully" });
+    const vendorStocks = await getVendorStockFunc(vendorId);
+
+    if (vendorStocks.length > 0) {
+      res.json({
+        message: "Stock updated successfully",
+        data: vendorStocks[0],
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -1057,7 +1074,7 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
     ]);
 
     if (stocks.length > 0) {
-      return res.json(stocks[0]); // Assuming each vendor has only one stock entry
+      return res.json({ data: stocks[0] }); // Assuming each vendor has only one stock entry
     } else {
       return res.status(404).json({ message: "Vendor stock not found!" });
     }
@@ -1096,10 +1113,13 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     // Save the changes to the database
     await stock.save();
 
-    // Return success response
-    return res
-      .status(200)
-      .json({ message: "Item removed from stock successfully." });
+    const vendorStocks = await getVendorStockFunc(vendorId);
+    if (vendorStocks.length > 0) {
+      res.json({
+        message: "Stock updated successfully",
+        data: vendorStocks[0],
+      });
+    }
   } catch (error) {
     // Handle errors
     next(error);
@@ -1130,8 +1150,10 @@ const deleteHotelItem = catchAsyncError(async (req, res, next) => {
     }
 
     await HotelItemPrice.deleteOne({ _id: item._id });
+
+    const itemList = await getHotelItemsFunc(hotelId, vendorId);
     // Send success response
-    res.json({ message: "Document deleted successfully" });
+    res.json({ message: "Document deleted successfully", data: itemList });
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
@@ -1164,9 +1186,9 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
 
     // Save the new document to the database
     await hotelItemPrice.save();
-
+    const itemList = await getHotelItemsFunc(hotelId, vendorId);
     // Send success response
-    res.json({ message: "Document added successfully", hotelItemPrice });
+    res.json({ message: "Document added successfully", data: itemList });
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
@@ -1307,6 +1329,104 @@ const getVendorCategories = catchAsyncError(async (req, res, next) => {
     return res.json({ message: "internal error!" });
   }
 });
+
+const getVendorStockFunc = async () => {
+  const pipeline = [
+    {
+      $match: { vendorId: new ObjectId(vendorId) },
+    },
+    {
+      $unwind: "$stocks",
+    },
+    {
+      $lookup: {
+        from: "Items",
+        localField: "stocks.itemId",
+        foreignField: "_id",
+        as: "itemDetails",
+      },
+    },
+    {
+      $unwind: "$itemDetails",
+    },
+    {
+      $lookup: {
+        from: "Images",
+        localField: "stocks.itemId",
+        foreignField: "itemId",
+        as: "images",
+      },
+    },
+    {
+      $unwind: "$images",
+    },
+    {
+      $addFields: {
+        "stocks.itemDetails": "$itemDetails",
+        "stocks.images": "$images",
+      },
+    },
+    {
+      $group: {
+        _id: "$_id",
+        vendorId: { $first: "$vendorId" },
+        stocks: { $push: "$stocks" },
+      },
+    },
+  ];
+
+  const stocks = await vendorStock.aggregate(pipeline);
+
+  return stocks;
+};
+
+const getHotelItemsFunc = async () => {
+  const pipeline = [
+    {
+      $match: {
+        vendorId: new ObjectId(vendorId),
+        hotelId: new ObjectId(HotelId),
+      },
+    },
+    {
+      $lookup: {
+        from: "Items",
+        localField: "itemId",
+        foreignField: "_id",
+        as: "items",
+      },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $lookup: {
+        from: "Images",
+        localField: "itemId",
+        foreignField: "itemId",
+        as: "items.image",
+      },
+    },
+    {
+      $unwind: "$items.image",
+    },
+    {
+      $lookup: {
+        from: "Category",
+        localField: "categoryId",
+        foreignField: "_id",
+        as: "items.category",
+      },
+    },
+    {
+      $unwind: "$items.category",
+    },
+  ];
+
+  const itemList = await HotelItemPrice.aggregate(pipeline);
+
+  return res.json({ itemList });
+};
 
 module.exports = {
   setHotelItemPrice,
