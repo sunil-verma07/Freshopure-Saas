@@ -79,7 +79,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    const orderData = await HotelVendorLink.aggregate([
+    console.log(vendorId)
+    const orderData = await UserOrder.aggregate([
       {
         $match: { vendorId: vendorId },
       },
@@ -96,30 +97,19 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "orders",
-          localField: "hotelId",
-          foreignField: "hotelId",
-          as: "hotelOrders",
-        },
-      },
-      {
-        $unwind: "$hotelOrders",
-      },
-      {
-        $lookup: {
           from: "orderstatuses",
-          localField: "hotelOrders.orderStatus",
+          localField: "orderStatus",
           foreignField: "_id",
-          as: "hotelOrders.orderStatuses",
+          as: "orderStatusDetails", //
         },
       },
       {
-        $unwind: "$hotelOrders.orderStatuses",
+        $unwind: "$orderStatusDetails", //
       },
       {
         $lookup: {
           from: "Items",
-          localField: "hotelOrders.orderedItems.itemId",
+          localField: "orderedItems.itemId",
           foreignField: "_id",
           as: "items",
         },
@@ -143,7 +133,14 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           orderData: { $first: "$hotelOrders" },
           orderedItems: {
             $push: {
-              $mergeObjects: ["$items", { images: "$images" }],
+              $mergeObjects: [
+                "$items",
+                { 
+                  images: "$images",
+                  price: "$orderedItems.price", // Assuming price is present in orderedItems
+                  quantity: "$orderedItems.quantity" // Assuming quantity is present in orderedItems
+                }
+              ],
             },
           },
         },
@@ -154,13 +151,15 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           hotelId: 1,
           hotelDetails: 1,
           orderData: 1,
-          orderedItems: 2,
+          orderedItems: 1,
         },
       },
     ]);
+    
+    
 
     res.status(200).json({
-      status: "success",
+      status: "success message",
       data: orderData,
     });
   } catch (error) {

@@ -19,6 +19,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
 
+    //order address
     const address = await Addresses.findOne({
       HotelId: hotelId,
       selected: true,
@@ -28,53 +29,73 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       throw new Error("Address not found");
     }
 
+    //order status
     const orderStatus = "65cef0c27ebbb69ab54c55f4";
+
+    //cart items
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
 
-    if (cart_doc) {
-      const ordersByVendor = {}; // Object to store orders grouped by vendor
-      console.log(cart_doc, "cart");
-      for (let item of cart_doc.cartItems) {
-        const vendorId = item.vendorId; // Assuming vendorId exists in cart item
-        if (!ordersByVendor[vendorId]) {
-          ordersByVendor[vendorId] = {
-            vendorId,
-            hotelId,
-            orderStatus,
-            address,
-            orderedItems: [],
-          };
-        }
+    const orders = {};
 
-        const itemSellPrice = await HotelItemPrice.findOne({
-          itemId: item.itemId,
-          vendorId: item.vendorId,
-        });
-
-        if (!itemSellPrice) {
-          return res.status(404).json({ message: "Item is not linked" });
-        }
-
-        ordersByVendor[vendorId].orderedItems.push({
-          itemId: item.itemId,
-          price: itemSellPrice.todayCostPrice,
-          quantity: item.quantity,
-        });
+    cart_doc?.cartItems?.forEach((item) => {
+      if (!orders[item.vendorId]) {
+        orders[item.vendorId] = [];
       }
+      orders[item.vendorId].push(item);
+    });
 
-      const savedOrders = [];
-      for (const vendorId in ordersByVendor) {
-        const order = new UserOrder(ordersByVendor[vendorId]);
+    for (const vendorId in orders) {
+      if (Object.hasOwnProperty.call(orders, vendorId)) {
+        const items = orders[vendorId];
+
+        //order Number
+        const currentDate = new Date();
+        const formattedDate = currentDate
+          .toISOString()
+          .substring(0, 10)
+          .replace(/-/g, "");
+        const randomNumber = Math.floor(Math.random() * 10000);
+        const orderNumber = `${formattedDate}-${randomNumber}`;
+
+        const order = new UserOrder({
+          vendorId,
+          hotelId,
+          orderNumber,
+          orderStatus,
+          address,
+          orderedItems: items,
+        });
+
         await order.save();
-        savedOrders.push(order);
       }
-
-      await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
-
-      res.status(200).json({ message: "Order Placed" });
-    } else {
-      res.status(404).json({ message: "Your Cart is empty" });
     }
+
+    res.status(200).json({ message: "Order Placed" });
+
+    // if (cart_doc) {
+    //   const orderedItems = [];
+
+    //   for (let item of cart_doc.cartItems) {
+    //     let itemSellPrice = await HotelItemPrice.findOne({
+    //       itemId: item.itemId,
+    //       vendorId: item.vendorId
+    //     });
+
+    //     if (!itemSellPrice) {
+    //       return res.status(404).json({ message: "Item is not linked" });
+    //     }
+    //     orderedItems.push({
+    //       itemId: item.itemId,
+    //       price: itemSellPrice.todayCostPrice,
+    //       quantity: item.quantity,
+    //     });
+    //   }
+
+    // await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
+
+    // } else {
+    //   res.status(404).json({ message: "Your Cart is empty" });
+    // }
   } catch (error) {
     console.log(error);
     if (error.message == "Both addressId and price are required fields.") {
@@ -529,10 +550,6 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
         $unwind: "$orderStatus",
       },
       {
-        $unwind: "$orderedItems",
-      },
-
-      {
         $lookup: {
           from: "Items",
           localField: "orderedItems.itemId",
@@ -540,11 +557,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
           as: "orderedItems.itemDetails",
         },
       },
-
       {
-        $unwind: "$orderedItems.itemDetails", // Unwind here to get all item details
+        $unwind: "$orderedItems.itemDetails",
       },
-
       {
         $lookup: {
           from: "Images",
@@ -556,6 +571,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       {
         $unwind: {
           path: "$orderedItems.itemDetails.images",
+          preserveNullAndEmptyArrays: true, // Preserve documents without images
         },
       },
       {
@@ -595,21 +611,7 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    const processedData = {
-      _id: orderData[0]._id, // Assuming all objects in the response have the same _id
-      hotelId: orderData[0].hotelId,
-      vendorId: orderData[0].vendorId,
-      orderNumber: orderData[0].orderNumber,
-      isReviewed: orderData[0].isReviewed,
-      orderStatus: orderData[0].orderStatus,
-      address: orderData[0].address,
-      orderedItems: [],
-    };
-
-    for (const item of orderData) {
-      processedData.orderedItems.push(item.orderedItems);
-    }
-    return res.status(200).json({ success: true, data: processedData });
+    return res.status(200).json({ success: true, data: orderData });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
