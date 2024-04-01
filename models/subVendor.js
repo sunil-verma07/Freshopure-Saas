@@ -9,10 +9,17 @@ const validatePhone = (phone) => {
 
 const subVendorSchema = new mongoose.Schema({
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  fullName: { type: String },
+  subVendorCode: {
+    type: String,
+    unique: true,
+    required: true,
+  },
+  fullName: {
+    type: String,
+    unique: true,
+  },
   phone: {
     type: Number,
-    unique: true,
     unique: true,
     trim: true,
     required: "Mobile Number is required",

@@ -14,6 +14,12 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
         .status(400)
         .json({ success: false, message: "Please enter all feilds properly!" });
     } else {
+      const generateCode = () => {
+        let num = Math.random() * 9000;
+        return "SV-" + Math.floor(num + 999);
+      };
+      const code = generateCode();
+
       const vendor = await SubVendor.findOne({ phone });
 
       if (vendor) {
@@ -23,10 +29,13 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
       } else {
         const newVendor = await SubVendor.create({
           vendorId: new Object(vendorId),
+          subVendorCode: code,
           fullName,
           phone,
         });
-        res.status(200).json({ message: "New Vendor Added!" });
+
+        const data = await SubVendor.find({ vendorId: vendorId });
+        res.status(200).json({ message: "New Vendor Added!", data: data });
       }
     }
   } catch (error) {
@@ -38,7 +47,7 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
 const removeVendor = catchAsyncErrors(async (req, res, next) => {
   try {
     const { vendorId } = req.body; // Assuming vendorId is provided in the request parameters
-
+    const user = req.user._id;
     // Check if vendorId is provided
     if (!vendorId) {
       return res
@@ -54,8 +63,12 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
     // Check if vendor was found and removed
     if (removedVendor) {
       await SubVendor.deleteOne({ _id: vendorId });
+
+      const data = await SubVendor.find({ vendorId: user });
+
       res.status(200).json({
         success: true,
+        data: data,
         message: "Vendor removed successfully",
       });
     } else {
@@ -73,7 +86,6 @@ const removeVendor = catchAsyncErrors(async (req, res, next) => {
 const addItemToVendor = async (req, res) => {
   try {
     const { vendorId, itemIds } = req.body;
-    const subvendorId = req.body._id;
 
     // Check if vendorId and itemIds are provided
     if (!vendorId || !itemIds) {
@@ -103,9 +115,13 @@ const addItemToVendor = async (req, res) => {
           { $set: { assignedItems: items } }
         );
 
-        const AssignedItems = await getSubVendorItemsFunc(subvendorId)
+        const AssignedItems = await getSubVendorItemsFunc(vendorId);
 
-        res.status(200).json({ message: "Items assigned to Sub Vendor",items:AssignedItems });
+        console.log(AssignedItems, "sv Cont");
+        res.status(200).json({
+          message: "Items assigned to Sub Vendor",
+          items: AssignedItems,
+        });
       } else {
         res.status(400).json({ error: "Item already added" });
       }
@@ -121,7 +137,6 @@ const addItemToVendor = async (req, res) => {
 const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
   try {
     const { _id, itemIds } = req.body;
-    const subvendorId = req.body._id;
 
     // Check if vendorId and itemIds are provided
     if (!_id || !itemIds) {
@@ -138,8 +153,7 @@ const removeItemsFromVendor = catchAsyncErrors(async (req, res, next) => {
       { new: true }
     );
 
-    const AssignedItems = await getSubVendorItemsFunc(subvendorId)
-
+    const AssignedItems = await getSubVendorItemsFunc(_id);
 
     // Check if vendor was found and updated
     if (updatedVendor) {
@@ -164,7 +178,7 @@ const getSubVendorItems = catchAsyncErrors(async (req, res, next) => {
   try {
     const subvendorId = req.body._id;
 
-    const AssignedItems = await getSubVendorItemsFunc(subvendorId)
+    const AssignedItems = await getSubVendorItemsFunc(subvendorId);
 
     if (AssignedItems) {
       res.status(200).json({
@@ -239,8 +253,7 @@ const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-
-const getSubVendorItemsFunc = async(subvendorId)=>{
+const getSubVendorItemsFunc = async (subvendorId) => {
   const pipeline = [
     {
       $match: {
@@ -276,8 +289,8 @@ const getSubVendorItemsFunc = async(subvendorId)=>{
 
   const AssignedItems = await SubVendor.aggregate(pipeline);
 
-  return AssignedItems
-}
+  return AssignedItems;
+};
 
 module.exports = {
   addVendor,
