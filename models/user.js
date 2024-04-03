@@ -52,6 +52,10 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isProfileComplete: {
+    type: Boolean,
+    default: false,
+  },
   isReviewed: {
     type: Boolean,
     default: false,

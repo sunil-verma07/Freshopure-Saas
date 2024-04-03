@@ -8,6 +8,11 @@ const imageService = require("../services/imageService");
 router.post("/login", usercontroller.login);
 router.post("/register", usercontroller.register);
 router.get("/profile", authMiddleware, usercontroller.myProfile);
+router.post(
+  "/emailverification",
+  authMiddleware,
+  usercontroller.emailVerification
+);
 router.get("/logout", authMiddleware, usercontroller.logout);
 router.post(
   "/setprofileimage",
@@ -16,5 +21,10 @@ router.post(
   usercontroller.setProfileImage
 );
 router.post("/setprofile", authMiddleware, usercontroller.setProfile);
+router.post(
+  "/updateUserDetails",
+  authMiddleware,
+  usercontroller.userDetailUpdate
+);
 
 module.exports = router;

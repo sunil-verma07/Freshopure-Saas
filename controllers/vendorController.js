@@ -79,11 +79,12 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    console.log(vendorId)
+    console.log(vendorId);
     const orderData = await UserOrder.aggregate([
       {
         $match: { vendorId: vendorId },
       },
+
       {
         $lookup: {
           from: "Users",
@@ -128,18 +129,19 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       {
         $group: {
           _id: "$hotelOrders._id",
+          address: { $first: "$address" },
           hotelId: { $first: "$hotelId" },
+          orderNumber: { $first: "$orderNumber" },
           hotelDetails: { $first: "$hotelDetails" },
-          orderData: { $first: "$hotelOrders" },
           orderedItems: {
             $push: {
               $mergeObjects: [
                 "$items",
-                { 
+                {
                   images: "$images",
                   price: "$orderedItems.price", // Assuming price is present in orderedItems
-                  quantity: "$orderedItems.quantity" // Assuming quantity is present in orderedItems
-                }
+                  quantity: "$orderedItems.quantity", // Assuming quantity is present in orderedItems
+                },
               ],
             },
           },
@@ -148,6 +150,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       {
         $project: {
           _id: 0,
+          address: 1,
+          orderNumber: 1,
           hotelId: 1,
           hotelDetails: 1,
           orderData: 1,
@@ -155,8 +159,6 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
         },
       },
     ]);
-    
-    
 
     res.status(200).json({
       status: "success message",
