@@ -147,6 +147,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           orderNumber: { $first: "$orderNumber" },
           hotelDetails: { $first: "$hotelDetails" },
           // orderData: { $first: "$$ROOT" },
+          orderStatusDetails:{ $first : "$orderStatusDetails"},
+
           orderedItems: {
             $push: {
               $mergeObjects: [
@@ -170,6 +172,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           totalPrice:1,
           address:1,
           createdAt:1,
+          orderStatusDetails:1,
           updatedAt:1,
           // orderData: 1,
           orderedItems: 1
