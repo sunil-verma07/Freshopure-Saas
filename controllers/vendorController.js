@@ -79,93 +79,108 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    console.log(vendorId)
     const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId },
+        $match: { vendorId: vendorId }
       },
       {
         $lookup: {
           from: "Users",
           localField: "hotelId",
           foreignField: "_id",
-          as: "hotelDetails",
-        },
+          as: "hotelDetails"
+        }
       },
       {
-        $unwind: "$hotelDetails",
+        $unwind: "$hotelDetails"
       },
       {
         $lookup: {
           from: "orderstatuses",
           localField: "orderStatus",
           foreignField: "_id",
-          as: "orderStatusDetails", //
-        },
+          as: "orderStatusDetails"
+        }
       },
       {
-        $unwind: "$orderStatusDetails", //
+        $unwind: "$orderStatusDetails"
+      },
+      {
+        $unwind: "$orderedItems" // Unwind orderedItems array
       },
       {
         $lookup: {
           from: "Items",
           localField: "orderedItems.itemId",
           foreignField: "_id",
-          as: "items",
-        },
+          as: "itemDetails"
+        }
       },
       {
-        $unwind: "$items",
+        $unwind: "$itemDetails"
       },
       {
         $lookup: {
           from: "Images",
-          localField: "items._id",
+          localField: "itemDetails._id",
           foreignField: "itemId",
-          as: "images",
-        },
+          as: "images"
+        }
+      },
+      {
+        $unwind: "$images"
       },
       {
         $group: {
-          _id: "$hotelOrders._id",
+          _id: {
+            orderId: "$_id"
+          },
+          orderNumber:{$first: "$orderNumber"},
+          isReviewed:{$first: "$isReviewed"},
+          totalPrice:{$first: "$totalPrice"},
+          address:{$first: "$address"},
+          createdAt:{$first: "$createdAt"},
+          updatedAt:{$first: "$updatedAt"},
           hotelId: { $first: "$hotelId" },
           hotelDetails: { $first: "$hotelDetails" },
-          orderData: { $first: "$hotelOrders" },
+          // orderData: { $first: "$$ROOT" },
           orderedItems: {
             $push: {
               $mergeObjects: [
-                "$items",
-                { 
-                  images: "$images",
-                  price: "$orderedItems.price", // Assuming price is present in orderedItems
-                  quantity: "$orderedItems.quantity" // Assuming quantity is present in orderedItems
-                }
-              ],
-            },
-          },
-        },
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" }
+              ]
+            }
+          }
+        }
       },
       {
         $project: {
           _id: 0,
           hotelId: 1,
           hotelDetails: 1,
-          orderData: 1,
-          orderedItems: 1,
-        },
-      },
+          orderNumber:1,
+          isReviewed:1,
+          totalPrice:1,
+          address:1,
+          createdAt:1,
+          updatedAt:1,
+          // orderData: 1,
+          orderedItems: 1
+        }
+      }
     ]);
-    
-    
 
     res.status(200).json({
       status: "success message",
-      data: orderData,
+      data: orderData
     });
   } catch (error) {
     next(error);
   }
 });
+
 
 const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   try {
@@ -225,114 +240,69 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
 });
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
+
+  const vendorId = req.user._id;
+  const today = new Date(); // Assuming you have today's date
+  today.setHours(0, 0, 0, 0); // Set time to the start of the day
+  
   try {
-    const vendorId = req.user._id;
-
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const orderData = await HotelVendorLink.aggregate([
+    const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId },
-      },
-      // {
-      //   $lookup: {
-      //     from: "Users",
-      //     localField: "hotelId",
-      //     foreignField: "_id",
-      //     as: "hotelDetails",
-      //   },
-      // },
-      // {
-      //   $unwind: "$hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
-      // },
-      {
-        $lookup: {
-          from: "orders",
-          let: { hotelId: "$hotelId" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$hotelId", "$$hotelId"] },
-                    { $gte: ["$createdAt", today] }, // Filter orders for today
-                  ],
-                },
-              },
-            },
-          ],
-          as: "hotelOrders",
-        },
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: today } // Filter orders for today
+        }
       },
       {
-        $unwind: "$hotelOrders",
-      },
-      {
-        $lookup: {
-          from: "Users",
-          localField: "hotelId",
-          foreignField: "_id",
-          as: "hotelOrders.hotelDetails",
-        },
-      },
-      {
-        $unwind: "$hotelOrders.hotelDetails", // Unwind hotel details (optional, if hotelDetails is usually a single document)
-      },
-      {
-        $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
+        $unwind: "$orderedItems" // Unwind orderedItems array
       },
       {
         $group: {
-          _id: "$hotelOrders.orderedItems.itemId",
+          _id: "$orderedItems.itemId",
           totalQuantityOrderedGrams: {
             $sum: {
               $add: [
-                { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
-                "$hotelOrders.orderedItems.quantity.gram", // Add grams
-              ],
-            },
+                { $multiply: ["$orderedItems.quantity.kg", 1000] }, // Convert kg to grams
+                "$orderedItems.quantity.gram" // Add grams
+              ]
+            }
           }, // Total quantity ordered in grams
-          itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
-
-          hotelOrders: { $push: "$hotelOrders" },
-        },
+          itemDetails: { $first: "$orderedItems" }, // Take item details from the first document
+          hotelOrders: { $push: "$$ROOT" }
+        }
       },
       {
         $lookup: {
           from: "Items",
           localField: "_id",
           foreignField: "_id",
-          as: "itemDetails",
-        },
+          as: "itemDetails"
+        }
       },
       {
         $lookup: {
           from: "Images",
           localField: "_id",
           foreignField: "itemId",
-          as: "itemImages",
-        },
+          as: "itemImages"
+        }
       },
       {
         $project: {
           _id: 0,
           totalQuantityOrdered: {
             kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
-            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
+            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] } // Calculate remaining grams
           }, // Total quantity ordered in kg and grams
           itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
           itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
-
-          hotelOrders: "$hotelOrders",
-        },
-      },
+        }
+      }
     ]);
-
+  
     res.status(200).json({
       status: "success",
-      data: orderData,
+      data: orderData
     });
   } catch (error) {
     next(error);

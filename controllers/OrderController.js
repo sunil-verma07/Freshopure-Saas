@@ -37,12 +37,36 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     const orders = {};
 
-    cart_doc?.cartItems?.forEach((item) => {
+    let totalOrderPrice = 0;
+
+
+    for (let item of cart_doc?.cartItems) {
+    
+      const itemPrice = await HotelItemPrice.findOne({ vendorId: item.vendorId, itemId: item.itemId, hotelId: hotelId });
+    
+      if (!itemPrice) {
+        console.log('Hotel item price not found for item:', item);
+        continue;
+      }
+
+      const updatedItem = {
+        vendorId : item.vendorId,
+        itemId: item.itemId,
+        quantity:item.quantity,
+        price:itemPrice?.todayCostPrice,
+      }
+
+    
+    
       if (!orders[item.vendorId]) {
         orders[item.vendorId] = [];
       }
-      orders[item.vendorId].push(item);
-    });
+      orders[item.vendorId].push(updatedItem);
+    }
+    
+    // console.log(totalOrderPrice,'cost')
+
+
 
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
@@ -57,11 +81,20 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         const randomNumber = Math.floor(Math.random() * 10000);
         const orderNumber = `${formattedDate}-${randomNumber}`;
 
+
+        let totalPrice = 0;
+        items.forEach(item => {
+          const totalGrams = (item.quantity.kg * 1000) + item.quantity.gram; // Convert kg to grams and add the gram value
+          totalPrice = totalPrice + totalGrams * item.price/1000; // Multiply total grams with price and store in totalPrice field
+        });
+
+
         const order = new UserOrder({
           vendorId,
           hotelId,
           orderNumber,
           orderStatus,
+          totalPrice,
           address,
           orderedItems: items,
         });
@@ -70,32 +103,13 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       }
     }
 
-    res.status(200).json({ message: "Order Placed" });
+        await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
 
-    // if (cart_doc) {
-    //   const orderedItems = [];
+    res.status(200).json({ message: "Order Placed" ,orders});
 
-    //   for (let item of cart_doc.cartItems) {
-    //     let itemSellPrice = await HotelItemPrice.findOne({
-    //       itemId: item.itemId,
-    //       vendorId: item.vendorId
-    //     });
 
-    //     if (!itemSellPrice) {
-    //       return res.status(404).json({ message: "Item is not linked" });
-    //     }
-    //     orderedItems.push({
-    //       itemId: item.itemId,
-    //       price: itemSellPrice.todayCostPrice,
-    //       quantity: item.quantity,
-    //     });
-    //   }
 
-    // await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
-
-    // } else {
-    //   res.status(404).json({ message: "Your Cart is empty" });
-    // }
+   
   } catch (error) {
     console.log(error);
     if (error.message == "Both addressId and price are required fields.") {
@@ -108,61 +122,106 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
-    const vendorId = req.body;
+
     const orderData = await UserOrder.aggregate([
       {
-        $match: { hotelId: hotelId, vendorId },
+        $match: { hotelId: hotelId }
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails"
+        }
+      },
+      {
+        $unwind: "$vendorDetails"
       },
       {
         $lookup: {
           from: "orderstatuses",
           localField: "orderStatus",
           foreignField: "_id",
-          as: "orderStatuses",
-        },
+          as: "orderStatusDetails"
+        }
       },
       {
-        $unwind: "$orderStatuses",
+        $unwind: "$orderStatusDetails"
+      },
+      {
+        $unwind: "$orderedItems" // Unwind orderedItems array
       },
       {
         $lookup: {
           from: "Items",
           localField: "orderedItems.itemId",
           foreignField: "_id",
-          as: "orderedItems.itemDetails",
-        },
+          as: "itemDetails"
+        }
       },
       {
-        $unwind: "$orderedItems.itemDetails",
+        $unwind: "$itemDetails"
       },
       {
         $lookup: {
           from: "Images",
-          localField: "orderedItems.itemDetails._id",
+          localField: "itemDetails._id",
           foreignField: "itemId",
-          as: "orderedItems.itemDetails.images",
-        },
+          as: "images"
+        }
       },
       {
-        $unwind: "$orderedItems.itemDetails.images",
+        $unwind: "$images"
       },
       {
         $group: {
-          _id: "$_id",
+          _id: {
+            orderId: "$_id"
+          },
+          orderNumber:{$first: "$orderNumber"},
+          isReviewed:{$first: "$isReviewed"},
+          totalPrice:{$first: "$totalPrice"},
+          address:{$first: "$address"},
+          createdAt:{$first: "$createdAt"},
+          updatedAt:{$first: "$updatedAt"},
           hotelId: { $first: "$hotelId" },
-          orderNumber: { $first: "$orderNumber" },
-          isReviewed: { $first: "$isReviewed" },
-          orderStatuses: { $first: "$orderStatuses" },
-          orderedItems: { $push: "$orderedItems" },
-          isItemAdded: { $first: "$isItemAdded" },
-          createdAt: { $first: "$createdAt" },
-          updatedAt: { $first: "$updatedAt" },
-        },
+          vendorDetails: { $first: "$vendorDetails" },
+          // orderData: { $first: "$$ROOT" },
+          orderedItems: {
+            $push: {
+              $mergeObjects: [
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" }
+              ]
+            }
+          }
+        }
       },
+      {
+        $project: {
+          _id: 0,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderNumber:1,
+          isReviewed:1,
+          totalPrice:1,
+          address:1,
+          createdAt:1,
+          updatedAt:1,
+          // orderData: 1,
+          orderedItems: 1
+        }
+      }
     ]);
-    res.status(200).json({ orderData });
+
+    res.status(200).json({
+      status: "success message",
+      data: orderData
+    });
   } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
+    next(error);
   }
 });
 
