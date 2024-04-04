@@ -255,6 +255,38 @@ const setProfileImage = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const userDetailUpdate = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const { fullName, organization, phone, email } = req.body;
+    const userId = req.user._id;
+
+    if (!fullName || !organization || !phone || !email) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Please enter all fields properly!" });
+    } else {
+      const user = await User.findOne({ _id: userId });
+
+      if (user) {
+        user.fullName = fullName;
+        user.organization = organization;
+        user.phone = phone;
+        user.email = email;
+
+        await user.save();
+
+        return res.json({ message: "User Details Updated" });
+      } else {
+        return res
+          .status(400)
+          .json({ success: false, error: "Can't Update User Details!" });
+      }
+    }
+  } catch (err) {
+    return res.status(400).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = {
   login,
   register,
@@ -263,4 +295,5 @@ module.exports = {
   logout,
   setProfile,
   setProfileImage,
+  userDetailUpdate,
 };

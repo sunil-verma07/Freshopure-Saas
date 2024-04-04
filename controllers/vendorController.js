@@ -79,10 +79,12 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
+
     const orderData = await UserOrder.aggregate([
       {
         $match: { vendorId: vendorId }
       },
+
       {
         $lookup: {
           from: "Users",
@@ -142,6 +144,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt:{$first: "$createdAt"},
           updatedAt:{$first: "$updatedAt"},
           hotelId: { $first: "$hotelId" },
+          orderNumber: { $first: "$orderNumber" },
           hotelDetails: { $first: "$hotelDetails" },
           // orderData: { $first: "$$ROOT" },
           orderedItems: {
@@ -158,6 +161,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       {
         $project: {
           _id: 0,
+          address: 1,
+          orderNumber: 1,
           hotelId: 1,
           hotelDetails: 1,
           orderNumber:1,
@@ -984,7 +989,7 @@ const addItemToStock = catchAsyncError(async (req, res, next) => {
 
     if (vendorStocks.length > 0) {
       res.json({
-        message: "Stock updated successfully",
+        message: "Stock added successfully",
         data: vendorStocks[0],
       });
     }
@@ -1085,7 +1090,7 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     const vendorStocks = await getVendorStockFunc(vendorId);
     if (vendorStocks.length > 0) {
       res.json({
-        message: "Stock updated successfully",
+        message: "Stock deleted successfully",
         data: vendorStocks[0],
       });
     }
@@ -1138,8 +1143,7 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
     // Validate required fields
     if (!vendorId || !hotelId || !itemId || !categoryId) {
       return res.status(400).json({
-        message:
-          "vendorId, hotelId, itemId, categoryId, and todayCostPrice are required fields",
+        message: "vendorId, hotelId, itemId and categoryId are required fields",
       });
     }
 
@@ -1155,7 +1159,10 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
 
     // Save the new document to the database
     await hotelItemPrice.save();
-    const itemList = await getHotelItemsFunc(hotelId, vendorId);
+    const itemList = await getHotelItemsFunc({
+      HotelId: hotelId,
+      vendorId: vendorId,
+    });
     // Send success response
     res.json({ message: "Document added successfully", data: itemList });
   } catch (error) {
@@ -1299,7 +1306,7 @@ const getVendorCategories = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const getVendorStockFunc = async () => {
+const getVendorStockFunc = async (vendorId) => {
   const pipeline = [
     {
       $match: { vendorId: new ObjectId(vendorId) },
@@ -1349,7 +1356,7 @@ const getVendorStockFunc = async () => {
   return stocks;
 };
 
-const getHotelItemsFunc = async () => {
+const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
   const pipeline = [
     {
       $match: {
@@ -1394,7 +1401,7 @@ const getHotelItemsFunc = async () => {
 
   const itemList = await HotelItemPrice.aggregate(pipeline);
 
-  return res.json({ itemList });
+  return itemList;
 };
 
 module.exports = {
@@ -1409,7 +1416,6 @@ module.exports = {
   getAllOrdersbyHotel,
   generateInvoice,
   updateStock,
-  addItemToStock,
   addItemToStock,
   getVendorStocks,
   deleteItemFromStock,
