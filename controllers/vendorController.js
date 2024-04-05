@@ -1482,30 +1482,11 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
           from: "Images",
           localField: "items.itemId",
           foreignField: "itemId",
-          as: "images",
+          as: "items.images",
         },
       },
       {
-        $unwind: "$images",
-      },
-      {
-        $group: {
-          _id: "$items.itemId",
-          todayCostPrice: {
-            $first: "$items.todayCostPrice", // Use $first to keep the first value
-          },
-          Items: {
-            $push: {
-              $mergeObjects: [
-                "$items",
-                {
-                  itemDetails: "$itemDetails",
-                  images: "$images",
-                },
-              ],
-            },
-          },
-        },
+        $unwind: "$items.images",
       },
     ]);
 
@@ -1513,12 +1494,10 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
       return res.json({ message: "Vendor not found" });
     }
 
-    const vendorItems = vendor.map((item) => item.Items); // assuming each item in vendor has an Items array
-
     // Send success response with vendor items
     res.json({
       message: "Vendor items retrieved successfully",
-      data: vendorItems,
+      data: vendor,
     });
   } catch (error) {
     // Pass any errors to the error handling middleware
@@ -1587,30 +1566,11 @@ const getVendorItemsFunc = async (vendorId) => {
         from: "Images",
         localField: "items.itemId",
         foreignField: "itemId",
-        as: "images",
+        as: "items.images",
       },
     },
     {
-      $unwind: "$images",
-    },
-    {
-      $group: {
-        _id: "$items.itemId",
-        todayCostPrice: {
-          $first: "$items.todayCostPrice", // Use $first to keep the first value
-        },
-        Items: {
-          $push: {
-            $mergeObjects: [
-              "$items",
-              {
-                itemDetails: "$itemDetails",
-                images: "$images",
-              },
-            ],
-          },
-        },
-      },
+      $unwind: "$items.images",
     },
   ];
 
