@@ -14,6 +14,8 @@ const Address = require("../models/address.js");
 const UserItems = db.collection("UserItems");
 const HotelItemPrice = require("../models/hotelItemPrice.js");
 const Addresses = require("../models/address.js");
+const category = require("../models/category.js");
+const item = require("../models/item.js");
 
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
@@ -37,10 +39,34 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     const orders = {};
 
-    cart_doc?.cartItems?.forEach((item) => {
+    cart_doc?.cartItems?.forEach(async (item) => {
+      console.log(item, "i");
+      const itemPrice = await HotelItemPrice.findOne({
+        vendorId: item.vendorId,
+        hotelId: hotelId,
+        itemId: item.itemId,
+      });
+
+      if (!itemPrice) {
+        console.log(
+          `Item '${item.itemId}' linked to vendor '${item.vendorId}' not found in HotelItemPrice. Skipping this item.`
+        );
+        return; // Skip this item if no price found
+      }
+
+      // Create a new item object with price
+      // const updatedItem = {
+      //   ...item,
+      //   price: Number(itemPrice.todayCostPrice), // Ensure price is a number
+      // };
+
+      item["price"] = itemPrice.todayCostPrice;
+      console.log(item, "item");
+
       if (!orders[item.vendorId]) {
         orders[item.vendorId] = [];
       }
+
       orders[item.vendorId].push(item);
     });
 
@@ -66,7 +92,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
-        await order.save();
+        // await order.save();
       }
     }
 
@@ -216,269 +242,6 @@ const orderAgain = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const orderAnalytics = catchAsyncError(async (req, res, next) => {
-  try {
-    const UserId = req.hotel._id;
-    const { duration } = req.body;
-
-    if (!duration) {
-      throw new Error("duration is required fields.");
-    }
-    let orders = {};
-    if (duration === "today") {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      orders.orders = await UserOrder.find({
-        createdAt: { $gte: today },
-      }).toArray();
-    }
-    if (duration === "week") {
-      const today = new Date();
-      const WeeksAgo = new Date(today);
-      WeeksAgo.setDate(today.getDate() - 7);
-      orders.orders = await UserOrder.find({
-        createdAt: { $gte: WeeksAgo },
-      }).toArray();
-    }
-    if (duration === "month") {
-      const today = new Date();
-      const MonthAgo = new Date(today);
-      MonthAgo.setDate(today.getMonth() - 1);
-      orders.orders = await UserOrder.find({
-        createdAt: { $gte: MonthAgo },
-      }).toArray();
-    }
-    if (duration === "year") {
-      const today = new Date();
-      const oneYearAgo = new Date(today);
-      oneYearAgo.setFullYear(today.getFullYear() - 1);
-
-      orders.orders = await UserOrder.find({
-        createdAt: { $gte: oneYearAgo },
-      }).toArray();
-    }
-
-    const orderAnalytics = {
-      totalSpent: 0,
-      catagory: [
-        {
-          LocalVegetables: 0,
-        },
-        {
-          LocalImportedFruits: 0,
-        },
-        {
-          LocalExoticFruits: 0,
-        },
-      ],
-    };
-    for (let order of orders.orders) {
-      orderAnalytics.totalSpent += order.totalPrice;
-      for (let item of order.orderedItems) {
-        const items = await Items.findOne({ _id: item.itemId });
-        if (items?.category == "Local Vegetables") {
-          orderAnalytics.catagory[0].LocalVegetables += 1;
-        } else if (items?.category == "Local & Imported Fruits") {
-          orderAnalytics.catagory[1].LocalImportedFruits += 1;
-        } else if (items?.category == "Local & Exotic Fruits") {
-          orderAnalytics.catagory[2].LocalExoticFruits += 1;
-        } else {
-        }
-      }
-    }
-    res.status(200).json(orderAnalytics);
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-const orderPriceAnalytics = catchAsyncError(async (req, res, next) => {
-  try {
-    const UserId = req.hotel._id;
-    const { duration } = req.body;
-
-    if (!duration) {
-      throw new Error("duration is required fields.");
-    }
-
-    if (duration === "sixmonths") {
-      const monthsArray = [];
-      const today = new Date();
-      today.setMonth(today.getMonth() - 6);
-      let currentDate = new Date(today);
-
-      while (currentDate < new Date()) {
-        const monthName = new Date(currentDate).toLocaleDateString("en-US", {
-          month: "short",
-        });
-        monthsArray.push({
-          month: monthName, // Months are zero-based in JavaScript
-        });
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      }
-
-      const orders = await UserOrder.find({
-        createdAt: { $gte: today },
-        UserId: UserId,
-      }).toArray();
-
-      const monthlyTotal = new Map(
-        monthsArray.map((month) => [month.month, 0])
-      );
-
-      // Calculate the total price for each month
-      orders.forEach((order) => {
-        // const month = order.createdAt.getMonth() + 1; // Months are zero-based in JavaScript
-        const monthName = order.createdAt.toLocaleDateString("en-US", {
-          month: "short",
-        });
-        monthlyTotal.set(
-          monthName,
-          monthlyTotal.get(monthName) + order.totalPrice
-        );
-      });
-
-      // Convert the map to an array of objects
-      const result = Array.from(monthlyTotal, ([month, totalPrice]) => ({
-        day: month,
-        totalPrice: totalPrice,
-      }));
-      res.status(200).json(result);
-    } else if (duration === "month") {
-      const today = new Date();
-      today.setDate(today.getDate() - 30);
-      // Calculate the sum of totalPrice field for orders created in the last 6 months
-      const daysArray = [];
-
-      let currentDate = new Date(today);
-      while (currentDate <= new Date()) {
-        daysArray.push({
-          day: currentDate.getDate(),
-        });
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      const orders = await UserOrder.find({
-        createdAt: { $gte: today },
-        UserId: UserId,
-      }).toArray();
-
-      const dailyTotal = new Map(daysArray.map((day) => [day.day, 0]));
-
-      // Calculate the total price for each day
-      orders.forEach((order) => {
-        const day = order.createdAt.getDate();
-        dailyTotal.set(day, dailyTotal.get(day) + order.totalPrice);
-      });
-
-      // Convert the map to an array of objects
-      const result = Array.from(dailyTotal, ([day, totalPrice]) => ({
-        day: parseInt(day),
-        totalPrice: totalPrice,
-      }));
-
-      res.status(200).json(result);
-    } else if (duration === "week") {
-      const today = new Date();
-      today.setDate(today.getDate() - 7);
-      // Calculate the sum of totalPrice field for orders created in the last 6 months
-
-      const daysArray = [];
-
-      let currentDate = new Date(today);
-      while (currentDate <= new Date()) {
-        const dayName = currentDate.toLocaleDateString("en-US", {
-          weekday: "short",
-        });
-        daysArray.push({
-          day: dayName,
-        });
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      const orders = await UserOrder.find({
-        createdAt: { $gte: today },
-        UserId: UserId,
-      }).toArray();
-
-      const dailyTotal = new Map(daysArray.map((day) => [day.day, 0]));
-
-      // Calculate the total price for each day
-      orders.forEach((order) => {
-        const dayName = order.createdAt.toLocaleDateString("en-US", {
-          weekday: "short",
-        });
-        dailyTotal.set(dayName, dailyTotal.get(dayName) + order.totalPrice);
-      });
-
-      // Convert the map to an array of objects
-      const result = Array.from(dailyTotal, ([day, totalPrice]) => ({
-        day: day,
-        totalPrice: totalPrice,
-      }));
-
-      res.status(200).json(result);
-    } else {
-      throw new Error("Invalid Input");
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-const itemAnalyticsForHotel = catchAsyncError(async (req, res, next) => {
-  try {
-    const UserId = req.hotel._id;
-    const { itemId } = req.body;
-
-    if (!itemId) {
-      throw new Error("itemId is required fields.");
-    }
-
-    // const data =null;
-    async function callApi(UserId, itemId, callback) {
-      const reqBody = {
-        UserId: UserId,
-        itemId: itemId,
-      };
-      fetch(
-        `https://ap-south-1.aws.data.mongodb-api.com/app/letusfarm-fuadi/endpoint/itemAnalyticsForHotel?secret=alwaysShine`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // 'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: JSON.stringify(reqBody),
-        }
-      )
-        .then(function (response) {
-          return response.json();
-        })
-        .then(function (data) {
-          // console.log('Request succeeded with JSON response', data);
-          return callback(null, data);
-        })
-        .catch(function (error) {
-          console.log("Request failed", error);
-          return callback(error);
-        });
-    }
-
-    callApi(UserId, itemId, function (error, data) {
-      if (error) {
-        throw new Error(error);
-      } else {
-        return res.status(200).json({ success: true, data: data });
-      }
-    });
-
-    // res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
   try {
     const UserId = req.hotel._id;
@@ -622,9 +385,6 @@ module.exports = {
   placeOrder,
   orderHistory,
   orderAgain,
-  orderAnalytics,
-  orderPriceAnalytics,
-  itemAnalyticsForHotel,
   compiledOrderForHotel,
   orderDetails,
   allHotelOrders,
