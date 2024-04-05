@@ -9,6 +9,12 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.setHotelItemPrice
 );
+router.post(
+  "/orderAnalytics",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorOrderAnalytics
+);
+
 router.get(
   "/orderhistory",
   authMiddleware.authMiddleware,

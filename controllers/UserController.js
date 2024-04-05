@@ -11,6 +11,7 @@ const Role = require("../models/role.js");
 const Address = require("../models/address.js");
 const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../services/encryptionServices");
+
 const {
   sendEmailVerification,
   checkVerification,
@@ -25,7 +26,7 @@ const register = catchAsyncErrors(async (req, res, next) => {
     if (!organization || !fullName || !email || !password || !phone || !role) {
       return res
         .status(400)
-        .json({ success: false, message: "Please enter all feilds properly!" });
+        .json({ success: false, message: "Please enter all fields properly!" });
     } else {
       const user = await User.findOne({ email: email }).select("+password");
 
@@ -131,17 +132,17 @@ const login = catchAsyncErrors(async (req, res, next) => {
           .status(401)
           .json({ success: false, error: "Invalid credentials" });
       } else {
-        // if(!user.isEmailVerified){
-        //     sendEmailVerification(email,function(error){
-        //         if(error){
-        //             return res.status(500).json({success:false,error:error})
-        //         }else{
-        //             res.status(200).json({success:true,user:user})
-        //         }
-        //     })
-        // }else{
+        if(!user.isEmailVerified){
+            sendEmailVerification(email,function(error){
+                if(error){
+                    return res.status(500).json({success:false,error:error})
+                }else{
+                    res.status(200).json({success:true,user:user})
+                }
+            })
+        }else{
         return sendToken(user, 200, res);
-        // }
+        }
       }
     }
   }
