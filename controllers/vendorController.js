@@ -1404,7 +1404,6 @@ const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
   return itemList;
 };
 
-<<<<<<< HEAD
 const addVendorItem = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId } = req.body;
@@ -1652,6 +1651,190 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  const { duration } = req.body;
+
+  const today = new Date();
+  async function getLastWeekData() {
+    const result = [];
+    const weekEnd = new Date(today);
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - 6); // Get the date of 7 days ago
+
+    // Find orders within the last 7 days
+    const orders = await UserOrder.find({
+      vendorId: vendorId,
+      createdAt: { $gte: weekStart, $lte: weekEnd },
+    });
+
+    // Define the days of the week in the correct order based on today's date
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // Loop through each day of the week
+    for (let i = 0; i < 7; i++) {
+      const day = daysOfWeek[(today.getDay() + 7 - i) % 7];
+      const dayData = { day, price: 0, quantity: { kg: 0, gram: 0 } };
+
+      // Find orders for the current day
+      const dayOrders = orders.filter((order) => {
+        const orderDay = order.createdAt.toLocaleDateString("en-US", {
+          weekday: "short",
+        });
+        return orderDay === day;
+      });
+
+      // Aggregate data for the current day
+      dayOrders.forEach((order) => {
+        dayData.price += order.totalPrice;
+
+        // Calculate total quantity in kg and gram
+        const quantity = order.orderedItems.reduce(
+          (acc, item) => {
+            acc.kg += item.quantity.kg;
+            acc.gram += item.quantity.gram;
+            return acc;
+          },
+          { kg: 0, gram: 0 }
+        );
+
+        // Add to the total quantity for the day
+        dayData.quantity.kg += quantity.kg;
+        dayData.quantity.gram += quantity.gram;
+      });
+
+      // Add current day's data to the result
+      result.push(dayData);
+    }
+
+    // Return the result
+    return result;
+  }
+
+  async function getLastMonthData() {
+    const result = [];
+    const monthEnd = new Date(today); // Month end is today
+    const monthStart = new Date(today); // Month start is 30 days before today
+    monthStart.setDate(today.getDate() - 30);
+
+    // Find orders within the last month
+    const orders = await UserOrder.find({
+      vendorId: vendorId,
+      createdAt: { $gte: monthStart, $lte: monthEnd },
+    });
+
+    // Loop through each day of the month starting from today and going back 30 days
+    for (let i = 0; i < 30; i++) {
+      const currentDate = new Date(today);
+      currentDate.setDate(today.getDate() - i);
+      const dayData = {
+        day: currentDate.getDate(),
+        price: 0,
+        quantity: { kg: 0, gram: 0 },
+      };
+
+      // Find orders for the current day
+      const dayOrders = orders.filter((order) => {
+        return order.createdAt.toDateString() === currentDate.toDateString();
+      });
+
+      // Aggregate data for the current day
+      dayOrders.forEach((order) => {
+        dayData.price += order.totalPrice;
+
+        order.orderedItems.forEach((item) => {
+          // Add kg directly to the total quantity for the day
+          dayData.quantity.kg += item.quantity.kg;
+
+          // Add grams to the total grams for the day
+          dayData.quantity.gram += item.quantity.gram;
+
+          // Adjust kg and gram if gram value exceeds 1000
+          if (dayData.quantity.gram >= 1000) {
+            dayData.quantity.kg += Math.floor(dayData.quantity.gram / 1000);
+            dayData.quantity.gram %= 1000;
+          }
+        });
+      });
+
+      // Insert current day's data at the beginning of the result array
+      result.unshift(dayData);
+    }
+
+    // Return the result
+    return result.reverse();
+  }
+
+  async function getLastSixMonthsData() {
+    const result = [];
+
+    // Loop through the last 6 months
+    for (let i = 0; i < 6; i++) {
+      const monthEnd = new Date(
+        today.getFullYear(),
+        today.getMonth() - i + 1,
+        0
+      ); // End of the current month
+      const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1); // Start of the current month
+
+      // Find orders within the current month
+      const orders = await UserOrder.find({
+        vendorId: vendorId,
+        createdAt: { $gte: monthStart, $lte: monthEnd },
+      });
+
+      // Aggregate data for the current month
+      const monthData = {
+        month: monthStart.toLocaleString("default", { month: "long" }),
+        year: monthStart.getFullYear(),
+        price: 0,
+        quantity: { kg: 0, gram: 0 },
+      };
+
+      orders.forEach((order) => {
+        monthData.price += order.totalPrice;
+
+        order.orderedItems.forEach((item) => {
+          // Add kg directly to the total quantity for the day
+          monthData.quantity.kg += item.quantity.kg;
+
+          // Add grams to the total grams for the day
+          monthData.quantity.gram += item.quantity.gram;
+
+          // Adjust kg and gram if gram value exceeds 1000
+          if (monthData.quantity.gram >= 1000) {
+            monthData.quantity.kg += Math.floor(monthData.quantity.gram / 1000);
+            monthData.quantity.gram %= 1000;
+          }
+        });
+      });
+
+      result.unshift(monthData); // Add the month's data to the beginning of the result array
+    }
+
+    return result.reverse();
+  }
+
+  if (duration === "week") {
+    return getLastWeekData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else if (duration === "month") {
+    return getLastMonthData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else if (duration === "sixMonths") {
+    return getLastSixMonthsData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else {
+    return res.status(404).json({ error: "Incorrect duration selected" });
+  }
+});
+
+const getItemAnalytics = catchAsyncError(async (req, res, next) => {});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -1672,12 +1855,9 @@ module.exports = {
   getHotelAssignableItems,
   getVendorCategories,
   addStockItemOptions,
-<<<<<<< HEAD
   addVendorItem,
   getAllVendorItems,
   itemsForVendor,
   setVendorItemPrice,
-=======
   getVendorOrderAnalytics,
->>>>>>> 4255c033a33a1d9173760ede4cd71801a05d11f6
 };

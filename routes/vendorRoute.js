@@ -126,6 +126,12 @@ router.get(
   vendorcontroller.getAllVendorItems
 );
 
+router.post(
+  "/orderAnalytics",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorOrderAnalytics
+);
+
 router.get(
   "/itemsForVendor",
   authMiddleware.authMiddleware,
