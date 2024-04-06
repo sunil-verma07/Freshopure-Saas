@@ -25,15 +25,18 @@ const HotelItemPriceSchema = new mongoose.Schema({
         type: Number,
         required: 'Percentage is required'
     },
-    pastPercentageProfits:[
-        {
-            type:Number
-        }
-    ],
+    pastPercentageProfits: {
+        type: [Number],
+        validate: [arrayLimit, '{PATH} exceeds the limit of 10']
+    },
     showPrice:{
         type: Boolean,
         default: true,
     }
 })
+
+function arrayLimit(val) {
+    return val.length <= 10;
+}
 
 module.exports = mongoose.model('HotelItemPrice', HotelItemPriceSchema, 'HotelItemPrice');

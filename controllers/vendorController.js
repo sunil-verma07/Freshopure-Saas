@@ -1405,6 +1405,232 @@ const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
   return itemList;
 };
 
+const addVendorItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Validate required fields
+    if (!itemId) {
+      return res.status(400).json({
+        message: "Please Provide itemId.",
+      });
+    }
+
+    let vendor;
+    try {
+      vendor = await VendorItems.findOne({ vendorId: vendorId });
+    } catch (error) {
+      // Handle errors while fetching vendor
+      return next(error);
+    }
+
+    if (vendor) {
+      vendor.items.push({
+        itemId: itemId,
+        todayCostPrice: 0,
+      });
+    } else {
+      vendor = new VendorItems({
+        vendorId,
+        items: [
+          {
+            itemId: itemId,
+            todayCostPrice: 0,
+          },
+        ],
+      });
+    }
+
+    // Save the vendor object (either existing or new)
+    await vendor.save();
+
+    const itemList = await getVendorItemsFunc(vendorId);
+
+    // console.log(itemList, "il");
+    // Send success response only after successful save
+    res.json({ message: "Item added successfully", data: itemList });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const getAllVendorItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const vendor = await VendorItems.aggregate([
+      {
+        $match: { vendorId: vendorId },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "items.itemDetails",
+        },
+      },
+      {
+        $unwind: "$items.itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "items.itemId",
+          foreignField: "itemId",
+          as: "items.images",
+        },
+      },
+      {
+        $unwind: "$items.images",
+      },
+    ]);
+
+    if (!vendor) {
+      return res.json({ message: "Vendor not found" });
+    }
+
+    // Send success response with vendor items
+    res.json({
+      message: "Vendor items retrieved successfully",
+      data: vendor,
+    });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const itemsForVendor = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+
+    const AllItems = await Items.find();
+
+    const vendorItems = await VendorItems.findOne({
+      vendorId: vendorId,
+    }).select("items");
+
+    console.log(vendorItems, "vi");
+    if (!vendorItems) {
+      return res.json({ message: "Vendor not found" });
+    }
+
+    let assignedItemsArray = [];
+    for (let item of vendorItems.items) {
+      assignedItemsArray.push(item);
+    }
+
+    console.log(AllItems, assignedItemsArray, "aia");
+    const ItemList = AllItems.filter(
+      (obj1) => !assignedItemsArray.some((obj2) => obj1._id.equals(obj2.itemId))
+    );
+
+    console.log(ItemList, "il");
+    // Send success response with vendor items
+    res.json({
+      message: "Vendor items retrieved successfully",
+      data: ItemList,
+    });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const getVendorItemsFunc = async (vendorId) => {
+  const pipeline = [
+    {
+      $match: { vendorId: vendorId },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $lookup: {
+        from: "Items",
+        localField: "items.itemId",
+        foreignField: "_id",
+        as: "items.itemDetails",
+      },
+    },
+    {
+      $unwind: "$items.itemDetails",
+    },
+    {
+      $lookup: {
+        from: "Images",
+        localField: "items.itemId",
+        foreignField: "itemId",
+        as: "items.images",
+      },
+    },
+    {
+      $unwind: "$items.images",
+    },
+  ];
+
+  const itemList = await VendorItems.aggregate(pipeline);
+
+  // console.log(itemList, "ilf");
+  return itemList;
+};
+
+const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId, price } = req.body;
+
+    const vendorId = req.user._id;
+
+    if (!itemId || !price) {
+      throw new Error("All fields are required.");
+    }
+
+    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    console.log(vendor, "vendor");
+
+    const updated = await VendorItems.updateOne(
+      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
+      { $set: { "items.$.todayCostPrice": price } } // Update nested item
+    );
+
+
+
+    const itemList = await getVendorItemsFunc(vendorId);
+    return res
+      .status(200)
+      .json({ message: "Price updated successfully.", data: itemList });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const tempFunc = catchAsyncError(async (req, res, next) => {
+try {
+  const { itemId, price } = req.body;
+
+    const vendorId = req.user._id;
+
+    const hotelItemPrice = await HotelItemPrice.find({itemId:itemId,vendorId:vendorId})
+
+    res.status(200).json({hotelItemPrice})
+
+} catch (error) {
+  
+}
+})
+
+
+
 const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
 
@@ -1713,7 +1939,12 @@ module.exports = {
   getHotelAssignableItems,
   getVendorCategories,
   addStockItemOptions,
+  addVendorItem,
+  getAllVendorItems,
+  itemsForVendor,
+  setVendorItemPrice,
   getVendorOrderAnalytics,
   getItemAnalytics,
   freshoCalculator,
+  tempFunc
 };

@@ -20,24 +20,6 @@ router.post(
   authMiddleware.profileComplete,
   ordercontroller.orderAgain
 );
-router.post(
-  "/orderanalytics",
-  authMiddleware.authMiddleware,
-  authMiddleware.profileComplete,
-  ordercontroller.orderAnalytics
-);
-router.post(
-  "/orderpriceanalytics",
-  authMiddleware.authMiddleware,
-  authMiddleware.profileComplete,
-  ordercontroller.orderPriceAnalytics
-);
-router.post(
-  "/itemanalyticsforhotel",
-  authMiddleware.authMiddleware,
-  authMiddleware.profileComplete,
-  ordercontroller.itemAnalyticsForHotel
-);
 router.get(
   "/compiledorderforhotel",
   authMiddleware.authMiddleware,
