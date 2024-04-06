@@ -15,6 +15,18 @@ router.post(
   vendorcontroller.getVendorOrderAnalytics
 );
 
+router.post(
+  "/itemAnalytics",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getItemAnalytics
+);
+
+router.post(
+  "/freshoCalculator",
+  authMiddleware.authMiddleware,
+  vendorcontroller.freshoCalculator
+)
+
 router.get(
   "/orderhistory",
   authMiddleware.authMiddleware,

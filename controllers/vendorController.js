@@ -19,6 +19,7 @@ const UserOrder = require("../models/order.js");
 const Items = require("../models/item");
 const { isObjectIdOrHexString } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
+const tf = require("@tensorflow/tfjs");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -1414,23 +1415,19 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
     const result = [];
     const weekEnd = new Date(today);
     const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - 6); // Get the date of 7 days ago
+    weekStart.setDate(today.getDate() - 6);
 
-    // Find orders within the last 7 days
     const orders = await UserOrder.find({
       vendorId: vendorId,
       createdAt: { $gte: weekStart, $lte: weekEnd },
     });
 
-    // Define the days of the week in the correct order based on today's date
     const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    // Loop through each day of the week
     for (let i = 0; i < 7; i++) {
       const day = daysOfWeek[(today.getDay() + 7 - i) % 7];
       const dayData = { day, price: 0, quantity: { kg: 0, gram: 0 } };
 
-      // Find orders for the current day
       const dayOrders = orders.filter((order) => {
         const orderDay = order.createdAt.toLocaleDateString("en-US", {
           weekday: "short",
@@ -1438,11 +1435,9 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
         return orderDay === day;
       });
 
-      // Aggregate data for the current day
       dayOrders.forEach((order) => {
         dayData.price += order.totalPrice;
 
-        // Calculate total quantity in kg and gram
         const quantity = order.orderedItems.reduce(
           (acc, item) => {
             acc.kg += item.quantity.kg;
@@ -1452,16 +1447,13 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
           { kg: 0, gram: 0 }
         );
 
-        // Add to the total quantity for the day
         dayData.quantity.kg += quantity.kg;
         dayData.quantity.gram += quantity.gram;
       });
 
-      // Add current day's data to the result
       result.push(dayData);
     }
 
-    // Return the result
     return result;
   }
 
@@ -1587,9 +1579,119 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
 });
 
 const getItemAnalytics = catchAsyncError(async (req, res, next) => {
-  
+  const vendorId = req.user._id;
 
-})
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const orders = await UserOrder.find({
+      vendorId: vendorId,
+      createdAt: { $gte: sevenDaysAgo },
+    });
+
+    const itemsMap = new Map();
+
+    orders?.forEach(async (order) => {
+      for (const item of order.orderedItems) {
+        try {
+          // Assuming there's an Item model for fetching item details
+          const fetchedItem = await Items.findById({ _id: item.itemId }); // Assuming itemId is the reference to the Item model
+          console.log(fetchedItem);
+          if (fetchedItem) {
+            const { name, price } = fetchedItem;
+            const { quantity } = item;
+
+            const existingItem = itemsMap.get(name) || {
+              totalQuantity: 0,
+              totalPrice: 0,
+            };
+            existingItem.totalQuantity += quantity;
+            existingItem.totalPrice += quantity * price; // Multiply quantity by price
+            itemsMap.set(name, existingItem);
+          }
+        } catch (error) {
+          console.error("Error fetching item:", error);
+        }
+      }
+    });
+
+    const result = [];
+    itemsMap.forEach((value, key) => {
+      result.push({
+        name: key,
+        totalQuantity: value.totalQuantity,
+        totalPrice: value.totalPrice,
+      });
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const freshoCalculator = catchAsyncError(async (req, res, next) => {
+  try {
+    let model;
+
+    async function initModel() {
+      const X = [];
+      const y = [];
+      for (let i = 0; i < 100; i++) {
+        const lastTenDaysProfitPercentage = Array.from({ length: 10 }, () =>
+          Math.random()
+        );
+        const todayProfitPercentage = Math.random();
+        X.push(lastTenDaysProfitPercentage);
+        y.push([todayProfitPercentage]);
+      }
+      const X_train = tf.tensor2d(X);
+      const y_train = tf.tensor2d(y);
+      model = createModel();
+      await model.fit(X_train, y_train, { epochs: 100 });
+    }
+
+    // Define your model architecture
+    function createModel() {
+      const model = tf.sequential();
+      model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
+      model.add(tf.layers.dense({ units: 1 }));
+      model.compile({ optimizer: "adam", loss: "meanSquaredError" });
+      return model;
+    }
+
+    async function predictProfitPercentage(lastTenDaysProfitPercentage) {
+      const todayInput = tf.tensor2d([lastTenDaysProfitPercentage]);
+      const prediction = model.predict(todayInput);
+      const predictionArray = await prediction.array();
+      return predictionArray[0][0];
+    }
+
+    const lastTenDaysProfitPercentage = req.body.lastTenDaysProfitPercentage;
+
+    if (
+      !Array.isArray(lastTenDaysProfitPercentage) ||
+      lastTenDaysProfitPercentage.length !== 10
+    ) {
+      throw new Error(
+        "Invalid input: lastTenDaysProfitPercentage must be an array of length 10."
+      );
+    }
+
+    // Initialize model if not already initialized
+    if (!model) {
+      await initModel();
+    }
+
+    const prediction = await predictProfitPercentage(
+      lastTenDaysProfitPercentage
+    );
+    res.json({ prediction });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = {
   setHotelItemPrice,
@@ -1612,4 +1714,6 @@ module.exports = {
   getVendorCategories,
   addStockItemOptions,
   getVendorOrderAnalytics,
+  getItemAnalytics,
+  freshoCalculator,
 };

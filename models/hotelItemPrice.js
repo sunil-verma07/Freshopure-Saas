@@ -21,9 +21,15 @@ const HotelItemPriceSchema = new mongoose.Schema({
         type: Number,
         required: 'Cost Price is required',
     },
-    yesterdayCostPrice:{
+    todayPercentageProfit:{
         type: Number,
+        required: 'Percentage is required'
     },
+    pastPercentageProfits:[
+        {
+            type:Number
+        }
+    ],
     showPrice:{
         type: Boolean,
         default: true,

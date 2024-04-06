@@ -9,6 +9,10 @@ const VendorItemsSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Item",
   },
+  todayPurchasePrice:{
+    type: Number,
+    required: 'Cost Price is required',
+},
 });
 
 module.exports = mongoose.model(
