@@ -20,12 +20,7 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.getItemAnalytics
 );
-router.post(
-  "/temp",
-  authMiddleware.authMiddleware,
-  vendorcontroller.tempFunc
 
-);
 
 router.post(
   "/freshoCalculator",
@@ -160,6 +155,12 @@ router.post(
   "/setVendorItemPrice",
   authMiddleware.authMiddleware,
   vendorcontroller.setVendorItemPrice
+);
+
+router.post(
+  "/removeVendorItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.removeVendorItem
 );
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
