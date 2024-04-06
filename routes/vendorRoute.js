@@ -143,6 +143,12 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.setVendorItemPrice
 );
+
+router.post(
+  "/removeVendorItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.removeVendorItem
+);
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
