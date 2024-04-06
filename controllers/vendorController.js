@@ -1148,13 +1148,22 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
       });
     }
 
+    const vendor = VendorItems.findOne({ vendorId: vendorId }).select("items");
+    let price;
+    vendor.items.map((item) => {
+      if (item.itemId === itemId) {
+        price = item.todayCostPrice;
+      }
+    });
+
     // Create new HotelItemPrice document
     const hotelItemPrice = new HotelItemPrice({
       vendorId,
       hotelId,
       itemId,
       categoryId,
-      todayCostPrice: 0,
+      todayCostPrice: price,
+      todayPercentageProfit: 0,
       showPrice: true, // Default to true if not provided
     });
 
@@ -1174,28 +1183,24 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
 
 const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
   try {
-    const { categoryIds, hotelId } = req.body;
+    const { hotelId } = req.body;
     const vendorId = req.user._id;
 
-    console.log(categoryIds, hotelId, "abcd");
-
-    if (!categoryIds || !hotelId) {
-      return res
-        .status(400)
-        .json({ message: "Category IDs or Hotel ID not provided" });
+    if (!hotelId) {
+      return res.status(400).json({ message: " Hotel ID not provided" });
     }
-
-    const categoryIdsArray = categoryIds.map((item) =>
-      item.categoryId.toString()
-    );
 
     let allItemsIds = [];
 
-    // Iterate over each categoryId
-    for (let category of categoryIdsArray) {
-      const items = await Items.find({ categoryId: category }).select("itemId");
-      allItemsIds.push(...items); // Merge items into allItemsIds array
-    }
+    const items = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    items.items.map((item) => {
+      allItemsIds.push(item.itemId);
+    });
+
+    // console.log(allItemsIds, "all");
 
     const hotelItems = await HotelItemPrice.find({
       vendorId: new ObjectId(vendorId),
@@ -1602,8 +1607,6 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       { $set: { "items.$.todayCostPrice": price } } // Update nested item
     );
 
-
-
     const itemList = await getVendorItemsFunc(vendorId);
     return res
       .status(200)
@@ -1613,8 +1616,6 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-
 
 const removeVendorItem = async (req, res, next) => {
   try {
