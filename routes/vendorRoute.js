@@ -125,7 +125,41 @@ router.get(
   authMiddleware.authMiddleware,
   vendorcontroller.addStockItemOptions
 );
+router.post(
+  "/addVendorItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.addVendorItem
+);
 
+router.get(
+  "/getVendorItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getAllVendorItems
+);
+
+router.post(
+  "/orderAnalytics",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorOrderAnalytics
+);
+
+router.get(
+  "/itemsForVendor",
+  authMiddleware.authMiddleware,
+  vendorcontroller.itemsForVendor
+);
+
+router.post(
+  "/setVendorItemPrice",
+  authMiddleware.authMiddleware,
+  vendorcontroller.setVendorItemPrice
+);
+
+router.post(
+  "/removeVendorItem",
+  authMiddleware.authMiddleware,
+  vendorcontroller.removeVendorItem
+);
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

@@ -1148,13 +1148,22 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
       });
     }
 
+    const vendor = VendorItems.findOne({ vendorId: vendorId }).select("items");
+    let price;
+    vendor.items.map((item) => {
+      if (item.itemId === itemId) {
+        price = item.todayCostPrice;
+      }
+    });
+
     // Create new HotelItemPrice document
     const hotelItemPrice = new HotelItemPrice({
       vendorId,
       hotelId,
       itemId,
       categoryId,
-      todayCostPrice: 0,
+      todayCostPrice: price,
+      todayPercentageProfit: 0,
       showPrice: true, // Default to true if not provided
     });
 
@@ -1174,28 +1183,24 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
 
 const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
   try {
-    const { categoryIds, hotelId } = req.body;
+    const { hotelId } = req.body;
     const vendorId = req.user._id;
 
-    console.log(categoryIds, hotelId, "abcd");
-
-    if (!categoryIds || !hotelId) {
-      return res
-        .status(400)
-        .json({ message: "Category IDs or Hotel ID not provided" });
+    if (!hotelId) {
+      return res.status(400).json({ message: " Hotel ID not provided" });
     }
-
-    const categoryIdsArray = categoryIds.map((item) =>
-      item.categoryId.toString()
-    );
 
     let allItemsIds = [];
 
-    // Iterate over each categoryId
-    for (let category of categoryIdsArray) {
-      const items = await Items.find({ categoryId: category }).select("itemId");
-      allItemsIds.push(...items); // Merge items into allItemsIds array
-    }
+    const items = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    items.items.map((item) => {
+      allItemsIds.push(item.itemId);
+    });
+
+    // console.log(allItemsIds, "all");
 
     const hotelItems = await HotelItemPrice.find({
       vendorId: new ObjectId(vendorId),
@@ -1591,21 +1596,65 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       throw new Error("All fields are required.");
     }
 
-    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
-      "items"
-    );
-
-    
-
-    // const updated = await VendorItems.updateOne(
-    //   { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
-    //   { $set: { "items.$.todayCostPrice": price } } // Update nested item
+    // const vendor = await VendorItems.find({ vendorId: vendorId }).select(
+    //   "items"
     // );
 
-    // const itemList = await getVendorItemsFunc(vendorId);
+    const updated = await VendorItems.updateOne(
+      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
+      { $set: { "items.$.todayCostPrice": price } } // Update nested item
+    );
 
-    const itemsToBeChange = await HotelItemPrice.find({itemId:itemId,vendorId:vendorId})
+    const itemsToBeChange = await HotelItemPrice.find({
+      itemId: itemId,
+      vendorId: vendorId,
+    });
 
+    if(itemsToBeChange.length !== 0){
+
+      itemsToBeChange?.forEach(async(item)=>{
+
+        if(item?.pastPercentageProfits?.length > 3){
+          let newProfitPercentage;
+
+          do {
+              newProfitPercentage = await freshoCalculator(item.pastPercentageProfits);
+          } while (newProfitPercentage < 0);
+
+            const updatedCostPrice = price + newProfitPercentage*price;
+
+            const doc = await HotelItemPrice.findOneAndUpdate(
+              { itemId: item.itemId, vendorId: vendorId },
+              {
+                  $set: {
+                      todayCostPrice: parseFloat(updatedCostPrice).toFixed(2),
+                      todayPercentageProfit: parseFloat(newProfitPercentage).toFixed(2)
+                  },
+                  $push: {
+                      pastPercentageProfits: {
+                          $each: [parseFloat(newProfitPercentage).toFixed(2)],
+                          $position: 0,
+                          $slice: 10
+                      }
+                  }
+              },
+              { new: true }
+          );
+          
+          // Check if pastPercentageProfits length is greater than 10
+          if (doc.pastPercentageProfits.length > 10) {
+              // Trim the array to keep only the last 10 elements
+              await HotelItemPrice.updateOne(
+                  { itemId: item.itemId, vendorId: vendorId },
+                  { $set: { pastPercentageProfits: doc.pastPercentageProfits.slice(0, 10) } }
+              );
+          }
+
+        }
+       
+      })
+      
+    }
 
     return res
       .status(200)
@@ -1615,6 +1664,27 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+const removeVendorItem = async (req, res, next) => {
+  try {
+    const { itemId } = req.body;
+    const vendorId = req.user._id;
+
+    const updated = await VendorItems.updateOne(
+      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
+      { $pull: { items: { itemId: itemId } } } // Remove item from array
+    );
+
+    if (updated.matchedCount === 0) {
+      return res.status(404).json({ message: "Vendor item not found" });
+    }
+
+    const itemList = await getVendorItemsFunc(vendorId); // Get updated item list
+    res.json({ message: "Item removed successfully", data: itemList });
+  } catch (error) {
+    next(error); // Pass errors to error handling middleware
+  }
+};
 
 const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
@@ -1842,67 +1912,48 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const freshoCalculator = catchAsyncError(async (req, res, next) => {
+async function freshoCalculator(lastTenDaysProfitPercentage) {
   try {
-    let model;
-
-    async function initModel() {
-      const X = [];
-      const y = [];
-      for (let i = 0; i < 100; i++) {
-        const lastTenDaysProfitPercentage = Array.from({ length: 10 }, () =>
-          Math.random()
-        );
-        const todayProfitPercentage = Math.random();
-        X.push(lastTenDaysProfitPercentage);
-        y.push([todayProfitPercentage]);
-      }
-      const X_train = tf.tensor2d(X);
-      const y_train = tf.tensor2d(y);
-      model = createModel();
-      await model.fit(X_train, y_train, { epochs: 100 });
+    if (!Array.isArray(lastTenDaysProfitPercentage)) {
+      throw new Error("Invalid input: lastTenDaysProfitPercentage must be an array.");
     }
 
-    // Define your model architecture
-    function createModel() {
-      const model = tf.sequential();
-      model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
-      model.add(tf.layers.dense({ units: 1 }));
-      model.compile({ optimizer: "adam", loss: "meanSquaredError" });
-      return model;
-    }
+    // Pad the input array with zeros if it has less than 10 elements
+    const paddedInput = lastTenDaysProfitPercentage.concat(Array(10 - lastTenDaysProfitPercentage.length).fill(0));
 
-    async function predictProfitPercentage(lastTenDaysProfitPercentage) {
-      const todayInput = tf.tensor2d([lastTenDaysProfitPercentage]);
-      const prediction = model.predict(todayInput);
-      const predictionArray = await prediction.array();
-      return predictionArray[0][0];
-    }
-
-    const lastTenDaysProfitPercentage = req.body.lastTenDaysProfitPercentage;
-
-    if (
-      !Array.isArray(lastTenDaysProfitPercentage) ||
-      lastTenDaysProfitPercentage.length !== 10
-    ) {
-      throw new Error(
-        "Invalid input: lastTenDaysProfitPercentage must be an array of length 10."
-      );
-    }
-
-    // Initialize model if not already initialized
-    if (!model) {
-      await initModel();
-    }
-
-    const prediction = await predictProfitPercentage(
-      lastTenDaysProfitPercentage
-    );
-    res.json({ prediction });
+    const model = await initModel(); // Initialize model
+    const prediction = await model.predict(tf.tensor2d([paddedInput])); // Predict using padded input
+    const predictionValue = (await prediction.array())[0][0];
+    return predictionValue;
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error.message);
+    return null; // Return null if prediction fails
   }
-});
+}
+
+async function initModel() {
+  const X = [];
+  const y = [];
+  for (let i = 0; i < 100; i++) {
+    const lastTenDaysProfitPercentage = Array.from({ length: 10 }, () => Math.random());
+    const todayProfitPercentage = Math.random();
+    X.push(lastTenDaysProfitPercentage);
+    y.push([todayProfitPercentage]);
+  }
+  const X_train = tf.tensor2d(X);
+  const y_train = tf.tensor2d(y);
+  const model = createModel();
+  await model.fit(X_train, y_train, { epochs: 100 });
+  return model;
+}
+
+function createModel() {
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
+  model.add(tf.layers.dense({ units: 1 }));
+  model.compile({ optimizer: "adam", loss: "meanSquaredError" });
+  return model;
+}
 
 module.exports = {
   setHotelItemPrice,
@@ -1931,4 +1982,5 @@ module.exports = {
   getVendorOrderAnalytics,
   getItemAnalytics,
   freshoCalculator,
+  removeVendorItem,
 };
