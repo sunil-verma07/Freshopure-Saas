@@ -25,7 +25,7 @@ router.post(
   "/freshoCalculator",
   authMiddleware.authMiddleware,
   vendorcontroller.freshoCalculator
-)
+);
 
 router.get(
   "/orderhistory",
@@ -159,6 +159,12 @@ router.post(
   "/removeVendorItem",
   authMiddleware.authMiddleware,
   vendorcontroller.removeVendorItem
+);
+
+router.post(
+  "/updateItemProfit",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateHotelItemProfit
 );
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
