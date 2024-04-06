@@ -1595,47 +1595,26 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       "items"
     );
 
-    console.log(vendor, "vendor");
+    
 
-    const updated = await VendorItems.updateOne(
-      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
-      { $set: { "items.$.todayCostPrice": price } } // Update nested item
-    );
+    // const updated = await VendorItems.updateOne(
+    //   { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
+    //   { $set: { "items.$.todayCostPrice": price } } // Update nested item
+    // );
+
+    // const itemList = await getVendorItemsFunc(vendorId);
+
+    const itemsToBeChange = await HotelItemPrice.find({itemId:itemId,vendorId:vendorId})
 
 
-
-    const itemList = await getVendorItemsFunc(vendorId);
     return res
       .status(200)
-      .json({ message: "Price updated successfully.", data: itemList });
+      .json({ message: "Price updated successfully.", data: itemsToBeChange });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-
-
-const removeVendorItem = async (req, res, next) => {
-  try {
-    const { itemId } = req.body;
-    const vendorId = req.user._id;
-
-    const updated = await VendorItems.updateOne(
-      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
-      { $pull: { items: { itemId: itemId } } } // Remove item from array
-    );
-
-    if (updated.matchedCount === 0) {
-      return res.status(404).json({ message: "Vendor item not found" });
-    }
-
-    const itemList = await getVendorItemsFunc(vendorId); // Get updated item list
-    res.json({ message: "Item removed successfully", data: itemList });
-  } catch (error) {
-    next(error); // Pass errors to error handling middleware
-  }
-};
 
 const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
@@ -1952,5 +1931,4 @@ module.exports = {
   getVendorOrderAnalytics,
   getItemAnalytics,
   freshoCalculator,
-  removeVendorItem,
 };
