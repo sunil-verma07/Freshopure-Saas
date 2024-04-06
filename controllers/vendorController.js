@@ -1147,14 +1147,19 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
         message: "vendorId, hotelId, itemId and categoryId are required fields",
       });
     }
-
-    const vendor = VendorItems.findOne({ vendorId: vendorId }).select("items");
+    console.log(itemId, "ii");
+    const items = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
     let price;
-    vendor.items.map((item) => {
-      if (item.itemId === itemId) {
+    for (const item of items.items) {
+      // Use for loop for clarity
+      if (item.itemId.equals(itemId)) {
+        // Use equals method for ObjectIds
         price = item.todayCostPrice;
+        break; // Exit loop once price is found
       }
-    });
+    }
 
     // Create new HotelItemPrice document
     const hotelItemPrice = new HotelItemPrice({

@@ -21,12 +21,11 @@ router.post(
   vendorcontroller.getItemAnalytics
 );
 
-
 router.post(
   "/freshoCalculator",
   authMiddleware.authMiddleware,
   vendorcontroller.freshoCalculator
-)
+);
 
 router.get(
   "/orderhistory",
