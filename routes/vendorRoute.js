@@ -161,6 +161,12 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.removeVendorItem
 );
+
+router.post(
+  "/updateItemProfit",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateHotelItemProfit
+);
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

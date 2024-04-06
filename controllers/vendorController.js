@@ -17,7 +17,7 @@ const vendorStock = require("../models/vendorStock.js");
 const puppeteer = require("puppeteer");
 const UserOrder = require("../models/order.js");
 const Items = require("../models/item");
-const { isObjectIdOrHexString } = require("mongoose");
+const { isObjectIdOrHexString, trusted } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
 
@@ -1612,6 +1612,20 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       { $set: { "items.$.todayCostPrice": price } } // Update nested item
     );
 
+    const itemPercentage = await HotelItemPrice.findOne({
+      vendorId: vendorId,
+      hotelId: hotelId,
+      itemId: itemId,
+    });
+
+    const updatePrice = await updateHotelPriceFunc({
+      profit: itemPercentage.todayPercentageProfit,
+      cost: vendor.todayCostPrice,
+      vendorId,
+      itemId,
+      hotelId,
+    });
+
     const itemList = await getVendorItemsFunc(vendorId);
     return res
       .status(200)
@@ -1931,6 +1945,90 @@ const freshoCalculator = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const updateHotelItemProfit = async (req, res, next) => {
+  try {
+    const { hotelId, itemId, newPercentage } = req.body;
+    const vendorId = req.user._id;
+
+    const updatedDoc = await HotelItemPrice.findOne({ hotelId, itemId });
+
+    if (!updatedDoc) {
+      return res.json({ message: "Failed to fetch HotelItem" });
+    }
+
+    const updatePrice = await updateHotelPriceFunc({
+      profit: newPercentage,
+      cost: updatedDoc.todayCostPrice,
+      vendorId,
+      itemId,
+      hotelId,
+    });
+
+    const newDoc = await HotelItemPrice.findOneAndUpdate(
+      { hotelId, itemId },
+      [
+        {
+          $set: {
+            pastPercentageProfits: {
+              $cond: {
+                if: { $lt: [{ $size: "$pastPercentageProfits" }, 10] }, // Check if less than 10 elements
+                then: {
+                  $concatArrays: [[newPercentage], "$pastPercentageProfits"],
+                }, // Add to the beginning if less than 10
+                else: {
+                  $concatArrays: [
+                    [newPercentage],
+                    { $slice: ["$pastPercentageProfits", 0, 9] },
+                  ],
+                }, // Add and slice if full
+              },
+            },
+            todayPercentageProfit: newPercentage, // Set todayPercentageProfit to newPercentage
+          },
+        },
+      ],
+      { new: true } // Return the updated document
+    );
+
+    const itemList = await getHotelItemsFunc({ hotelId });
+
+    res.json({
+      message: "Profit percentage updated successfully",
+      data: newDoc,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateHotelPriceFunc = async (
+  profit,
+  cost,
+  vendorId,
+  itemId,
+  hotelId
+) => {
+  const newPrice = cost + cost * profit;
+
+  const updatedDoc = await HotelItemPrice.findOneAndUpdate(
+    {
+      vendorId: vendorId,
+      itemId: itemId,
+      hotelId: hotelId,
+    },
+    {
+      $set: { todayCostPrice: newPrice },
+    },
+    { new: true }
+  );
+
+  if (!updatedDoc) {
+    return res.json({ message: "Error updating Item Price" });
+  }
+
+  return res.json({ message: "price updated successfully!" });
+};
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -1959,4 +2057,5 @@ module.exports = {
   getItemAnalytics,
   freshoCalculator,
   removeVendorItem,
+  updateHotelItemProfit,
 };
