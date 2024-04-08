@@ -1612,20 +1612,6 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       { $set: { "items.$.todayCostPrice": price } } // Update nested item
     );
 
-    const itemPercentage = await HotelItemPrice.findOne({
-      vendorId: vendorId,
-      hotelId: hotelId,
-      itemId: itemId,
-    });
-
-    const updatePrice = await updateHotelPriceFunc({
-      profit: itemPercentage.todayPercentageProfit,
-      cost: vendor.todayCostPrice,
-      vendorId,
-      itemId,
-      hotelId,
-    });
-
     const itemList = await getVendorItemsFunc(vendorId);
     return res
       .status(200)
@@ -1956,13 +1942,33 @@ const updateHotelItemProfit = async (req, res, next) => {
       return res.json({ message: "Failed to fetch HotelItem" });
     }
 
-    const updatePrice = await updateHotelPriceFunc({
-      profit: newPercentage,
-      cost: updatedDoc.todayCostPrice,
-      vendorId,
-      itemId,
-      hotelId,
-    });
+    const itemPrice = await VendorItems.findOne({ vendorId: vendorId });
+
+    // Find the item with the specified itemId
+    const selectedItem = itemPrice.items.find((item) =>
+      item.itemId.equals(new ObjectId(itemId))
+    );
+
+    if (!selectedItem) {
+      // Handle case where item with specified itemId is not found
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    // Calculate the new price based on the cost price and profit percentage
+    const costPrice = selectedItem.todayCostPrice;
+    const newPrice = costPrice + costPrice * newPercentage;
+
+    const updatedPrice = await HotelItemPrice.findOneAndUpdate(
+      {
+        vendorId: vendorId,
+        itemId: itemId,
+        hotelId: hotelId,
+      },
+      {
+        $set: { todayCostPrice: newPrice },
+      },
+      { new: true }
+    );
 
     const newDoc = await HotelItemPrice.findOneAndUpdate(
       { hotelId, itemId },
@@ -1999,34 +2005,6 @@ const updateHotelItemProfit = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-};
-
-const updateHotelPriceFunc = async (
-  profit,
-  cost,
-  vendorId,
-  itemId,
-  hotelId
-) => {
-  const newPrice = cost + cost * profit;
-
-  const updatedDoc = await HotelItemPrice.findOneAndUpdate(
-    {
-      vendorId: vendorId,
-      itemId: itemId,
-      hotelId: hotelId,
-    },
-    {
-      $set: { todayCostPrice: newPrice },
-    },
-    { new: true }
-  );
-
-  if (!updatedDoc) {
-    return res.json({ message: "Error updating Item Price" });
-  }
-
-  return res.json({ message: "price updated successfully!" });
 };
 
 module.exports = {
