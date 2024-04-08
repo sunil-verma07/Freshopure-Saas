@@ -2035,7 +2035,7 @@ const updateHotelItemProfit = async (req, res, next) => {
       { new: true } // Return the updated document
     );
 
-    const itemList = await getHotelItemsFunc({ hotelId });
+    const itemList = await getHotelItemsFunc({ HotelId: hotelId, vendorId });
 
     res.json({
       message: "Profit percentage updated successfully",
