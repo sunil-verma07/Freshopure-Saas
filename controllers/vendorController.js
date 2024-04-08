@@ -1601,21 +1601,73 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       throw new Error("All fields are required.");
     }
 
-    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
-      "items"
-    );
-
-    console.log(vendor, "vendor");
+    // const vendor = await VendorItems.find({ vendorId: vendorId }).select(
+    //   "items"
+    // );
 
     const updated = await VendorItems.updateOne(
       { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
       { $set: { "items.$.todayCostPrice": price } } // Update nested item
     );
 
-    const itemList = await getVendorItemsFunc(vendorId);
+    const itemsToBeChange = await HotelItemPrice.find({
+      itemId: itemId,
+      vendorId: vendorId,
+    });
+
+    if (itemsToBeChange.length !== 0) {
+      itemsToBeChange?.forEach(async (item) => {
+        if (item?.pastPercentageProfits?.length > 3) {
+          let newProfitPercentage;
+
+          do {
+            newProfitPercentage = await freshoCalculator(
+              item.pastPercentageProfits
+            );
+          } while (newProfitPercentage < 0);
+
+          const updatedCostPrice = price + newProfitPercentage * price;
+
+          const doc = await HotelItemPrice.findOneAndUpdate(
+            { itemId: item.itemId, vendorId: vendorId },
+            {
+              $set: {
+                todayCostPrice: parseFloat(updatedCostPrice).toFixed(2),
+                todayPercentageProfit:
+                  parseFloat(newProfitPercentage).toFixed(2),
+              },
+              $push: {
+                pastPercentageProfits: {
+                  $each: [parseFloat(newProfitPercentage).toFixed(2)],
+                  $position: 0,
+                  $slice: 10,
+                },
+              },
+            },
+            { new: true }
+          );
+
+          // Check if pastPercentageProfits length is greater than 10
+          if (doc.pastPercentageProfits.length > 10) {
+            // Trim the array to keep only the last 10 elements
+            await HotelItemPrice.updateOne(
+              { itemId: item.itemId, vendorId: vendorId },
+              {
+                $set: {
+                  pastPercentageProfits: doc.pastPercentageProfits.slice(0, 10),
+                },
+              }
+            );
+          }
+        }
+      });
+    }
+
+    const data = await getVendorItemsFunc(vendorId);
+
     return res
       .status(200)
-      .json({ message: "Price updated successfully.", data: itemList });
+      .json({ message: "Price updated successfully.", data: data });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
@@ -1869,67 +1921,54 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const freshoCalculator = catchAsyncError(async (req, res, next) => {
+async function freshoCalculator(lastTenDaysProfitPercentage) {
   try {
-    let model;
-
-    async function initModel() {
-      const X = [];
-      const y = [];
-      for (let i = 0; i < 100; i++) {
-        const lastTenDaysProfitPercentage = Array.from({ length: 10 }, () =>
-          Math.random()
-        );
-        const todayProfitPercentage = Math.random();
-        X.push(lastTenDaysProfitPercentage);
-        y.push([todayProfitPercentage]);
-      }
-      const X_train = tf.tensor2d(X);
-      const y_train = tf.tensor2d(y);
-      model = createModel();
-      await model.fit(X_train, y_train, { epochs: 100 });
-    }
-
-    // Define your model architecture
-    function createModel() {
-      const model = tf.sequential();
-      model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
-      model.add(tf.layers.dense({ units: 1 }));
-      model.compile({ optimizer: "adam", loss: "meanSquaredError" });
-      return model;
-    }
-
-    async function predictProfitPercentage(lastTenDaysProfitPercentage) {
-      const todayInput = tf.tensor2d([lastTenDaysProfitPercentage]);
-      const prediction = model.predict(todayInput);
-      const predictionArray = await prediction.array();
-      return predictionArray[0][0];
-    }
-
-    const lastTenDaysProfitPercentage = req.body.lastTenDaysProfitPercentage;
-
-    if (
-      !Array.isArray(lastTenDaysProfitPercentage) ||
-      lastTenDaysProfitPercentage.length !== 10
-    ) {
+    if (!Array.isArray(lastTenDaysProfitPercentage)) {
       throw new Error(
-        "Invalid input: lastTenDaysProfitPercentage must be an array of length 10."
+        "Invalid input: lastTenDaysProfitPercentage must be an array."
       );
     }
 
-    // Initialize model if not already initialized
-    if (!model) {
-      await initModel();
-    }
-
-    const prediction = await predictProfitPercentage(
-      lastTenDaysProfitPercentage
+    // Pad the input array with zeros if it has less than 10 elements
+    const paddedInput = lastTenDaysProfitPercentage.concat(
+      Array(10 - lastTenDaysProfitPercentage.length).fill(0)
     );
-    res.json({ prediction });
+
+    const model = await initModel(); // Initialize model
+    const prediction = await model.predict(tf.tensor2d([paddedInput])); // Predict using padded input
+    const predictionValue = (await prediction.array())[0][0];
+    return predictionValue;
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error:", error.message);
+    return null; // Return null if prediction fails
   }
-});
+}
+
+async function initModel() {
+  const X = [];
+  const y = [];
+  for (let i = 0; i < 100; i++) {
+    const lastTenDaysProfitPercentage = Array.from({ length: 10 }, () =>
+      Math.random()
+    );
+    const todayProfitPercentage = Math.random();
+    X.push(lastTenDaysProfitPercentage);
+    y.push([todayProfitPercentage]);
+  }
+  const X_train = tf.tensor2d(X);
+  const y_train = tf.tensor2d(y);
+  const model = createModel();
+  await model.fit(X_train, y_train, { epochs: 100 });
+  return model;
+}
+
+function createModel() {
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
+  model.add(tf.layers.dense({ units: 1 }));
+  model.compile({ optimizer: "adam", loss: "meanSquaredError" });
+  return model;
+}
 
 const updateHotelItemProfit = async (req, res, next) => {
   try {

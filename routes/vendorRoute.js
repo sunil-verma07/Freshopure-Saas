@@ -125,7 +125,6 @@ router.get(
   authMiddleware.authMiddleware,
   vendorcontroller.addStockItemOptions
 );
-
 router.post(
   "/addVendorItem",
   authMiddleware.authMiddleware,
