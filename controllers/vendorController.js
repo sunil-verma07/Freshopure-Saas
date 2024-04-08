@@ -2039,7 +2039,7 @@ const updateHotelItemProfit = async (req, res, next) => {
 
     res.json({
       message: "Profit percentage updated successfully",
-      data: newDoc,
+      data: itemList,
     });
   } catch (error) {
     next(error);
