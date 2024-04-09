@@ -20,6 +20,8 @@ const Items = require("../models/item");
 const { isObjectIdOrHexString, trusted } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
+const item = require("../models/item");
+const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -306,6 +308,21 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
+    for (const order of orderData) {
+      const subVendor = await SubVendor.findOne({
+        vendorId: vendorId, // Match the vendorId
+        assignedItems: { $elemMatch: { itemId: order?.itemDetails?._id } }, // Match the itemId within assignedItems array
+      });
+
+      if (subVendor) {
+        const subVendorCode = subVendor.subVendorCode;
+        order.itemDetails["subVendorCode"] = subVendorCode;
+      } else {
+        order.itemDetails["subVendorCode"] = "Not Assigned.";
+      }
+    }
+
+    console.log(orderData, "od");
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -1137,14 +1154,14 @@ const deleteHotelItem = catchAsyncError(async (req, res, next) => {
 
 const addHotelItem = catchAsyncError(async (req, res, next) => {
   try {
-    const { hotelId, itemId, categoryId } = req.body;
+    const { hotelId, itemId } = req.body;
 
     const vendorId = req.user._id;
 
     // Validate required fields
-    if (!vendorId || !hotelId || !itemId || !categoryId) {
+    if (!vendorId || !hotelId || !itemId) {
       return res.status(400).json({
-        message: "vendorId, hotelId, itemId and categoryId are required fields",
+        message: "vendorId, hotelId and itemId  are required fields",
       });
     }
     console.log(itemId, "ii");
@@ -1161,12 +1178,14 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
       }
     }
 
+    const category = await Items.findOne({ _id: itemId });
+
     // Create new HotelItemPrice document
     const hotelItemPrice = new HotelItemPrice({
       vendorId,
       hotelId,
       itemId,
-      categoryId,
+      categoryId: category.categoryId,
       todayCostPrice: price,
       todayPercentageProfit: 0,
       showPrice: true, // Default to true if not provided
@@ -2046,6 +2065,16 @@ const updateHotelItemProfit = async (req, res, next) => {
   }
 };
 
+const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
+  try {
+    await messageToSubvendor();
+
+    res.status(200).json({ message: "yayyy" });
+  } catch (error) {
+    res.status(200).json({ message: "nayyy" });
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2075,4 +2104,5 @@ module.exports = {
   freshoCalculator,
   removeVendorItem,
   updateHotelItemProfit,
+  msgToSubVendor,
 };

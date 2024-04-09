@@ -166,6 +166,8 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.updateHotelItemProfit
 );
+
+router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

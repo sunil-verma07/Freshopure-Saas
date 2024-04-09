@@ -36,7 +36,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     //cart items
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
-
+    console.log(cart_doc, hotelId, "abcd");
     const orders = {};
 
     let totalOrderPrice = 0;
@@ -66,7 +66,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       orders[item.vendorId].push(updatedItem);
     }
 
-    // console.log(totalOrderPrice,'cost')
+    console.log(totalOrderPrice, "cost");
 
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
@@ -97,7 +97,9 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
-        // await order.save();
+        console.log(order, "order");
+
+        await order.save();
       }
     }
 
