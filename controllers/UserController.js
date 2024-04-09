@@ -9,12 +9,12 @@ const router = express.Router();
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 const Address = require("../models/address.js");
-const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../services/encryptionServices");
 
 const {
   sendEmailVerification,
   checkVerification,
+  sendMail
 } = require("../utils/sendEmailVerification.js");
 const sendToken = require("../utils/jwtToken.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
@@ -287,6 +287,15 @@ const userDetailUpdate = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const testApi = catchAsyncErrors(async (req, res, next) => {
+try {
+  await sendMail('mesunilverma07@gmail.com',456765)
+  console.log('success')
+} catch (error) {
+  console.log(error)
+}
+})
+
 module.exports = {
   login,
   register,
@@ -296,4 +305,5 @@ module.exports = {
   setProfile,
   setProfileImage,
   userDetailUpdate,
+  testApi
 };

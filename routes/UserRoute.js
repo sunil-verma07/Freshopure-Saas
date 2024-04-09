@@ -27,4 +27,6 @@ router.post(
   usercontroller.userDetailUpdate
 );
 
+router.get('/test',usercontroller.testApi)
+
 module.exports = router;
