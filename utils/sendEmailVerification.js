@@ -1,7 +1,6 @@
 const verification = require("../models/verification");
 const Sib = require('sib-api-v3-sdk');
 // const SibApiV3Sdk =require('sib-api-v3-sdk');
-// const fetch = require('node-fetch');
 
 
 function generateVerificationCode() {

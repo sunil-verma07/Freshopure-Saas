@@ -1,4 +1,3 @@
-import("node-fetch").then((fetch) => {});
 
 //multer
 const fs = require("fs");
