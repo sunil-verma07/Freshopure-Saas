@@ -14,26 +14,29 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
         .status(400)
         .json({ success: false, message: "Please enter all feilds properly!" });
     } else {
-      const generateCode = () => {
+      console.log("abc");
+      const generateCode = async () => {
         let num = Math.random() * 9000;
         return "SV-" + Math.floor(num + 999);
       };
-      const code = generateCode();
+      const code = await generateCode();
+      console.log("abbbbc");
 
       const vendor = await SubVendor.findOne({ phone });
-
+      console.log("abbcccc");
       if (vendor) {
         return res
           .status(400)
           .json({ success: false, error: "Vendor already exists!" });
       } else {
+        console.log("here");
         const newVendor = await SubVendor.create({
           vendorId: new Object(vendorId),
-          subVendorCode: code,
+          subVendorCode: "SV-8789",
           fullName,
           phone,
         });
-
+        console.log(newVendor, "new");
         const data = await SubVendor.find({ vendorId: vendorId });
         res.status(200).json({ message: "New Vendor Added!", data: data });
       }
