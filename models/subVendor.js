@@ -11,12 +11,10 @@ const subVendorSchema = new mongoose.Schema({
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   subVendorCode: {
     type: String,
-    unique: true,
     required: true,
   },
   fullName: {
     type: String,
-    unique: true,
   },
   phone: {
     type: Number,

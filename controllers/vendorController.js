@@ -599,19 +599,108 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     const vendorId = req.user._id;
     const { HotelId } = req.body;
 
-    console.log(vendorId, HotelId);
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { vendorId: vendorId , hotelId: new ObjectId(HotelId)},
+      },
 
-    const hotelOrders = await Orders.find({
-      hotelId: HotelId,
-      vendorId,
-    }).populate("orderStatus");
-    // .populate("addressId");
-    // .populate({
-    //   path: "orderedItems.itemId",
-    //   populate: { path: "itemId" }, // Populate the associated item details
-    // });
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $unwind: "$orderedItems", // Unwind orderedItems array
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: {
+            orderId: "$_id",
+          },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          orderNumber: { $first: "$orderNumber" },
+          hotelDetails: { $first: "$hotelDetails" },
+          // orderData: { $first: "$$ROOT" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
 
-    res.json({ hotelOrders });
+          orderedItems: {
+            $push: {
+              $mergeObjects: [
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          address: 1,
+          orderNumber: 1,
+          hotelId: 1,
+          hotelDetails: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          orderStatusDetails: 1,
+          updatedAt: 1,
+          // orderData: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+
+    res.json({ hotelOrders:orderData });
   } catch (error) {
     next(error);
   }
@@ -750,7 +839,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
   const data = orderData[0];
 
-  console.log(data);
 
   const styles = {
     container: {
@@ -1539,16 +1627,11 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    const AllItems = await Items.find();
+    const AllItems = await Items.find({});
 
     const vendorItems = await VendorItems.findOne({
       vendorId: vendorId,
     }).select("items");
-
-    console.log(vendorItems, "vi");
-    if (!vendorItems) {
-      return res.json({ message: "Vendor not found" });
-    }
 
     let assignedItemsArray = [];
     for (let item of vendorItems.items) {

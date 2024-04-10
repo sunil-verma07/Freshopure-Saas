@@ -18,7 +18,8 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
         let num = Math.random() * 9000;
         return "SV-" + Math.floor(num + 999);
       };
-      const code = generateCode();
+      const code = await generateCode();
+
 
       const vendor = await SubVendor.findOne({ phone });
 
@@ -27,17 +28,19 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
           .status(400)
           .json({ success: false, error: "Vendor already exists!" });
       } else {
-        const newVendor = await SubVendor.create({
+        const newVendor = new SubVendor({
           vendorId: new Object(vendorId),
-          subVendorCode: code,
+          subVendorCode: await generateCode(),
           fullName,
           phone,
         });
 
+        await newVendor.save()
+
         const data = await SubVendor.find({ vendorId: vendorId });
         res.status(200).json({ message: "New Vendor Added!", data: data });
       }
-    }
+    } 
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
