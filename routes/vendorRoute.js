@@ -70,7 +70,7 @@ router.post(
 
 router.post(
   "/generatePdf",
-  // authMiddleware.authMiddleware,
+  authMiddleware.authMiddleware,
   vendorcontroller.generateInvoice
 );
 router.post(
@@ -167,7 +167,7 @@ router.post(
   vendorcontroller.updateHotelItemProfit
 );
 
-router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
+router.get("/msgToSubvendor", vendorcontroller.msgToSubVendor);
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

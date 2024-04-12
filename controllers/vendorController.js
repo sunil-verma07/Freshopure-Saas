@@ -262,6 +262,17 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
         },
       },
       {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
         $unwind: "$orderedItems", // Unwind orderedItems array
       },
       {
@@ -288,6 +299,9 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
         },
       },
       {
+        $unwind: "$itemDetails",
+      },
+      {
         $lookup: {
           from: "Images",
           localField: "_id",
@@ -296,16 +310,20 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
         },
       },
       {
-        $project: {
-          _id: 0,
-          totalQuantityOrdered: {
-            kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
-            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
-          }, // Total quantity ordered in kg and grams
-          itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
-          itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
-        },
+        $unwind: "$itemImages",
       },
+      // {
+      //   $project: {
+      //     _id: 0,
+      //     totalQuantityOrdered: {
+      //       kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
+      //       gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
+      //     }, // Total quantity ordered in kg and grams
+      //     itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
+      //     itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
+      //     hotelDetails: { $arrayElemAt: ["$hotelDetails", 0] },
+      //   },
+      // },
     ]);
 
     for (const order of orderData) {
@@ -1633,6 +1651,14 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
     }).select("items");
 
+    console.log(vendorItems, "vi");
+    if (!vendorItems) {
+      return res.json({
+        message: "Vendor items retrieved successfully",
+        data: AllItems,
+      });
+    }
+
     let assignedItemsArray = [];
     for (let item of vendorItems.items) {
       assignedItemsArray.push(item);
@@ -2150,9 +2176,9 @@ const updateHotelItemProfit = async (req, res, next) => {
 
 const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   try {
-    await messageToSubvendor();
+    const compiledOrder= await messageToSubvendor();
 
-    res.status(200).json({ message: "yayyy" });
+    res.status(200).json({ compiledOrder });
   } catch (error) {
     res.status(200).json({ message: "nayyy" });
   }

@@ -30,7 +30,10 @@ const messageToSubvendor = async () => {
     const vendors = await user.find({ roleId: vendorRoleId });
 
     // console.log(vendors, "vendors");
-    const compiledOrders = todayCompiledOrders(vendors);
+    const compiledOrders = await todayCompiledOrders(vendors);
+    
+    return compiledOrders
+    
   } catch (error) {
     console.log(error, "error");
   }
@@ -240,7 +243,6 @@ const todayCompiledOrders = async (vendors) => {
         },
       ]);
 
-      // Process order data for each subvendor
       for (const order of orderData) {
         const subVendor = await SubVendor.findOne({
           vendorId: vendorId, // Match the vendorId
@@ -259,15 +261,15 @@ const todayCompiledOrders = async (vendors) => {
           order["subVendorCode"] = "Not Assigned.";
         }
       }
-      console.log(orderData, "orders");
-      // Group order data by subvendor
+      //   console.log(orderData, "orders");
+
       let vendorArr = [];
       let obj = {};
       for (let subVendor of subVendors) {
         let subVendorArr = orderData.filter(
           (order) => order.subVendorCode === subVendor.subVendorCode
         );
-        console.log(subVendorArr.length, "subVe");
+        // console.log(subVendorArr.length, "subVe");
         if (subVendorArr.length === 1) {
           vendorArr.push(subVendorArr[0]);
         } else if (subVendorArr.length > 1) {
@@ -283,15 +285,15 @@ const todayCompiledOrders = async (vendors) => {
               itemName: subVendorArr[i].itemName,
               quantity: subVendorArr[i].totalQuantityOrdered,
             };
-            console.log(object, "object");
+            // console.log(object, "object");
             object.items.push(obj);
           }
-          console.log(object, "object");
+          //   console.log(object, "object");
           vendorArr.push(object);
         }
       }
 
-      console.log(vendorArr, "arr");
+      //   console.log(vendorArr, "arr");
       compiledOrders.push(...vendorArr);
     }
 
@@ -299,7 +301,7 @@ const todayCompiledOrders = async (vendors) => {
     return compiledOrders;
   } catch (error) {
     console.log(error);
-    throw error; // Don't forget to throw the error to handle it outside
+    throw error;
   }
 };
 
