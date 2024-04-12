@@ -31,7 +31,7 @@ const messageToSubvendor = async () => {
 
     // console.log(vendors, "vendors");
     const compiledOrders = await todayCompiledOrders(vendors);
-    console.log(compiledOrders, "Compiled");
+    return compiledOrders;
   } catch (error) {
     console.log(error, "error");
   }
@@ -175,7 +175,7 @@ const todayCompiledOrders = async (vendors) => {
 
   try {
     let compiledOrders = [];
-
+    console.log(vendors, "ven");
     for (let vendor of vendors) {
       const vendorId = vendor._id;
 
@@ -269,7 +269,20 @@ const todayCompiledOrders = async (vendors) => {
         );
         // console.log(subVendorArr.length, "subVe");
         if (subVendorArr.length === 1) {
-          vendorArr.push(subVendorArr[0]);
+          // vendorArr.push(subVendorArr[0]);
+          let object = {
+            vendorName: vendor.fullName,
+            items: [
+              {
+                itemName: subVendorArr[0].itemName,
+                quantity: subVendorArr[0].totalQuantityOrdered,
+              },
+            ],
+            subVendorCode: subVendorArr[0].subVendorCode,
+            subVendorName: subVendorArr[0].subVendorName,
+            subVendorPhone: subVendorArr[0].subVendorPhone,
+          };
+          vendorArr.push(object);
         } else if (subVendorArr.length > 1) {
           let object = {
             vendorName: vendor.fullName,

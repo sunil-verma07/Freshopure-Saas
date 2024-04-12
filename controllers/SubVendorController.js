@@ -32,7 +32,7 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
         console.log("here");
         const newVendor = await SubVendor.create({
           vendorId: new Object(vendorId),
-          subVendorCode: "SV-8789",
+          subVendorCode: code,
           fullName,
           phone,
         });

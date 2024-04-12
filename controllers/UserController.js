@@ -9,7 +9,7 @@ const router = express.Router();
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 const Address = require("../models/address.js");
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../services/encryptionServices");
 
 const {
@@ -132,16 +132,16 @@ const login = catchAsyncErrors(async (req, res, next) => {
           .status(401)
           .json({ success: false, error: "Invalid credentials" });
       } else {
-        if(!user.isEmailVerified){
-            sendEmailVerification(email,function(error){
-                if(error){
-                    return res.status(500).json({success:false,error:error})
-                }else{
-                    res.status(200).json({success:true,user:user})
-                }
-            })
-        }else{
-        return sendToken(user, 200, res);
+        if (!user.isEmailVerified) {
+          sendEmailVerification(email, function (error) {
+            if (error) {
+              return res.status(500).json({ success: false, error: error });
+            } else {
+              res.status(200).json({ success: true, user: user });
+            }
+          });
+        } else {
+          return sendToken(user, 200, res);
         }
       }
     }
@@ -275,7 +275,7 @@ const userDetailUpdate = catchAsyncErrors(async (req, res, next) => {
 
         await user.save();
 
-        return res.json({ message: "User Details Updated" });
+        return res.json({ message: "User Details Updated", user: user });
       } else {
         return res
           .status(400)

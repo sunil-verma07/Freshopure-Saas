@@ -21,7 +21,7 @@ const { isObjectIdOrHexString, trusted } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
 const item = require("../models/item");
-// const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
+const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -2086,15 +2086,15 @@ const updateHotelItemProfit = async (req, res, next) => {
   }
 };
 
-// const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
-//   try {
-//     await messageToSubvendor();
+const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const res = await messageToSubvendor();
 
-//     res.status(200).json({ message: "yayyy" });
-//   } catch (error) {
-//     res.status(200).json({ message: "nayyy" });
-//   }
-// });
+    res.status(200).json({ data: res });
+  } catch (error) {
+    res.status(400).json({ message: "nayyy" });
+  }
+});
 
 module.exports = {
   setHotelItemPrice,
@@ -2125,5 +2125,5 @@ module.exports = {
   freshoCalculator,
   removeVendorItem,
   updateHotelItemProfit,
-  // msgToSubVendor,
+  msgToSubVendor,
 };

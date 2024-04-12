@@ -1,4 +1,5 @@
 require("dotenv").config();
+const http = require("http");
 const aws = require("aws-sdk");
 const path = require("path");
 
@@ -28,21 +29,24 @@ const authMiddleware = require("./middleware/auth");
 
 require("./db");
 const cors = require("cors");
+const ACTIONS = require("./actions");
 
 const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
-
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const corsOptions = {
   origin: ["http://localhost:3000"],
-  credentials: true, 
+  credentials: true,
   optionSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+
+const server = http.createServer(app);
+const io = require("socket.io")(server);
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", ["http://localhost:3000"]);
@@ -55,6 +59,10 @@ app.use((req, res, next) => {
   next();
 });
 
+io.on("connection", (socket) => {
+  console.log("client connected!");
+});
+
 app.use("/user", userRoute);
 app.use("/order", orderRoute);
 app.use("/cart", cartRoute);
@@ -64,7 +72,6 @@ app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
 app.use("/subvendor", subVendorRoute);
-
 
 const port = process.env.PORT;
 app.listen(port, () => {
