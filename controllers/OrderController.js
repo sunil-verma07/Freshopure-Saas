@@ -98,8 +98,6 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
         await order.save();
 
-        io.emit('newOrder', order);
-
       }
     }
 

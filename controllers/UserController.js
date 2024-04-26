@@ -1,11 +1,14 @@
 const express = require("express");
 require("dotenv").config();
-const jwt = require("jsonwebtoken");
-const msg91 = require("msg91").default;
+
+const itemImageS3 = require("../services/itemImageS3.js");
 const AWS = require("aws-sdk");
 const fs = require("fs");
+const { ObjectId } = require("mongodb");
 const ErrorHandler = require("../utils/errorhander.js");
 const router = express.Router();
+const util = require("util");
+const unlinkFile = util.promisify(fs.unlink);
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 const Address = require("../models/address.js");
@@ -19,6 +22,7 @@ const {
 const sendToken = require("../utils/jwtToken.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 const { isAuthenticatedUser } = require("../middleware/auth.js");
+const userDetails = require("../models/userDetails.js");
 
 const register = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -64,13 +68,28 @@ const register = catchAsyncErrors(async (req, res, next) => {
 
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
-  const user = await User.findOne({ _id: userId }).populate("roleId");
+
+  const user = await User.aggregate([
+    { $match: { _id: userId } },
+    {
+      $lookup: {
+        from: "UserDetails",
+        localField: "_id",
+        foreignField: "userId",
+        as: "imageDetails",
+      },
+    },
+    {
+      $unwind: "$imageDetails",
+    },
+  ]);
+
   if (!user) {
     return res
       .status(401)
       .json({ success: false, error: "Unauthenticated User" });
   } else {
-    return res.status(200).json({ success: true, user: user });
+    return res.status(200).json({ user: user[0] });
   }
 });
 
@@ -113,6 +132,7 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
 const login = catchAsyncErrors(async (req, res, next) => {
   const { email, password } = req.body;
   console.log(email, password);
+
   if (!email || !password) {
     return res
       .status(400)
@@ -202,55 +222,48 @@ const setProfile = catchAsyncErrors(async (req, res, next) => {
 
 const setProfileImage = catchAsyncErrors(async (req, res, next) => {
   try {
-    const UserId = req.user._id;
-    const filePath = req.files[0].path;
-    const fileName = req.files[0].filename;
-    const { update } = req.body;
+    console.log(req, "req");
+    const userId = req.user._id;
+    const images = req.files;
 
-    const bucketName = process.env.AWS_USER_IMAGE_BUCKET_NAME;
-    const region = process.env.AWS_BUCKET_REGION;
-    const accessKeyId = process.env.AWS_ACCESS_KEY;
-    const secretAccessKey = process.env.AWS_SECRET_KET;
+    console.log(images, "img");
 
-    AWS.config.update({
-      accessKeyId,
-      secretAccessKey,
-      region,
-    });
-
-    const s3 = new AWS.S3();
-
-    const uploadParams = {
-      Bucket: bucketName,
-      Key: fileName,
-      Body: fs.createReadStream(filePath),
-    };
-
-    const s3UploadResponse = await s3.upload(uploadParams).promise();
-
-    // Now you can save the S3 file URL and other details to your database
-    const s3FileUrl = s3UploadResponse.Location;
-
-    const userImage = s3FileUrl;
-    const present = await User.findOne({ UserId: new ObjectId(UserId) });
-    if (update && present) {
-      await User.updateOne(
-        { UserId: new ObjectId(UserId) },
-        { $set: { userImage: userImage } }
-      );
-    } else {
-      const profileImage = new User({
-        UserId,
-        userImage,
-      });
-      await profileImage.save();
+    if (!images) {
+      return res.json({ message: "Please Select an Image" });
     }
-    // Remove the temporary file from the server
-    fs.unlinkSync(filePath);
+
+    let imagesReqBody = [];
+    for (let i = 0; i < images.length; ++i) {
+      const image = images[i];
+      const result = await itemImageS3.uploadFile(image);
+      // console.log(result)
+      await unlinkFile(image.path);
+      if (image.fieldname == "image") isDisplayImage = true;
+      const imageReqBody = {
+        imageLink: `/items/image/${result.Key}`,
+      };
+      // console.log(imageReqBody,result);
+      imagesReqBody.push(imageReqBody);
+    }
+
+    let user = await userDetails.findOne({ userId: userId });
+    if (user) {
+      user.img = imagesReqBody[0].imageLink;
+    } else {
+      user = userDetails.create({
+        userId: userId,
+        img: imagesReqBody[0].imageLink,
+      });
+    }
+
+    await user.save();
 
     // Respond to the client
-    res.status(200).json({ message: "File uploaded and saved successfully" });
+    res
+      .status(201)
+      .json({ message: "File uploaded and saved successfully", user: user });
   } catch (error) {
+    console.log(error, "err");
     res.status(200).json({ error: "Internal server error" });
   }
 });
@@ -287,14 +300,50 @@ const userDetailUpdate = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-const testApi = catchAsyncErrors(async (req, res, next) => {
-try {
-  await sendMail('mesunilverma07@gmail.com',456765)
-  console.log('success')
-} catch (error) {
-  console.log(error)
-}
-})
+const addUserDetails = catchAsyncErrors(async function (req, res, next) {
+  const userId = req.user._id;
+  const images = req.files;
+
+  // console.log(images, "img");
+  try {
+    if (!images) {
+      return res.json({ message: "Please Select an Image" });
+    }
+
+    let imagesReqBody = [];
+    for (let i = 0; i < images.length; ++i) {
+      const image = images[i];
+      const result = await itemImageS3.uploadFile(image);
+      // console.log(result)
+      await unlinkFile(image.path);
+      if (image.fieldname == "image") isDisplayImage = true;
+      const imageReqBody = {
+        imageLink: `/items/image/${result.Key}`,
+      };
+      // console.log(imageReqBody,result);
+      imagesReqBody.push(imageReqBody);
+    }
+
+    let user = await userDetails.findOne({ userId: userId });
+    if (user) {
+      user.img = imagesReqBody[0].imageLink;
+    } else {
+      user = userDetails.create({
+        userId: userId,
+        img: imagesReqBody[0].imageLink,
+      });
+    }
+
+    await user.save();
+
+    res
+      .status(201)
+      .json({ message: "User Details Updated successfully", user: user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 module.exports = {
   login,
@@ -305,5 +354,5 @@ module.exports = {
   setProfile,
   setProfileImage,
   userDetailUpdate,
-  testApi
+  addUserDetails,
 };

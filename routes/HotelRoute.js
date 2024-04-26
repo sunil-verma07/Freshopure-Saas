@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/auth");
-const {distributeAmongSubvendors} = require('../utils/sendWhatsappNotification')
+
 // const profileCompleteMiddleware = require('../middleware/profileComplete.js')
 const hotelcontroller = require("../controllers/HotelController.js");
 
@@ -16,12 +16,23 @@ router.get(
   hotelcontroller.myHotelProfile
 );
 
-router.get(
-  "/whatsapp",
+// router.get(
+//   "/whatsapp",
+//   authMiddleware.authMiddleware,
+//   distributeAmongSubvendors
+// );
+
+router.post(
+  "/hotelOrderAnalytics",
   authMiddleware.authMiddleware,
-  distributeAmongSubvendors
+  hotelcontroller.getHotelOrderAnalytics
 );
 
+router.post(
+  "/hotelItemAnalytics",
+  authMiddleware.authMiddleware,
+  hotelcontroller.getItemAnalytics
+);
 
 router.get(
   "/getAllCategories",

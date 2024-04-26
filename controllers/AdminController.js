@@ -708,6 +708,9 @@ const getVendorItems = catchAsyncError(async (req, res, next) => {
     res.json({ error });
   }
 });
+
+
+
 module.exports = {
   linkHoteltoVendor,
   addNewCategory,
