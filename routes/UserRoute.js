@@ -4,6 +4,7 @@ const { authMiddleware } = require("../middleware/auth");
 // const profileCompleteMiddleware = require('../middleware/profileComplete.js')
 const usercontroller = require("../controllers/UserController");
 const imageService = require("../services/imageService");
+const { upload } = require("../services/imageService.js");
 
 router.post("/login", usercontroller.login);
 router.post("/register", usercontroller.register);
@@ -17,7 +18,7 @@ router.get("/logout", authMiddleware, usercontroller.logout);
 router.post(
   "/setprofileimage",
   authMiddleware,
-  imageService.upload.any(),
+  upload.any(),
   usercontroller.setProfileImage
 );
 router.post("/setprofile", authMiddleware, usercontroller.setProfile);
@@ -25,6 +26,12 @@ router.post(
   "/updateUserDetails",
   authMiddleware,
   usercontroller.userDetailUpdate
+);
+router.post(
+  "/addUserDetails",
+  authMiddleware,
+  upload.any(),
+  usercontroller.addUserDetails
 );
 
 module.exports = router;

@@ -31,10 +31,16 @@ router.post(
   authMiddleware.authMiddleware,
   ordercontroller.orderDetails
 );
+
 router.get(
   "/allHotelOrders",
   authMiddleware.authMiddleware,
   ordercontroller.allHotelOrders
+);
+router.post(
+  "/cancelOrder",
+  authMiddleware.authMiddleware,
+  ordercontroller.cancelOrder
 );
 
 module.exports = router;

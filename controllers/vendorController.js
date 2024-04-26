@@ -22,6 +22,8 @@ const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
 const item = require("../models/item");
 const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
+const image = require("../models/image.js");
+const OrderStatus = require("../models/orderStatus.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -254,11 +256,14 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
   today.setHours(0, 0, 0, 0); // Set time to the start of the day
 
   try {
+    const status = await OrderStatus.findOne({ status: "Cancelled" });
+
     const orderData = await UserOrder.aggregate([
       {
         $match: {
           vendorId: vendorId,
           createdAt: { $gte: today }, // Filter orders for today
+          orderStatus: { $ne: status._id },
         },
       },
       {
@@ -1740,6 +1745,7 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
 
   const { duration } = req.body;
 
+  const status = await OrderStatus.findOne({ status: "Cancelled" });
   const today = new Date();
   async function getLastWeekData() {
     const result = [];
@@ -1750,6 +1756,7 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
     const orders = await UserOrder.find({
       vendorId: vendorId,
       createdAt: { $gte: weekStart, $lte: weekEnd },
+      orderStatus: { $ne: status._id },
     });
 
     const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -1797,6 +1804,7 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
     const orders = await UserOrder.find({
       vendorId: vendorId,
       createdAt: { $gte: monthStart, $lte: monthEnd },
+      orderStatus: { $ne: status._id },
     });
 
     // Loop through each day of the month starting from today and going back 30 days
@@ -1857,6 +1865,7 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
       const orders = await UserOrder.find({
         vendorId: vendorId,
         createdAt: { $gte: monthStart, $lte: monthEnd },
+        orderStatus: { $ne: status._id },
       });
 
       // Aggregate data for the current month
@@ -1911,53 +1920,236 @@ const getVendorOrderAnalytics = catchAsyncError(async (req, res, next) => {
 const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
 
-  try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const { duration } = req.body;
+
+  const status = await OrderStatus.findOne({ status: "Cancelled" });
+  let itemDetailsArray = [];
+
+  const getItemName = async (itemId) => {
+    const items = await item.findOne({ _id: itemId });
+    const image = await Image.findOne({ itemId: itemId });
+    const itemObj = {
+      name: items.name,
+      image: image.img,
+    };
+
+    return itemObj;
+  };
+  const today = new Date();
+  async function getLastWeekData() {
+    const result = [];
+    const weekEnd = new Date(today);
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - 6);
+
     const orders = await UserOrder.find({
       vendorId: vendorId,
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: weekStart, $lte: weekEnd },
+      orderStatus: { $ne: status._id },
     });
 
-    const itemsMap = new Map();
+    const itemsList = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
 
-    orders?.forEach(async (order) => {
-      for (const item of order.orderedItems) {
-        try {
-          // Assuming there's an Item model for fetching item details
-          const fetchedItem = await Items.findById({ _id: item.itemId }); // Assuming itemId is the reference to the Item model
-          console.log(fetchedItem);
-          if (fetchedItem) {
-            const { name, price } = fetchedItem;
-            const { quantity } = item;
+    const itemDetails = itemsList.items.reduce((acc, item) => {
+      acc[item.itemId] = {
+        itemId: item.itemId,
+        todayCostPrice: item.todayCostPrice,
+        orderedItems: [],
+      };
+      return acc;
+    }, {});
 
-            const existingItem = itemsMap.get(name) || {
-              totalQuantity: 0,
-              totalPrice: 0,
-            };
-            existingItem.totalQuantity += quantity;
-            existingItem.totalPrice += quantity * price; // Multiply quantity by price
-            itemsMap.set(name, existingItem);
-          }
-        } catch (error) {
-          console.error("Error fetching item:", error);
+    // Iterate through orders and add ordered items details to itemDetails
+    orders.forEach((order) => {
+      order.orderedItems.forEach(async (orderedItem) => {
+        const itemId = orderedItem.itemId;
+        if (itemDetails[itemId]) {
+          // If the item exists in itemDetails, add ordered item details to it
+          itemDetails[itemId].orderedItems.push(orderedItem);
         }
-      }
-    });
-
-    const result = [];
-    itemsMap.forEach((value, key) => {
-      result.push({
-        name: key,
-        totalQuantity: value.totalQuantity,
-        totalPrice: value.totalPrice,
       });
     });
 
-    res.json(result);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    itemDetailsArray = Object.values(itemDetails);
+
+    for (const item of itemDetailsArray) {
+      const obj = {
+        totalQuantity: { kg: 0, gram: 0 },
+        totalPrice: 0,
+      };
+      for (const order of item.orderedItems) {
+        obj.totalQuantity.kg += order.quantity.kg;
+        obj.totalQuantity.gram += order.quantity.gram;
+        obj.totalPrice +=
+          order.quantity.kg * order.price +
+          (order.quantity.gram / 1000) * order.price;
+      }
+      item.orderedItems = obj;
+
+      const info = await getItemName(item.itemId);
+
+      item.name = info.name;
+      item.image = info.image;
+    }
+
+    return itemDetailsArray; // Returning reversed orders as before
+  }
+
+  async function getLastMonthData() {
+    const result = [];
+    const monthEnd = new Date(today); // Month end is today
+    const monthStart = new Date(today); // Month start is 30 days before today
+    monthStart.setDate(today.getDate() - 30);
+
+    // Find orders within the last month
+    const orders = await UserOrder.find({
+      vendorId: vendorId,
+      createdAt: { $gte: monthStart, $lte: monthEnd },
+      orderStatus: { $ne: status._id },
+    });
+
+    const itemsList = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    const itemDetails = itemsList.items.reduce((acc, item) => {
+      acc[item.itemId] = {
+        itemId: item.itemId,
+        todayCostPrice: item.todayCostPrice,
+        orderedItems: [],
+      };
+      return acc;
+    }, {});
+
+    // Iterate through orders and add ordered items details to itemDetails
+    orders.forEach((order) => {
+      order.orderedItems.forEach(async (orderedItem) => {
+        const itemId = orderedItem.itemId;
+        if (itemDetails[itemId]) {
+          // If the item exists in itemDetails, add ordered item details to it
+          itemDetails[itemId].orderedItems.push(orderedItem);
+        }
+      });
+    });
+
+    itemDetailsArray = Object.values(itemDetails);
+
+    for (const item of itemDetailsArray) {
+      const obj = {
+        totalQuantity: { kg: 0, gram: 0 },
+        totalPrice: 0,
+      };
+      for (const order of item.orderedItems) {
+        obj.totalQuantity.kg += order.quantity.kg;
+        obj.totalQuantity.gram += order.quantity.gram;
+        obj.totalPrice +=
+          order.quantity.kg * order.price +
+          (order.quantity.gram / 1000) * order.price;
+      }
+      item.orderedItems = obj;
+
+      const info = await getItemName(item.itemId);
+
+      item.name = info.name;
+      item.image = info.image;
+    }
+
+    return itemDetailsArray;
+  }
+
+  async function getLastSixMonthsData() {
+    const result = [];
+
+    // Loop through the last 6 months
+    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1); // Six months ago from the current month
+
+    // Calculate start and end dates for the six-month period
+    const startDate = new Date(
+      sixMonthsAgo.getFullYear(),
+      sixMonthsAgo.getMonth(),
+      1
+    ); // Start of the first month
+    const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of the last month
+
+    // Find orders within the past six months
+    const orders = await UserOrder.find({
+      vendorId: vendorId,
+      createdAt: { $gte: startDate, $lte: endDate },
+      orderStatus: { $ne: status._id },
+    });
+
+    const itemsList = await VendorItems.findOne({
+      vendorId: vendorId,
+    }).select("items");
+
+    const itemDetails = itemsList.items.reduce((acc, item) => {
+      acc[item.itemId] = {
+        itemId: item.itemId,
+        todayCostPrice: item.todayCostPrice,
+        orderedItems: [],
+      };
+      return acc;
+    }, {});
+
+    // Iterate through orders and add ordered items details to itemDetails
+    orders.forEach((order) => {
+      order.orderedItems.forEach(async (orderedItem) => {
+        const itemId = orderedItem.itemId;
+        if (itemDetails[itemId]) {
+          // If the item exists in itemDetails, add ordered item details to it
+          itemDetails[itemId].orderedItems.push(orderedItem);
+        }
+      });
+    });
+
+    itemDetailsArray = Object.values(itemDetails);
+
+    for (const item of itemDetailsArray) {
+      const obj = {
+        totalQuantity: { kg: 0, gram: 0 },
+        totalPrice: 0,
+      };
+      for (const order of item.orderedItems) {
+        obj.totalQuantity.kg += order.quantity.kg;
+        obj.totalQuantity.gram += order.quantity.gram;
+
+        if (obj.totalQuantity.gram >= 1000) {
+          const extraKg = Math.floor(obj.totalQuantity.gram / 1000); // Calculate extra kilograms
+          obj.totalQuantity.kg += extraKg; // Add extra kilograms
+          obj.totalQuantity.gram %= 1000; // Update grams to the remainder after conversion to kilograms
+        }
+
+        obj.totalPrice +=
+          order.quantity.kg * order.price +
+          (order.quantity.gram / 1000) * order.price;
+      }
+      item.orderedItems = obj;
+
+      const info = await getItemName(item.itemId);
+
+      item.name = info.name;
+      item.image = info.image;
+    }
+
+    return itemDetailsArray;
+  }
+
+  if (duration === "week") {
+    return getLastWeekData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else if (duration === "month") {
+    return getLastMonthData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else if (duration === "sixMonths") {
+    return getLastSixMonthsData(today)
+      .then((data) => res.status(200).json({ data }))
+      .catch((err) => console.log(err));
+  } else {
+    return res.status(404).json({ error: "Incorrect duration selected" });
   }
 });
 
@@ -2088,9 +2280,10 @@ const updateHotelItemProfit = async (req, res, next) => {
 
 const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   try {
-    const res = await messageToSubvendor();
+    const response = await messageToSubvendor();
 
-    res.status(200).json({ data: res });
+    await sendWhatsappmessge(response);
+    res.status(200).json({ data: response });
   } catch (error) {
     res.status(400).json({ message: "nayyy" });
   }
