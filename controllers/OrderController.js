@@ -16,7 +16,6 @@ const HotelItemPrice = require("../models/hotelItemPrice.js");
 const Addresses = require("../models/address.js");
 const category = require("../models/category.js");
 const item = require("../models/item.js");
-const { io } = require('../utils/socket'); // Import the WebSocket instance
 
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
@@ -67,6 +66,8 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       orders[item.vendorId].push(updatedItem);
     }
 
+    console.log(totalOrderPrice, "cost");
+
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
         const items = orders[vendorId];
@@ -82,6 +83,11 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
         let totalPrice = 0;
         items.forEach((item) => {
+          if (item.quantity.kg === 0 && item.quantity.gram < 100) {
+            return res
+              .status(400)
+              .json({ message: "Quantity must be greater than 100 gm." });
+          }
           const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
           totalPrice = totalPrice + (totalGrams * item.price) / 1000; // Multiply total grams with price and store in totalPrice field
         });
@@ -96,8 +102,9 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
-        await order.save();
+        console.log(order, "order");
 
+        await order.save();
       }
     }
 
@@ -116,12 +123,6 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
-    const page = req.query.page || 1; // Default to page 1 if not provided
-    const limitPerPage = 4;
-    const skip = (page - 1) * limitPerPage;
-
-    // Filter by status if provided in the query parameters
-    const statusFilter = req.query.status;
 
     const orderData = await UserOrder.aggregate([
       {
@@ -187,6 +188,7 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
           vendorDetails: { $first: "$vendorDetails" },
+          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
@@ -211,14 +213,10 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
+          // orderData: 1,
           orderedItems: 1,
         },
       },
-      // Sort by date (createdAt field)
-      { $sort: { "createdAt": -1 } }, // -1 for descending order
-      { $match: { "orderStatusDetails.status": statusFilter } },
-      { $skip: skip },
-      { $limit: limitPerPage },
     ]);
 
     res.status(200).json({
@@ -229,8 +227,6 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
-
-
 
 const allHotelOrders = catchAsyncError(async (req, res, next) => {
   try {
@@ -353,6 +349,9 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
         $unwind: "$orderStatus",
       },
       {
+        $unwind: "$orderedItems",
+      },
+      {
         $lookup: {
           from: "Items",
           localField: "orderedItems.itemId",
@@ -378,34 +377,6 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
         },
       },
       {
-        $lookup: {
-          from: "Prices",
-          localField: "orderedItems.itemDetails._id",
-          foreignField: "itemId",
-          as: "orderedItems.itemDetails.price",
-        },
-      },
-      {
-        $unwind: {
-          path: "$orderedItems.itemDetails.price",
-          preserveNullAndEmptyArrays: true, // Preserve documents without price
-        },
-      },
-      {
-        $lookup: {
-          from: "Categories",
-          localField: "orderedItems.itemDetails.categoryId",
-          foreignField: "_id",
-          as: "orderedItems.itemDetails.category",
-        },
-      },
-      {
-        $unwind: {
-          path: "$orderedItems.itemDetails.category",
-          preserveNullAndEmptyArrays: true, // Preserve documents without category
-        },
-      },
-      {
         $group: {
           _id: "$_id",
           orderStatus: { $first: "$orderStatus" },
@@ -421,6 +392,252 @@ const orderDetails = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const cancelOrder = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId } = req.user._id;
+    const { orderNumber } = req.body;
+
+    // Check if the order can be canceled
+    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+    const createdAtDate = new Date(order.createdAt);
+    const currentDate = new Date();
+
+    // Check if the order was placed on the same day as the current date
+    const isSameDay =
+      createdAtDate.getDate() === currentDate.getDate() &&
+      createdAtDate.getMonth() === currentDate.getMonth() &&
+      createdAtDate.getFullYear() === currentDate.getFullYear();
+
+    // If the conditions are not met, return an error response
+    if (!isSameDay) {
+      return res
+        .status(400)
+        .json({ error: "Cannot cancel order after midnight." });
+    }
+
+    // Proceed with order cancellation
+    const status = await OrderStatus.findOne({ status: "Cancelled" });
+    const updatedOrder = await UserOrder.findOneAndUpdate(
+      { orderNumber: orderNumber },
+      { $set: { orderStatus: status._id } },
+      { new: true } // Return the updated document
+    );
+
+    // Check if the order was found and updated
+    if (!updatedOrder) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+    // const data = await orderHistoryForHotel(hotelId);
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { hotelId: hotelId },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $unwind: "$orderedItems", // Unwind orderedItems array
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: {
+            orderId: "$_id",
+          },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          vendorDetails: { $first: "$vendorDetails" },
+          // orderData: { $first: "$$ROOT" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
+          orderedItems: {
+            $push: {
+              $mergeObjects: [
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          orderStatusDetails: 1,
+          // orderData: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+    console.log(orderData);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Order Cancelled!", data: orderData });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+async function orderHistoryForHotel(hotelId) {
+  try {
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { hotelId: hotelId },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+        },
+      },
+      {
+        $unwind: "$vendorDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $unwind: "$orderedItems", // Unwind orderedItems array
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: {
+            orderId: "$_id",
+          },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          vendorDetails: { $first: "$vendorDetails" },
+          // orderData: { $first: "$$ROOT" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
+          orderedItems: {
+            $push: {
+              $mergeObjects: [
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          orderStatusDetails: 1,
+          // orderData: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+    console.log(orderData);
+    return orderData;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 module.exports = {
   placeOrder,
   orderHistory,
@@ -428,4 +645,5 @@ module.exports = {
   compiledOrderForHotel,
   orderDetails,
   allHotelOrders,
+  cancelOrder,
 };
