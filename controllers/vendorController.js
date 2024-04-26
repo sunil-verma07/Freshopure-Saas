@@ -24,6 +24,7 @@ const item = require("../models/item");
 const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
+const hotelItemPrice = require("../models/hotelItemPrice.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -1733,6 +1734,18 @@ const removeVendorItem = async (req, res, next) => {
       return res.status(404).json({ message: "Vendor item not found" });
     }
 
+    const isAssigned = await hotelItemPrice.find({
+      vendorId: vendorId,
+      itemId: itemId,
+    });
+
+    if (isAssigned) {
+      const removed = await hotelItemPrice.deleteMany({
+        vendorId: vendorId,
+        itemId: itemId,
+      });
+    }
+
     const itemList = await getVendorItemsFunc(vendorId); // Get updated item list
     res.json({ message: "Item removed successfully", data: itemList });
   } catch (error) {
@@ -2289,6 +2302,26 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const orderStatusUpdate = async (req, res, next) => {
+  try {
+    const initialStatus = await OrderStatus.findOne({ status: "Order Placed" });
+    const updatedStatus = await OrderStatus.findOne({ status: "In Process" });
+
+    const updateResult = await UserOrder.updateMany(
+      { orderStatus: initialStatus._id },
+      { $set: { orderStatus: updatedStatus._id } }
+    );
+
+    res.json({
+      success: true,
+      message: "Order statuses updated successfully",
+      updateResult,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2319,4 +2352,5 @@ module.exports = {
   removeVendorItem,
   updateHotelItemProfit,
   msgToSubVendor,
+  orderStatusUpdate,
 };

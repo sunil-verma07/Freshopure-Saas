@@ -137,12 +137,6 @@ router.get(
   vendorcontroller.getAllVendorItems
 );
 
-router.post(
-  "/orderAnalytics",
-  authMiddleware.authMiddleware,
-  vendorcontroller.getVendorOrderAnalytics
-);
-
 router.get(
   "/itemsForVendor",
   authMiddleware.authMiddleware,
@@ -167,7 +161,10 @@ router.post(
   vendorcontroller.updateHotelItemProfit
 );
 
+router.post("/updateOrderStatus", vendorcontroller.orderStatusUpdate);
+
 router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
