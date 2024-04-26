@@ -17,15 +17,14 @@ async function sendWhatsappmessge(vendorsOrders) {
       return str
     } 
 
-   
-
+  
     // Get today's date and format it
     const todayDate = formatDate(new Date());
 
     for (let vendor of vendorsOrders) {
       var myHeaders = new Headers();
       myHeaders.append("Content-Type", "application/json");
-      myHeaders.append("authkey", "402992AcFeNjWk864da072aP1");
+      myHeaders.append("authkey", process.env.AUTH_KEY_MSG91);
 
       var raw = JSON.stringify({
         integrated_number: "919216200680",
