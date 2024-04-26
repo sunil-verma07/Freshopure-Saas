@@ -16,6 +16,7 @@ const HotelItemPrice = require("../models/hotelItemPrice.js");
 const Addresses = require("../models/address.js");
 const category = require("../models/category.js");
 const item = require("../models/item.js");
+const { io } = require('../utils/socket'); // Import the WebSocket instance
 
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
@@ -66,8 +67,6 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       orders[item.vendorId].push(updatedItem);
     }
 
-    console.log(totalOrderPrice, "cost");
-
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
         const items = orders[vendorId];
@@ -97,9 +96,10 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
-        console.log(order, "order");
-
         await order.save();
+
+        io.emit('newOrder', order);
+
       }
     }
 
@@ -118,6 +118,12 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
+    const page = req.query.page || 1; // Default to page 1 if not provided
+    const limitPerPage = 4;
+    const skip = (page - 1) * limitPerPage;
+
+    // Filter by status if provided in the query parameters
+    const statusFilter = req.query.status;
 
     const orderData = await UserOrder.aggregate([
       {
@@ -183,7 +189,6 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
           vendorDetails: { $first: "$vendorDetails" },
-          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
@@ -208,10 +213,14 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
-          // orderData: 1,
           orderedItems: 1,
         },
       },
+      // Sort by date (createdAt field)
+      { $sort: { "createdAt": -1 } }, // -1 for descending order
+      { $match: { "orderStatusDetails.status": statusFilter } },
+      { $skip: skip },
+      { $limit: limitPerPage },
     ]);
 
     res.status(200).json({
@@ -222,6 +231,8 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
+
+
 
 const allHotelOrders = catchAsyncError(async (req, res, next) => {
   try {
