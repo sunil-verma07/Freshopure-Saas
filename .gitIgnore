@@ -2,5 +2,3 @@
 sendgrid.env
 /node_modules
 
-
-.env

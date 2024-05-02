@@ -2392,6 +2392,20 @@ const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
+  try {
+
+    const data = await PaymentPlan.find({ });
+
+    res.status(200).json({
+      status: "success",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
