@@ -33,5 +33,13 @@ router.post(
   upload.any(),
   usercontroller.addUserDetails
 );
+router.post("/verifyToken", authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = router;
