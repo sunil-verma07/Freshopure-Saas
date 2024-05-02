@@ -24,6 +24,7 @@ const item = require("../models/item");
 const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
+const PaymentPlan = require("../models/paymentPlan.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -2377,6 +2378,20 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
+  try {
+
+    const data = await PaymentPlan.find({ });
+
+    res.status(200).json({
+      status: "success",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2407,4 +2422,5 @@ module.exports = {
   removeVendorItem,
   updateHotelItemProfit,
   msgToSubVendor,
+  getAllPaymentPlans,
 };

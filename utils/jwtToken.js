@@ -18,4 +18,20 @@ const sendToken = (user, statusCode, res) => {
   });
 };
 
+
+const generatePaymentToken = (userId, planDuration) => {
+  // Define payload with user ID and plan duration
+  const payload = {
+    userId:userId,
+    planDuration: planDuration,
+  };
+
+  const expiration = Math.floor(Date.now() / 1000) + (planDuration * 24 * 60 * 60);
+
+  // Sign JWT token with payload, secret key, and expiration time
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: expiration });
+
+  return token;
+};
+
 module.exports = sendToken;

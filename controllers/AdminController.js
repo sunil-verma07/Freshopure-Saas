@@ -3,6 +3,7 @@ const catchAsyncError = require("../middleware/catchAsyncErrors.js");
 const { getDatabase } = require("../dbClient.js");
 const { ObjectId } = require("mongodb");
 const Category = require("../models/category.js");
+const PaymentPlan = require("../models/paymentPlan.js");
 const Item = require("../models/item.js");
 const Image = require("../models/image.js");
 const itemImageS3 = require("../services/itemImageS3.js");
@@ -709,6 +710,26 @@ const getVendorItems = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const addNewPaymentPlan = catchAsyncError(async (req, res, next) => {
+  try {
+    const { name,duration,features,price } = req.body;
+
+    if (!name) {
+      throw new Error("All fields are required");
+    }
+
+    const paymentPlan = new PaymentPlan({
+      name,duration,features,price
+    });
+
+    await paymentPlan.save();
+    res.status(200).json({ message: "Payment Plan Added" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 
 module.exports = {
@@ -731,4 +752,5 @@ module.exports = {
   getVendorHotels,
   getVendorOrders,
   getVendorItems,
+  addNewPaymentPlan,
 };

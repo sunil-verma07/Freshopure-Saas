@@ -137,6 +137,12 @@ router.get(
   vendorcontroller.getAllVendorItems
 );
 
+router.get(
+  "/getAllPaymentPlans",
+  // authMiddleware.authMiddleware,
+  vendorcontroller.getAllPaymentPlans
+);
+
 router.post(
   "/orderAnalytics",
   authMiddleware.authMiddleware,

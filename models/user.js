@@ -64,6 +64,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: "Under Review",
   },
+  hasActiveSubscription: { type: Boolean, default: false }, 
+  activeSubscription: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentPlan' },
+  paymentToken : {
+    type:String,
+  } 
 });
 
 // JWT TOKEN
