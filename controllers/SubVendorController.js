@@ -12,40 +12,50 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
     if (!fullName || !phone) {
       return res
         .status(400)
-        .json({ success: false, message: "Please enter all feilds properly!" });
+        .json({ success: false, message: "Please enter all fields properly!" });
     } else {
-      console.log("abc");
-      const generateCode = async () => {
+      // Generate subVendorCode
+      const generateCode = () => {
         let num = Math.random() * 9000;
         return "SV-" + Math.floor(num + 999);
       };
-      const code = await generateCode();
-      console.log("abbbbc");
+      const subVendorCode = generateCode();
 
-      const vendor = await SubVendor.findOne({ phone });
-      console.log("abbcccc");
-      if (vendor) {
+      // Check if subVendorCode already exists
+      const vendorWithCode = await SubVendor.findOne({ subVendorCode });
+      if (vendorWithCode) {
         return res
           .status(400)
-          .json({ success: false, error: "Vendor already exists!" });
-      } else {
-        console.log("here");
-        const newVendor = await SubVendor.create({
-          vendorId: new Object(vendorId),
-          subVendorCode: code,
-          fullName,
-          phone,
-        });
-        console.log(newVendor, "new");
-        const data = await SubVendor.find({ vendorId: vendorId });
-        res.status(200).json({ message: "New Vendor Added!", data: data });
+          .json({ success: false, error: "Vendor with this code already exists!" });
       }
+
+      // Check if phone number already exists
+      const vendorWithPhone = await SubVendor.findOne({ phone });
+      if (vendorWithPhone) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Vendor with this phone number already exists!" });
+      }
+
+      // Create new vendor
+      const newVendor = new SubVendor({
+        vendorId,
+        subVendorCode,
+        fullName,
+        phone,
+      });
+
+      await newVendor.save();
+
+      const data = await SubVendor.find({ vendorId });
+      res.status(200).json({ message: "New Vendor Added!", data });
     }
   } catch (error) {
-    console.log(error);
+    console.log(error, 'error');
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 const removeVendor = catchAsyncErrors(async (req, res, next) => {
   try {

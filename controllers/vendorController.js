@@ -24,7 +24,9 @@ const item = require("../models/item");
 const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
+const PaymentPlan = require("../models/paymentPlan.js");
 const hotelItemPrice = require("../models/hotelItemPrice.js");
+const { generatePaymentToken } = require("../utils/jwtToken.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -623,19 +625,107 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     const vendorId = req.user._id;
     const { HotelId } = req.body;
 
-    console.log(vendorId, HotelId);
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { vendorId: vendorId, hotelId: new ObjectId(HotelId) },
+      },
 
-    const hotelOrders = await Orders.find({
-      hotelId: HotelId,
-      vendorId,
-    }).populate("orderStatus");
-    // .populate("addressId");
-    // .populate({
-    //   path: "orderedItems.itemId",
-    //   populate: { path: "itemId" }, // Populate the associated item details
-    // });
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $unwind: "$orderedItems", // Unwind orderedItems array
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: {
+            orderId: "$_id",
+          },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          orderNumber: { $first: "$orderNumber" },
+          hotelDetails: { $first: "$hotelDetails" },
+          // orderData: { $first: "$$ROOT" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
 
-    res.json({ hotelOrders });
+          orderedItems: {
+            $push: {
+              $mergeObjects: [
+                "$orderedItems",
+                { itemDetails: "$itemDetails" },
+                { image: "$images" },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          address: 1,
+          orderNumber: 1,
+          hotelId: 1,
+          hotelDetails: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          orderStatusDetails: 1,
+          updatedAt: 1,
+          // orderData: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+    res.json({ hotelOrders: orderData });
   } catch (error) {
     next(error);
   }
@@ -773,8 +863,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
   ]);
 
   const data = orderData[0];
-
-  console.log(data);
 
   const styles = {
     container: {
@@ -1563,7 +1651,7 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    const AllItems = await Items.find();
+    const AllItems = await Items.find({});
 
     const vendorItems = await VendorItems.findOne({
       vendorId: vendorId,
@@ -2298,7 +2386,33 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     await sendWhatsappmessge(response);
     res.status(200).json({ data: response });
   } catch (error) {
-    res.status(400).json({ message: "nayyy" });
+    res.status(200).json({ message: "nayyy" });
+  }
+});
+
+const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const data = await PaymentPlan.find({});
+
+    res.status(200).json({
+      status: "success",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const data = await PaymentPlan.find({});
+
+    res.status(200).json({
+      status: "success",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -2321,6 +2435,45 @@ const orderStatusUpdate = async (req, res, next) => {
     console.log(error);
   }
 };
+
+const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { duration } = req.body;
+
+    console.log(duration, "dur");
+    const plan = await PaymentPlan.findOne({ duration: duration });
+
+    const token = await generatePaymentToken({
+      userId,
+      planDuration: duration,
+    });
+
+    console.log(token, "token");
+    if (!token) {
+      return res.json({ message: "Failed To Generate Token" });
+    }
+
+    const vendor = await user.findOne({ _id: userId });
+
+    if (vendor.hasActiveSubscription) {
+      return res.json({
+        message: "Vendor already has an active Subscription!",
+      });
+    } else {
+      vendor.hasActiveSubscription = true;
+      vendor.activeSubscription = plan._id;
+      vendor.paymentToken = token;
+      vendor.dateOfActivation = new Date();
+
+      await vendor.save();
+    }
+
+    return res.json({ message: "Plan Activated!" });
+  } catch (error) {
+    console.log(error, "errr");
+  }
+});
 
 module.exports = {
   setHotelItemPrice,
@@ -2352,5 +2505,7 @@ module.exports = {
   removeVendorItem,
   updateHotelItemProfit,
   msgToSubVendor,
+  getAllPaymentPlans,
+  generatePlanToken,
   orderStatusUpdate,
 };

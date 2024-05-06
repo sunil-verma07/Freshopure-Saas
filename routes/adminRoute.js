@@ -12,6 +12,13 @@ router.post(
   upload.any(),
   admincontroller.addNewCategory
 );
+
+router.post(
+  "/addnewplan",
+  // authMiddleware.authMiddleware,
+  admincontroller.addNewPaymentPlan
+);
+
 router.post(
   "/vendorhotellink",
   authMiddleware.authMiddleware,

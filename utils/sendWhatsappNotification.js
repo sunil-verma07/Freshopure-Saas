@@ -4,24 +4,33 @@ const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 async function sendWhatsappmessge(vendorsOrders) {
   console.log(vendorsOrders, "orders");
   try {
-    // function formatDate(date) {
-    //   const options = { day: "numeric", month: "long", year: "numeric" };
-    //   return new Date(date).toLocaleDateString("en-US", options);
-    // }
+    function formatDate(date) {
+      const options = { day: "numeric", month: "long", year: "numeric" };
+      return new Date(date).toLocaleDateString("en-US", options);
+    }
 
+    function itemDistribution(items){
+      let str = ``
+      for(let item of items){
+        str = str + `\\n${item?.itemName} - ${item?.quantity?.kg}Kg ${item?.quantity?.gram}grams \\n` 
+      }
+      return str
+    } 
+
+  
     // Get today's date and format it
-    // const todayDate = formatDate(new Date());
+    const todayDate = formatDate(new Date());
 
     for (let vendor of vendorsOrders) {
       var myHeaders = new Headers();
       myHeaders.append("Content-Type", "application/json");
-      myHeaders.append("authkey", "402992AcFeNjWk864da072aP1");
+      myHeaders.append("authkey", process.env.AUTH_KEY_MSG91);
 
       var raw = JSON.stringify({
         integrated_number: "919216200680",
         content_type: "template",
         payload: {
-          to: vendor.phone,
+          to: '91'+ vendor.subVendorPhone,
           type: "template",
           template: {
             name: "vendor_message",
@@ -35,11 +44,15 @@ async function sendWhatsappmessge(vendorsOrders) {
                 parameters: [
                   {
                     type: "text",
-                    text: "26 April 2024",
+                    text: vendor.vendorName,
                   },
                   {
                     type: "text",
-                    text: "order",
+                    text: todayDate,
+                  },
+                  {
+                    type: "text",
+                    text: itemDistribution(vendor?.items),
                   },
                 ],
               },

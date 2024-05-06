@@ -31,7 +31,9 @@ const messageToSubvendor = async () => {
 
     // console.log(vendors, "vendors");
     const compiledOrders = await todayCompiledOrders(vendors);
-    return compiledOrders;
+    
+    return compiledOrders
+    
   } catch (error) {
     console.log(error, "error");
   }

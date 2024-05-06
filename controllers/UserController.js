@@ -12,14 +12,14 @@ const unlinkFile = util.promisify(fs.unlink);
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 const Address = require("../models/address.js");
-// const bcrypt = require("bcrypt");
 const { encrypt, decrypt } = require("../services/encryptionServices");
 
 const {
   sendEmailVerification,
   checkVerification,
+  sendMail,
 } = require("../utils/sendEmailVerification.js");
-const sendToken = require("../utils/jwtToken.js");
+const { sendToken } = require("../utils/jwtToken.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 const { isAuthenticatedUser } = require("../middleware/auth.js");
 const userDetails = require("../models/userDetails.js");

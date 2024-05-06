@@ -70,7 +70,7 @@ router.post(
 
 router.post(
   "/generatePdf",
-  // authMiddleware.authMiddleware,
+  authMiddleware.authMiddleware,
   vendorcontroller.generateInvoice
 );
 router.post(
@@ -138,6 +138,18 @@ router.get(
 );
 
 router.get(
+  "/getAllPaymentPlans",
+  // authMiddleware.authMiddleware,
+  vendorcontroller.getAllPaymentPlans
+);
+
+router.post(
+  "/orderAnalytics",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getVendorOrderAnalytics
+);
+
+router.get(
   "/itemsForVendor",
   authMiddleware.authMiddleware,
   vendorcontroller.itemsForVendor
@@ -164,6 +176,17 @@ router.post(
 router.post("/updateOrderStatus", vendorcontroller.orderStatusUpdate);
 
 router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
+
+router.get(
+  "/getAllPlans",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getAllPaymentPlans
+);
+router.post(
+  "/planSubscribed",
+  authMiddleware.authMiddleware,
+  vendorcontroller.generatePlanToken
+);
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

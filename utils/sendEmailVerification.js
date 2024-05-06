@@ -48,8 +48,8 @@ function sendMail(email, code) {
 
     const tranEmailApi = new Sib.TransactionalEmailsApi()
     const sender = {
-        email: 'vedantjain1008@gmail.com',
-        name: 'Vedant',
+        email: 'info@freshopure.com',
+        name: 'Freshopure',
     };
     const receivers = [
         {
@@ -135,8 +135,7 @@ async function checkVerification(email, code, callback) {
     }
 }
 
-////////////////
 
 
 
-module.exports ={ sendEmailVerification,checkVerification}
+module.exports ={ sendEmailVerification,checkVerification,sendMail}

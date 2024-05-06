@@ -13,7 +13,6 @@ aws.config.update({
   secretAccessKey: process.env.AWS_SECRET_KET,
   region: process.env.AWS_BUCKET_REGION,
 });
-
 const userRoute = require("./routes/UserRoute");
 const orderRoute = require("./routes/OrderRoute");
 const cartRoute = require("./routes/CartRoute");
@@ -23,6 +22,7 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
+const socketIo = require('./utils/socket');
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
@@ -35,6 +35,7 @@ const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
 
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -46,7 +47,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const server = http.createServer(app);
-const io = require("socket.io")(server);
+
+socketIo.initWebSocket(server);
+
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", ["http://localhost:3000"]);
@@ -59,9 +62,6 @@ app.use((req, res, next) => {
   next();
 });
 
-io.on("connection", (socket) => {
-  console.log("client connected!");
-});
 
 app.use("/user", userRoute);
 app.use("/order", orderRoute);

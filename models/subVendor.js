@@ -2,32 +2,23 @@ const mongoose = require("mongoose");
 const Items = require("./item");
 const User = require("./user");
 
-const validatePhone = (phone) => {
-  const re = /\d{10}/;
-  return re.test(phone);
-};
 
 const subVendorSchema = new mongoose.Schema({
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   subVendorCode: {
     type: String,
-    unique: true,
     required: true,
+    unique: true,
   },
   fullName: {
     type: String,
-    unique: true,
+    unique:true
   },
   phone: {
     type: Number,
     unique: true,
     trim: true,
     required: "Mobile Number is required",
-    validate: [validatePhone, "Please fill a valid Mobile Number"],
-    match: [
-      /^ (\+\d{ 1, 2}\s) ?\(?\d{ 3 } \)?[\s.-] ?\d{ 3 } [\s.-] ?\d{ 4 } $/,
-      "Please fill a valid mobile number",
-    ],
   },
   assignedItems: [
     {
