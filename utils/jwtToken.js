@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const sendToken = (user, statusCode, res) => {
+const sendToken = (user, statusCode, res, role) => {
   const token = user.getJWTToken();
   // options for cookie
   const options = {
@@ -14,6 +14,7 @@ const sendToken = (user, statusCode, res) => {
     success: true,
     user,
     token,
+    role,
   });
 };
 

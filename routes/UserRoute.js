@@ -11,7 +11,7 @@ router.post("/register", usercontroller.register);
 router.get("/profile", authMiddleware, usercontroller.myProfile);
 router.post(
   "/emailverification",
-  authMiddleware,
+  // authMiddleware,
   usercontroller.emailVerification
 );
 router.get("/logout", authMiddleware, usercontroller.logout);
@@ -21,6 +21,7 @@ router.post(
   upload.any(),
   usercontroller.setProfileImage
 );
+router.post("/profileComplete", usercontroller.profileComplete);
 router.post("/setprofile", authMiddleware, usercontroller.setProfile);
 router.post(
   "/updateUserDetails",
@@ -41,6 +42,5 @@ router.post("/verifyToken", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 module.exports = router;

@@ -19,8 +19,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    unique: true,
-    required: "Email address is required",
+    unique: false,
     validate: [validateEmail, "Please fill a valid email address"],
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
@@ -39,18 +38,10 @@ const UserSchema = new mongoose.Schema({
       "Please fill a valid mobile number",
     ],
   },
-  password: {
-    type: String,
-    required: "Please enter your password",
-  },
   roleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Role",
-    required: "Please choose your role",
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false,
+    // required: "Please choose your role",
   },
   isProfileComplete: {
     type: Boolean,
@@ -83,17 +74,17 @@ UserSchema.methods.getJWTToken = function () {
 };
 
 //hashing password
-UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    next();
-  }
+// UserSchema.pre("save", async function (next) {
+//   if (!this.isModified("password")) {
+//     next();
+//   }
 
-  this.password = bcrypt.hash(this.password, 10);
-});
+//   this.password = bcrypt.hash(this.password, 10);
+// });
 
 //comparing password
-UserSchema.methods.comparePassword = async function (password) {
-  return await bcrypt.compare(password, this.password);
-};
+// UserSchema.methods.comparePassword = async function (password) {
+//   return await bcrypt.compare(password, this.password);
+// };
 
 module.exports = mongoose.model("User", UserSchema, "Users");

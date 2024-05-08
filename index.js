@@ -22,7 +22,7 @@ const adminRoute = require("./routes/adminRoute");
 const vendorRoute = require("./routes/vendorRoute");
 const hotelRoute = require("./routes/HotelRoute");
 const subVendorRoute = require("./routes/subVendorRoute");
-const socketIo = require('./utils/socket');
+const socketIo = require("./utils/socket");
 
 const errorMiddleware = require("./middleware/error");
 const authMiddleware = require("./middleware/auth");
@@ -34,7 +34,6 @@ const ACTIONS = require("./actions");
 const app = express();
 app.use(cookieParser());
 app.use(errorMiddleware);
-
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -50,7 +49,6 @@ const server = http.createServer(app);
 
 socketIo.initWebSocket(server);
 
-
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", ["http://localhost:3000"]);
   res.header(
@@ -61,7 +59,6 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
-
 
 app.use("/user", userRoute);
 app.use("/order", orderRoute);
