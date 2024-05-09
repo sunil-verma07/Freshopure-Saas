@@ -31,8 +31,10 @@ async function verifyOtp(phone, code) {
 
 async function resendOtp(phone) {
   try {
-    console.log(123);
+    let otp = msg91.getOTP("64dc68c2d6fc05312a7edec3", { length: 4 });
+
     const res = await otp.retry(phone);
+    console.log(res, "res");
     return 1;
   } catch (error) {
     return 0;
