@@ -174,14 +174,13 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
     const response = await verifyOtp(phone, code);
     console.log(response, "resp");
     if (response !== 1) {
-      return res.json({ message: response });
+      return res.json({success:false, message: response });
     } else {
       const user = await User.findOne({ phone: phone });
       if (user) {
         const roleId = await Role.findOne({ _id: user.roleId });
         return sendToken(user, 200, res, roleId.name);
       } else {
-        console.log("new");
         const newUser = await User.create({
           phone: phone,
         });
