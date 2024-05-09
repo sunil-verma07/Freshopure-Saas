@@ -2406,6 +2406,66 @@ const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const orderStatusUpdate = async (req, res, next) => {
+  try {
+    const initialStatus = await OrderStatus.findOne({ status: "Order Placed" });
+    const updatedStatus = await OrderStatus.findOne({ status: "In Process" });
+
+    const updateResult = await UserOrder.updateMany(
+      { orderStatus: initialStatus._id },
+      { $set: { orderStatus: updatedStatus._id } }
+    );
+
+    res.json({
+      success: true,
+      message: "Order statuses updated successfully",
+      updateResult,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { duration } = req.body;
+
+    
+    const plan = await PaymentPlan.findOne({ duration: duration });
+
+    const token = await generatePaymentToken({
+      userId,
+      planDuration: duration,
+    });
+
+    console.log(token, "token");
+    if (!token) {
+      return res.json({ message: "Failed To Generate Token" });
+    }
+
+    const vendor = await user.findOne({ _id: userId });
+
+    if (vendor.hasActiveSubscription) {
+      return res.json({
+        message: "Vendor already has an active Subscription!",
+      });
+    } else {
+      vendor.hasActiveSubscription = true;
+      vendor.activeSubscription = plan._id;
+      vendor.paymentToken = token;
+      vendor.dateOfActivation = new Date();
+
+      await vendor.save();
+    }
+
+    return res.json({ message: "Plan Activated!" });
+  } catch (error) {
+    console.log(error, "errr");
+  }
+});
+
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2437,4 +2497,7 @@ module.exports = {
   updateHotelItemProfit,
   msgToSubVendor,
   getAllPaymentPlans,
+  generatePlanToken,
+  orderStatusUpdate,
+
 };
