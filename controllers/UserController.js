@@ -290,6 +290,7 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         user.organization = organization;
         user.roleId = roleId._id;
         user.email = email;
+        user.isProfileComplete = true;
 
         await user.save();
 
