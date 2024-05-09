@@ -25,6 +25,8 @@ const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
 const PaymentPlan = require("../models/paymentPlan.js");
+const hotelItemPrice = require("../models/hotelItemPrice.js");
+const { generatePaymentToken } = require("../utils/jwtToken.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -110,7 +112,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
         },
       },
       {
-        $unwind: "$orderStatusDetails", 
+        $unwind: "$orderStatusDetails",
       },
       {
         $unwind: "$orderedItems", // Unwind orderedItems array
@@ -625,7 +627,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
 
     const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId , hotelId: new ObjectId(HotelId)},
+        $match: { vendorId: vendorId, hotelId: new ObjectId(HotelId) },
       },
 
       {
@@ -723,8 +725,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-
-    res.json({ hotelOrders:orderData });
+    res.json({ hotelOrders: orderData });
   } catch (error) {
     next(error);
   }
@@ -862,7 +863,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
   ]);
 
   const data = orderData[0];
-
 
   const styles = {
     container: {
@@ -1822,6 +1822,18 @@ const removeVendorItem = async (req, res, next) => {
       return res.status(404).json({ message: "Vendor item not found" });
     }
 
+    const isAssigned = await hotelItemPrice.find({
+      vendorId: vendorId,
+      itemId: itemId,
+    });
+
+    if (isAssigned) {
+      const removed = await hotelItemPrice.deleteMany({
+        vendorId: vendorId,
+        itemId: itemId,
+      });
+    }
+
     const itemList = await getVendorItemsFunc(vendorId); // Get updated item list
     res.json({ message: "Item removed successfully", data: itemList });
   } catch (error) {
@@ -2380,8 +2392,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
 
 const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
   try {
-
-    const data = await PaymentPlan.find({ });
+    const data = await PaymentPlan.find({});
 
     res.status(200).json({
       status: "success",
@@ -2394,8 +2405,7 @@ const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
 
 const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
   try {
-
-    const data = await PaymentPlan.find({ });
+    const data = await PaymentPlan.find({});
 
     res.status(200).json({
       status: "success",
@@ -2403,6 +2413,64 @@ const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+const orderStatusUpdate = async (req, res, next) => {
+  try {
+    const initialStatus = await OrderStatus.findOne({ status: "Order Placed" });
+    const updatedStatus = await OrderStatus.findOne({ status: "In Process" });
+
+    const updateResult = await UserOrder.updateMany(
+      { orderStatus: initialStatus._id },
+      { $set: { orderStatus: updatedStatus._id } }
+    );
+
+    res.json({
+      success: true,
+      message: "Order statuses updated successfully",
+      updateResult,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { duration } = req.body;
+
+    const plan = await PaymentPlan.findOne({ duration: duration });
+
+    const token = await generatePaymentToken({
+      userId,
+      planDuration: duration,
+    });
+
+    console.log(token, "token");
+    if (!token) {
+      return res.json({ message: "Failed To Generate Token" });
+    }
+
+    const vendor = await user.findOne({ _id: userId });
+
+    if (vendor.hasActiveSubscription) {
+      return res.json({
+        message: "Vendor already has an active Subscription!",
+      });
+    } else {
+      vendor.hasActiveSubscription = true;
+      vendor.activeSubscription = plan._id;
+      vendor.paymentToken = token;
+      vendor.dateOfActivation = new Date();
+
+      await vendor.save();
+    }
+
+    return res.json({ message: "Plan Activated!" });
+  } catch (error) {
+    console.log(error, "errr");
   }
 });
 
@@ -2437,4 +2505,6 @@ module.exports = {
   updateHotelItemProfit,
   msgToSubVendor,
   getAllPaymentPlans,
+  generatePlanToken,
+  orderStatusUpdate,
 };

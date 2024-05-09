@@ -27,7 +27,6 @@ const { isAuthenticatedUser } = require("../middleware/auth.js");
 const userDetails = require("../models/userDetails.js");
 const { sendOtp, verifyOtp } = require("../utils/sendEmailVerification.js");
 
-
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
 
@@ -67,21 +66,22 @@ const logout = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-
 const emailVerification = catchAsyncErrors(async (req, res) => {
   try {
     const { phone, code } = req.body;
     console.log(phone, code);
 
-    const {message} = await verifyOtp(phone, code);
+    const { message } = await verifyOtp(phone, code);
     console.log(message, "resp");
-    if (message !== 'OTP verified success') {
-      return res.json({success:false, message: message });
+    if (message !== "OTP verified success") {
+      return res.json({ success: false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
       if (user) {
-        const roleId = await Role.findOne({ _id: user.roleId });
-        return sendToken(user, 200, res, roleId.name);
+        if (user.isProfileComplete === true && user.isApproved === true) {
+          const roleId = await Role.findOne({ _id: user.roleId });
+          return sendToken(user, 200, res, roleId.name);
+        }
       } else {
         const newUser = await User.create({
           phone: phone,
@@ -212,8 +212,9 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
 
         await user.save();
 
-        console.log(user, "user");
-        return sendToken(user, 200, res, roleId.name);
+        return res
+          .status(200)
+          .json({ success: false, message: "Profile Completed!", user: user });
       } else {
         console.log("errr");
         return res
