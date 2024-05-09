@@ -174,15 +174,16 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
     const response = await verifyOtp(phone, code);
     console.log(response, "resp");
     if (response !== 1) {
-      return res.json({success:false, message: response });
+      return res.json({ success: false, message: response });
     } else {
       const user = await User.findOne({ phone: phone });
-      if (user) {
-        const roleId = await Role.findOne({ _id: user.roleId });
-        return sendToken(user, 200, res, roleId.name);
+      if (user?.isProfileComplete === true && user?.isApproved === true) {
+        const roleId = await Role.findOne({ _id: user?.roleId });
+        return sendToken(user, 200, res, roleId?.name);
       } else {
         const newUser = await User.create({
           phone: phone,
+          email: `${phone}@gmail.com`,
         });
         res.status(200).json({ success: true, user });
       }
@@ -270,20 +271,16 @@ const setProfile = catchAsyncErrors(async (req, res, next) => {
 const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
     const { fullName, organization, role, email, phone } = req.body;
-    console.log(fullName, organization, role, email, phone);
 
     if (!fullName || !organization || !role || !email || !phone) {
-      console.log("problem");
       return res
         .status(400)
         .json({ success: false, error: "Please enter all fields properly!" });
     } else {
-      console.log(phone, "phone0");
       const roleId = await Role.findOne({ name: role });
-      console.log(phone, "phone");
+
       const user = await User.findOne({ phone: phone });
-      console.log(phone, "phone2");
-      console.log(roleId, "ri");
+
       if (user) {
         user.fullName = fullName;
         user.organization = organization;
@@ -293,8 +290,9 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
 
         await user.save();
 
-        console.log(user, "user");
-        return sendToken(user, 200, res, roleId.name);
+        return res
+          .status(200)
+          .json({ success: true, message: "Profile Created!" });
       } else {
         console.log("errr");
         return res
