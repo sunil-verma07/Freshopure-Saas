@@ -19,7 +19,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    unique: false,
+    unique: true,
     validate: [validateEmail, "Please fill a valid email address"],
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
@@ -52,8 +52,8 @@ const UserSchema = new mongoose.Schema({
     default: false,
   },
   isApproved: {
-    type: String,
-    default: "Under Review",
+    type: Boolean,
+    default: false,
   },
   hasActiveSubscription: { type: Boolean, default: false },
   activeSubscription: {

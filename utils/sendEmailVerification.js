@@ -8,17 +8,18 @@ async function sendOtp(phone) {
 
     const res = await otp.send('91'+phone);
     console.log(res,'response')
-    return 1;
+    return res;
   } catch (error) {
-    return 0;
+    return error;
   }
 }
 
 async function verifyOtp(phone, code) {
   try {
     let otp = msg91.getOTP("64dc68c2d6fc05312a7edec3", { length: 4 });
-    const res = await otp.verify(phone, code);
-    return 1;
+    const res = await otp.verify('91'+phone, code);
+    console.log(res, "res");
+    return res;
   } catch (error) {
     return error;
   }
@@ -27,9 +28,9 @@ async function verifyOtp(phone, code) {
 async function resendOtp(phone) {
   try {
     const res = await otp.retry(phone);
-    return 1;
+    return res;
   } catch (error) {
-    return 0;
+    return error;
   }
 }
 

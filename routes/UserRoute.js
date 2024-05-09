@@ -7,7 +7,6 @@ const imageService = require("../services/imageService");
 const { upload } = require("../services/imageService.js");
 
 router.post("/login", usercontroller.login);
-router.post("/register", usercontroller.register);
 router.get("/profile", authMiddleware, usercontroller.myProfile);
 router.post(
   "/emailverification",

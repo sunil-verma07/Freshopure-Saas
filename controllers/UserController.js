@@ -26,47 +26,6 @@ const { isAuthenticatedUser } = require("../middleware/auth.js");
 const userDetails = require("../models/userDetails.js");
 const { sendOtp, verifyOtp } = require("../utils/sendEmailVerification.js");
 
-const register = catchAsyncErrors(async (req, res, next) => {
-  try {
-    const { organization, fullName, email, phone, password, role } = req.body;
-    if (!organization || !fullName || !email || !password || !phone || !role) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Please enter all fields properly!" });
-    } else {
-      const user = await User.findOne({ email: email }).select("+password");
-
-      if (user) {
-        return res
-          .status(400)
-          .json({ success: false, error: "User already exists!" });
-      } else {
-        const hashedPassword = encrypt(password);
-
-        const userRole = await Role.findOne({ name: role });
-
-        const newUser = await User.create({
-          organization: organization,
-          email: email,
-          phone: phone,
-          password: hashedPassword,
-          fullName: fullName,
-          roleId: userRole._id,
-        });
-
-        sendEmailVerification(email, function (error) {
-          if (error) {
-            return res.status(500).json({ success: false, error: error });
-          } else {
-            res.status(200).json({ user: newUser });
-          }
-        });
-      }
-    }
-  } catch (error) {
-    res.send(error);
-  }
-});
 
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
@@ -107,74 +66,16 @@ const logout = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-// const emailVerification = catchAsyncErrors(async (req, res) => {
-//   try {
-//     const { email, code } = req.body;
-//     await checkVerification(email, code, function (error, status) {
-//       if (error) {
-//         sendEmailVerification(email, function (error2) {
-//           if (error2) {
-//             res.status(400).json({ success: false, error: error2 });
-//           } else {
-//             res.status(500).json({
-//               success: false,
-//               error: error + ". Please enter the new code sent to your email.",
-//             });
-//           }
-//         });
-//       } else if (status) {
-//         res.status(200).json({ success: true });
-//       }
-//     });
-//   } catch (error) {
-//     res.status(400).json({ success: false, error: error });
-//   }
-// });
-
-// const login = catchAsyncErrors(async (req, res, next) => {
-//   const { email, password } = req.body;
-//   console.log(email, password);
-
-//   if (!email || !password) {
-//     return res
-//       .status(400)
-//       .json({ success: false, error: "Please enter all fields properly!" });
-//   } else {
-//     const user = await User.findOne({ email: email }).populate("roleId");
-
-//     if (!user) {
-//       return res
-//         .status(401)
-//         .json({ success: false, error: "Invalid credentials" });
-//     } else {
-//       const decryptPassword = decrypt(user.password);
-
-//       if (decryptPassword !== password) {
-//         return res
-//           .status(401)
-//           .json({ success: false, error: "Invalid credentials" });
-//       } else {
-
-//         if (!user.isEmailVerified) {
-//           console.log("heree");
-//           sendOtp(email);
-//         } else {
-//           return sendToken(user, 200, res);
-//         }
-//       }
-//     }
-//   }
-// });
 
 const emailVerification = catchAsyncErrors(async (req, res) => {
   try {
     const { phone, code } = req.body;
     console.log(phone, code);
 
-    const response = await verifyOtp(phone, code);
-    console.log(response, "resp");
-    if (response !== 1) {
-      return res.json({success:false, message: response });
+    const {message} = await verifyOtp(phone, code);
+    console.log(message, "resp");
+    if (message !== 'OTP verified success') {
+      return res.json({success:false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
       if (user) {
@@ -195,9 +96,7 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
 
 const login = catchAsyncErrors(async (req, res, next) => {
   try {
-    console.log("contr");
     const { phone } = req.body;
-    console.log(phone);
 
     if (!phone) {
       return res
@@ -468,7 +367,6 @@ const addUserDetails = catchAsyncErrors(async function (req, res, next) {
 
 module.exports = {
   login,
-  register,
   emailVerification,
   myProfile,
   logout,
