@@ -19,6 +19,7 @@ const {
   sendEmailVerification,
   checkVerification,
   sendMail,
+  resendOtp,
 } = require("../utils/sendEmailVerification.js");
 const { sendToken } = require("../utils/jwtToken.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
@@ -105,6 +106,26 @@ const login = catchAsyncErrors(async (req, res, next) => {
     } else {
       await sendOtp(phone);
       // console.log(res, "res");
+    }
+
+    return res.status(200).json({ message: "OTP sent" });
+  } catch (error) {
+    console.log(error, "err");
+    return res.status(401).json({ message: "Failed to send OTP" });
+  }
+});
+
+const resend = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    console.log(phone);
+
+    if (!phone) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Please enter your phone number!" });
+    } else {
+      await resendOtp(phone);
     }
 
     return res.status(200).json({ message: "OTP sent" });
@@ -370,6 +391,7 @@ module.exports = {
   emailVerification,
   myProfile,
   logout,
+  resend,
   setProfile,
   setProfileImage,
   userDetailUpdate,
