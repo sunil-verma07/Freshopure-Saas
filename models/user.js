@@ -19,7 +19,6 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    unique: true,
     validate: [validateEmail, "Please fill a valid email address"],
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
@@ -28,7 +27,6 @@ const UserSchema = new mongoose.Schema({
   },
   phone: {
     type: Number,
-    unique: true,
     unique: true,
     trim: true,
     required: "Mobile Number is required",

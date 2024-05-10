@@ -25,6 +25,8 @@ const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
 const PaymentPlan = require("../models/paymentPlan.js");
+const hotelItemPrice = require("../models/hotelItemPrice.js");
+const { generatePaymentToken } = require("../utils/jwtToken.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -110,7 +112,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
         },
       },
       {
-        $unwind: "$orderStatusDetails", 
+        $unwind: "$orderStatusDetails",
       },
       {
         $unwind: "$orderedItems", // Unwind orderedItems array
@@ -625,7 +627,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
 
     const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId , hotelId: new ObjectId(HotelId)},
+        $match: { vendorId: vendorId, hotelId: new ObjectId(HotelId) },
       },
 
       {
@@ -723,8 +725,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-
-    res.json({ hotelOrders:orderData });
+    res.json({ hotelOrders: orderData });
   } catch (error) {
     next(error);
   }
@@ -862,7 +863,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
   ]);
 
   const data = orderData[0];
-
 
   const styles = {
     container: {
@@ -1822,6 +1822,18 @@ const removeVendorItem = async (req, res, next) => {
       return res.status(404).json({ message: "Vendor item not found" });
     }
 
+    const isAssigned = await hotelItemPrice.find({
+      vendorId: vendorId,
+      itemId: itemId,
+    });
+
+    if (isAssigned) {
+      const removed = await hotelItemPrice.deleteMany({
+        vendorId: vendorId,
+        itemId: itemId,
+      });
+    }
+
     const itemList = await getVendorItemsFunc(vendorId); // Get updated item list
     res.json({ message: "Item removed successfully", data: itemList });
   } catch (error) {
@@ -2374,14 +2386,13 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     await sendWhatsappmessge(response);
     res.status(200).json({ data: response });
   } catch (error) {
-    res.status(200).json({ message: "nayyy" });
+    res.status(400).json({ error: error });
   }
 });
 
 const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
   try {
-
-    const data = await PaymentPlan.find({ });
+    const data = await PaymentPlan.find({});
 
     res.status(200).json({
       status: "success",
@@ -2394,8 +2405,7 @@ const getAllPaymentPlans = catchAsyncErrors(async (req, res, next) => {
 
 const selectedPaymentPlan = catchAsyncErrors(async (req, res, next) => {
   try {
-
-    const data = await PaymentPlan.find({ });
+    const data = await PaymentPlan.find({});
 
     res.status(200).json({
       status: "success",
@@ -2431,7 +2441,6 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
     const userId = req.user._id;
     const { duration } = req.body;
 
-    
     const plan = await PaymentPlan.findOne({ duration: duration });
 
     const token = await generatePaymentToken({
@@ -2464,7 +2473,6 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
     console.log(error, "errr");
   }
 });
-
 
 module.exports = {
   setHotelItemPrice,
@@ -2499,5 +2507,4 @@ module.exports = {
   getAllPaymentPlans,
   generatePlanToken,
   orderStatusUpdate,
-
 };
