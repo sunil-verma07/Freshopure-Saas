@@ -209,12 +209,12 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         user.organization = organization;
         user.roleId = roleId._id;
         user.email = email;
-
+        user.isProfileComplete = true;
         await user.save();
 
         return res
           .status(200)
-          .json({ success: false, message: "Profile Completed!", user: user });
+          .json({ success: true, message: "Profile Completed!", user: user });
       } else {
         console.log("errr");
         return res

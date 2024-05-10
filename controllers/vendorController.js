@@ -85,23 +85,23 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
 
 const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("asdasd");
     const vendorId = req.user._id;
 
     const orderData = await UserOrder.aggregate([
       {
         $match: { vendorId: vendorId },
       },
-
       {
         $lookup: {
           from: "Users",
-          localField: "hotelId",
+          localField: "vendorId",
           foreignField: "_id",
-          as: "hotelDetails",
+          as: "vendorDetails",
         },
       },
       {
-        $unwind: "$hotelDetails",
+        $unwind: "$vendorDetails",
       },
       {
         $lookup: {
@@ -151,11 +151,9 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
-          orderNumber: { $first: "$orderNumber" },
-          hotelDetails: { $first: "$hotelDetails" },
+          vendorDetails: { $first: "$vendorDetails" },
           // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
-
           orderedItems: {
             $push: {
               $mergeObjects: [
@@ -170,23 +168,22 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       {
         $project: {
           _id: 0,
-          address: 1,
-          orderNumber: 1,
           hotelId: 1,
-          hotelDetails: 1,
+          vendorDetails: 1,
           orderNumber: 1,
           isReviewed: 1,
           totalPrice: 1,
           address: 1,
           createdAt: 1,
-          orderStatusDetails: 1,
           updatedAt: 1,
+          orderStatusDetails: 1,
           // orderData: 1,
           orderedItems: 1,
         },
       },
     ]);
 
+    console.log(orderData);
     res.status(200).json({
       status: "success message",
       data: orderData,
