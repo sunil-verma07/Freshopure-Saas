@@ -69,16 +69,18 @@ const logout = catchAsyncErrors(async (req, res, next) => {
 const emailVerification = catchAsyncErrors(async (req, res) => {
   try {
     const { phone, code } = req.body;
-    console.log(phone, code);
+    // console.log(phone, code);
 
     const { message } = await verifyOtp(phone, code);
-    console.log(message, "resp");
+
     if (message !== "OTP verified success") {
       return res.json({ success: false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
       if (user) {
-        if (user.isProfileComplete === true && user.isApproved === true) {
+        if (!user.isProfileComplete && !user.isReviewed && !user.isApproved) {
+          return res.status(200).json({ success: true, user });
+        } else {
           const roleId = await Role.findOne({ _id: user.roleId });
           return sendToken(user, 200, res, roleId.name);
         }
@@ -86,7 +88,8 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
         const newUser = await User.create({
           phone: phone,
         });
-        res.status(200).json({ success: true, user });
+        console.log(newUser, "newUser");
+        res.status(200).json({ success: true, user: newUser });
       }
     }
   } catch (error) {
@@ -190,20 +193,15 @@ const setProfile = catchAsyncErrors(async (req, res, next) => {
 const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
     const { fullName, organization, role, email, phone } = req.body;
-    console.log(fullName, organization, role, email, phone);
 
     if (!fullName || !organization || !role || !email || !phone) {
-      console.log("problem");
       return res
         .status(400)
         .json({ success: false, error: "Please enter all fields properly!" });
     } else {
-      console.log(phone, "phone0");
       const roleId = await Role.findOne({ name: role });
-      console.log(phone, "phone");
       const user = await User.findOne({ phone: phone });
-      console.log(phone, "phone2");
-      console.log(roleId, "ri");
+
       if (user) {
         user.fullName = fullName;
         user.organization = organization;
@@ -212,9 +210,15 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         user.isProfileComplete = true;
         await user.save();
 
+        const updatedUser = await User.findOne({ phone: phone });
+
         return res
           .status(200)
-          .json({ success: true, message: "Profile Completed!", user: user });
+          .json({
+            success: true,
+            message: "Profile Completed!",
+            user: updatedUser,
+          });
       } else {
         console.log("errr");
         return res

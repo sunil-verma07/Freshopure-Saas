@@ -2383,7 +2383,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     await sendWhatsappmessge(response);
     res.status(200).json({ data: response });
   } catch (error) {
-    res.status(200).json({ message: "nayyy" });
+    res.status(400).json({ error: error });
   }
 });
 
