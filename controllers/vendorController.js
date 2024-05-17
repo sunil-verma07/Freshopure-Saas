@@ -86,12 +86,34 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
 const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
+    const { status, offset = 0, limit = 5 } = req.query;
 
-    const orderData = await UserOrder.aggregate([
-      {
-        $match: { vendorId: vendorId },
-      },
+    // Fetch the status _id from orderstatuses collection
+    const statusData = await OrderStatus.findOne({ status });
 
+    if (!statusData) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid status provided",
+      });
+    }
+
+    const statusId = statusData._id;
+
+    // Ensure the offset and limit are integers
+    const parsedOffset = parseInt(offset);
+    const parsedLimit = parseInt(limit);
+
+    // MongoDB aggregation pipeline stages for fetching orders
+    const pipeline = [
+      { $match: { vendorId: vendorId } },
+      { $sort: { createdAt: -1 } }, // Sort by createdAt descending
+
+      // Add $match stage to filter by order status _id
+      { $match: { orderStatus: statusId } },
+
+      { $skip: parsedOffset }, // Skip documents based on offset
+      { $limit: parsedLimit }, // Limit the number of documents returned
       {
         $lookup: {
           from: "Users",
@@ -100,9 +122,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           as: "hotelDetails",
         },
       },
-      {
-        $unwind: "$hotelDetails",
-      },
+      { $unwind: "$hotelDetails" },
       {
         $lookup: {
           from: "orderstatuses",
@@ -111,12 +131,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           as: "orderStatusDetails",
         },
       },
-      {
-        $unwind: "$orderStatusDetails",
-      },
-      {
-        $unwind: "$orderedItems", // Unwind orderedItems array
-      },
+      { $unwind: "$orderStatusDetails" },
+      { $unwind: "$orderedItems" }, // Unwind orderedItems array
       {
         $lookup: {
           from: "Items",
@@ -125,9 +141,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           as: "itemDetails",
         },
       },
-      {
-        $unwind: "$itemDetails",
-      },
+      { $unwind: "$itemDetails" },
       {
         $lookup: {
           from: "Images",
@@ -136,14 +150,10 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           as: "images",
         },
       },
-      {
-        $unwind: "$images",
-      },
+      { $unwind: "$images" },
       {
         $group: {
-          _id: {
-            orderId: "$_id",
-          },
+          _id: "$_id",
           orderNumber: { $first: "$orderNumber" },
           isReviewed: { $first: "$isReviewed" },
           totalPrice: { $first: "$totalPrice" },
@@ -151,11 +161,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
-          orderNumber: { $first: "$orderNumber" },
           hotelDetails: { $first: "$hotelDetails" },
-          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
-
           orderedItems: {
             $push: {
               $mergeObjects: [
@@ -169,7 +176,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       },
       {
         $project: {
-          _id: 0,
+          _id: 1,
           address: 1,
           orderNumber: 1,
           hotelId: 1,
@@ -181,14 +188,16 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           orderStatusDetails: 1,
           updatedAt: 1,
-          // orderData: 1,
           orderedItems: 1,
         },
       },
-    ]);
+    ];
+
+    // Aggregate query
+    const orderData = await UserOrder.aggregate(pipeline);
 
     res.status(200).json({
-      status: "success message",
+      status: "success",
       data: orderData,
     });
   } catch (error) {
@@ -790,273 +799,255 @@ const updateStock = catchAsyncError(async (req, res, next) => {
 
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
-  console.log(orderId);
-  const orderData = await UserOrder.aggregate([
-    {
-      $match: { _id: new ObjectId(orderId) },
-    },
-    {
-      $lookup: {
-        from: "orderstatuses",
-        localField: "orderStatus",
-        foreignField: "_id",
-        as: "orderStatus",
+  try {
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { _id: new ObjectId(orderId) },
       },
-    },
-    {
-      $unwind: "$orderStatus",
-    },
-    {
-      $lookup: {
-        from: "Users",
-        localField: "hotelId",
-        foreignField: "_id",
-        as: "hotelDetails",
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+          pipeline: [{ $limit: 1 }] // Limit to ensure only one document is returned
+        },
       },
-    },
-    {
-      $unwind: "$hotelDetails",
-    },
-    {
-      $lookup: {
-        from: "Users",
-        localField: "vendorId",
-        foreignField: "_id",
-        as: "vendorDetails",
+      {
+        $unwind: {
+          path: "$orderStatus",
+          preserveNullAndEmptyArrays: true,
+        },
       },
-    },
-    {
-      $unwind: "$vendorDetails",
-    },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+          pipeline: [{ $limit: 1 }]
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+          pipeline: [{ $limit: 1 }]
+        },
+      },
+      {
+        $unwind: {
+          path: "$vendorDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $addFields: {
+          "orderedItems.itemDetails": { $arrayElemAt: ["$itemDetails", 0] },
+        },
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "orderedItems.itemDetails.categoryId",
+          foreignField: "_id",
+          as: "categoryDetails",
+        },
+      },
+      {
+        $addFields: {
+          "orderedItems.itemDetails.category": {
+            $arrayElemAt: ["$categoryDetails", 0],
+          },
+        },
+      },
+      {
+        $unset: ["itemDetails", "categoryDetails"], // Remove temporary fields
+      },
+    ]);
 
-    // {
-    //   $unwind: "$orderedItems" // Unwind the orderedItems array
-    // },
-    {
-      $lookup: {
-        from: "Items", // Target collection
-        localField: "orderedItems.itemId", // Field from the input collection
-        foreignField: "_id", // Field from the target collection
-        as: "itemDetails", // Output array field
-      },
-    },
-    {
-      $addFields: {
-        "orderedItems.itemDetails": { $arrayElemAt: ["$itemDetails", 0] }, // Add itemDetails to orderedItems
-      },
-    },
-    {
-      $lookup: {
-        from: "Category", // Target collection
-        localField: "orderedItems.itemDetails.categoryId", // Field from the input collection
-        foreignField: "_id", // Field from the target collection
-        as: "categoryDetails", // Output array field
-      },
-    },
-    {
-      $addFields: {
-        "orderedItems.itemDetails.category": {
-          $arrayElemAt: ["$categoryDetails", 0],
-        }, // Add categoryDetails to itemDetails
-      },
-    },
-  ]);
+    const data = orderData[0];
 
-  const data = orderData[0];
-
-  const styles = {
-    container: {
-      fontFamily: "Arial, sans-serif",
-      marginBottom: "30px",
-      width: "520px",
-      margin: "auto",
-      paddingRight: "10px",
-      borderRadius: "8px",
-      background: "#fff",
-    },
-    header: {
-      display: "flex",
-      justifyContent: "space-between",
-      marginBottom: "5px",
-    },
-    logo: {
-      maxWidth: "50px",
-      maxHeight: "50px",
-    },
-    table: {
-      width: "100%",
-      borderCollapse: "collapse",
-      marginBottom: "10px",
-    },
-    th: {
-      border: "1px solid #ddd",
-      padding: "4px",
-      textAlign: "left",
-      background: "#f2f2f2",
-      fontSize: "10px",
-    },
-    td: {
-      border: "1px solid #ddd",
-      padding: "4px",
-      fontSize: "8px",
-    },
-    total: {
-      textAlign: "right",
-      fontSize: "12px",
-      fontWeight: "600",
-    },
-  };
-
-  const date = (createdOnString) => {
-    // Assuming createdOn is a date string or a Date object
-    const createdOn = new Date(createdOnString); // Replace this with your actual date
-
-    const options = {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      // Use 24-hour format
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "520px",
+        margin: "auto",
+        paddingRight: "10px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "100%",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        textAlign: "left",
+        background: "#f2f2f2",
+        fontSize: "10px",
+      },
+      td: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "8px",
+      },
+      total: {
+        textAlign: "right",
+        fontSize: "12px",
+        fontWeight: "600",
+      },
     };
 
-    const formattedDateTime = new Intl.DateTimeFormat("en-US", options).format(
-      createdOn
-    );
+    const date = (createdOnString) => {
+      const createdOn = new Date(createdOnString);
 
-    return `${formattedDateTime}`;
-  };
+      const options = {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      };
 
-  const totalPrice = (items) => {
-    let totalPrice = 0;
-    for (let item of items) {
-      totalPrice =
-        totalPrice +
-        (item.price * item.quantity?.kg +
-          item.price * (item.quantity?.gram / 1000));
-    }
+      const formattedDateTime = new Intl.DateTimeFormat("en-US", options).format(createdOn);
 
-    return totalPrice;
-  };
+      return `${formattedDateTime}`;
+    };
 
-  const generateInlineStyles = (styles) => {
-    return Object.keys(styles)
-      .map((key) => `${key}:${styles[key]}`)
-      .join(";");
-  };
+    const totalPrice = (items) => {
+      let totalPrice = 0;
+      for (let item of items) {
+        totalPrice += (item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000));
+      }
 
-  let html = `
-    <div style="${generateInlineStyles(styles.container)}">
-      <div style="${generateInlineStyles(styles.header)}">
-        
-        <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
-          styles.logo
-        )} /> -->
-        <div>
-          <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
+      return totalPrice;
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    let html = `
+      <div style="${generateInlineStyles(styles.container)}">
+        <div style="${generateInlineStyles(styles.header)}">
+          
+          <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(styles.logo)} /> -->
+          <div>
+            <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
+          </div>
         </div>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
-          data?.hotelDetails?.fullName
-        }.<br/>Thank you for shopping from ${data?.vendorDetails?.fullName}.</p>
-        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
-          data?.orderNumber
-        } <br/> </p>
-      </div>
-      <div style="display:flex;margin-bottom:10px">
-        <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
-          <p style="font-weight:600;font-size:12px;">${
-            data?.vendorDetails?.fullName
-          }</p>
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          Rajasthan
-          302017
-          </p>
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          GSTIN/UIN: 08ABFCS1307P1Z2
-          </p> 
-          
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          State Name : Rajasthan, Code : 08
-          
-          </p>
+        <div style="display:flex;justify-content:space-between">
+          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${data?.hotelDetails?.fullName}.<br/>Thank you for shopping from ${data?.vendorDetails?.fullName}.</p>
+          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${data?.orderNumber} <br/> </p>
         </div>
-        <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
-          <p style="font-weight:600;font-size:12px;">${
-            data?.hotelDetails?.fullName
-          }</p>
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          ${data?.address?.addressLine1},${data?.address?.addressLine2},${
-    data?.address?.city
-  }
-          ,${data?.address?.pinCode} 
-          </p>
-          
-          
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          State Name : ${data?.address?.state}, Code : 08
-          </p>
+        <div style="display:flex;margin-bottom:10px">
+          <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
+            <p style="font-weight:600;font-size:12px;">${data?.vendorDetails?.fullName}</p>
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+            Rajasthan
+            302017
+            </p>
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+            GSTIN/UIN: 08ABFCS1307P1Z2
+            </p> 
+            
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+            State Name : Rajasthan, Code : 08
+            
+            </p>
+          </div>
+          <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
+            <p style="font-weight:600;font-size:12px;">${data?.hotelDetails?.fullName}</p>
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+            ${data?.address?.addressLine1},${data?.address?.addressLine2},${data?.address?.city}
+            ,${data?.address?.pinCode} 
+            </p>
+            
+            
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+            State Name : ${data?.address?.state}, Code : 08
+            </p>
+          </div>
         </div>
-      </div>
-      <table style="${generateInlineStyles(styles.table)}">
-        <thead>
-          <tr>
-            <th style="${generateInlineStyles(styles.th)}">Item Name</th>
-            <th style="${generateInlineStyles(styles.th)}">Category</th>
-            <th style="${generateInlineStyles(styles.th)}">Quantity</th>
-            <th style="${generateInlineStyles(styles.th)}">Unit Price</th>
-            <th style="${generateInlineStyles(styles.th)}">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data?.orderedItems
-            ?.map(
-              (item, index) => `
-            <tr key=${index}>
-              <td style="${generateInlineStyles(styles.td)}">${
-                item?.itemDetails?.name
-              }</td>
-              <td style="${generateInlineStyles(styles.td)}">${
-                item?.itemDetails?.category?.name
-              }</td>
-              <td style="${generateInlineStyles(styles.td)}">${
-                item.quantity?.kg
-              } Kg   ${item?.quantity?.gram} Grams</td>
-              <td style="${generateInlineStyles(styles.td)}">${item.price}</td>
-              <td style="${generateInlineStyles(styles.td)}">${
-                item.price * item.quantity?.kg +
-                item.price * (item.quantity?.gram / 1000)
-              }</td>
+        <table style="${generateInlineStyles(styles.table)}">
+          <thead>
+            <tr>
+              <th style="${generateInlineStyles(styles.th)}">Item Name</th>
+              <th style="${generateInlineStyles(styles.th)}">Category</th>
+              <th style="${generateInlineStyles(styles.th)}">Quantity</th>
+              <th style="${generateInlineStyles(styles.th)}">Unit Price</th>
+              <th style="${generateInlineStyles(styles.th)}">Price</th>
             </tr>
-          `
-            )
-            .join("")}
-        </tbody>
-      </table>
-      <div style="${generateInlineStyles(styles.total)}">
-        <p>Total:₹${totalPrice(data?.orderedItems)}</p>
-      </div>
-      <div style="display:flex;margin-bottom:10px;margin-top:20px">
-        <div style="flex:1;margin-right:5px">
-          <p style="font-weight:600;font-size:10px;">Declaration</p>
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:10px">
-          We declare that this invoice shows the actual price of the 
-          goods described and that all particulars are true and 
-          correct
-          </p>
-         
+          </thead>
+          <tbody>
+            ${data?.orderedItems
+              ?.map(
+                (item, index) => `
+              <tr key=${index}>
+                <td style="${generateInlineStyles(styles.td)}">${item?.itemDetails?.name}</td>
+                <td style="${generateInlineStyles(styles.td)}">${item?.itemDetails?.category?.name}</td>
+                <td style="${generateInlineStyles(styles.td)}">${item.quantity?.kg} Kg   ${item?.quantity?.gram} Grams</td>
+                <td style="${generateInlineStyles(styles.td)}">${item.price}</td>
+                <td style="${generateInlineStyles(styles.td)}">${item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000)}</td>
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div style="${generateInlineStyles(styles.total)}">
+          <p>Total:₹${totalPrice(data?.orderedItems)}</p>
         </div>
-        <div style="flex:1;margin-right:5px;text-align:right">
-          <p style="font-weight:600;font-size:10px;">for Shvaas Sustainable Solutions Private Limited</p>
-          
-          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:30px;text-align:right">
-          Authorised Signatory
-          </p>
+        <div style="display:flex;margin-bottom:10px;margin-top:20px">
+          <div style="flex:1;margin-right:5px">
+            <p style="font-weight:600;font-size:10px;">Declaration</p>
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:10px">
+            We declare that this invoice shows the actual price of the 
+            goods described and that all particulars are true and 
+            correct
+            </p>
+           
+          </div>
+          <div style="flex:1;margin-right:5px;text-align:right">
+            <p style="font-weight:600;font-size:10px;">for Shvaas Sustainable Solutions Private Limited</p>
+            
+            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:30px;text-align:right">
+            Authorised Signatory
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 
-  try {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
 
@@ -1074,15 +1065,16 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     res.setHeader("Content-Type", "application/pdf");
 
     // Send the PDF as a stream in the response
-    res.send(pdfBuffer);
+    res.status(200).send(data);
 
     // Close the Puppeteer browser
     await browser.close();
   } catch (error) {
     console.error("Error creating PDF:", error);
-    res.status(500).send("Error creating PDF", error);
+    res.status(500).send("Error creating PDF");
   }
 });
+
 
 const addItemToStock = catchAsyncError(async (req, res, next) => {
   try {
