@@ -87,10 +87,18 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     console.log("asdasd");
     const vendorId = req.user._id;
+    const pageSize = 7;
+    const { offset, status } = req.body;
 
+    console.log(offset, status, "offset");
+
+    const statusId = await OrderStatus.findOne({ status: status });
     const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId },
+        $match: {
+          vendorId: vendorId,
+          orderStatus: new ObjectId(statusId._id),
+        },
       },
       {
         $lookup: {
@@ -167,7 +175,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       },
       {
         $project: {
-          _id: 0,
+          _id: 1,
           hotelId: 1,
           vendorDetails: 1,
           orderNumber: 1,
@@ -180,6 +188,12 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           // orderData: 1,
           orderedItems: 1,
         },
+      },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: parseInt(pageSize),
       },
     ]);
 
@@ -334,7 +348,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
     for (const order of orderData) {
       const subVendor = await SubVendor.findOne({
         vendorId: vendorId, // Match the vendorId
-        assignedItems: { $elemMatch: { itemId: order?.itemDetails?._id } }, // Match the itemId within assignedItems array
+        assignedItems: { $elemMatch: { itemId: order.itemDetails._id } }, // Match the itemId within assignedItems array
       });
 
       if (subVendor) {
@@ -345,7 +359,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       }
     }
 
-    console.log(orderData, "od");
+    // console.log(orderData, "od");
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -565,7 +579,7 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
     const { HotelId } = req.body;
-    console.log(vendorId, HotelId);
+    console.log(vendorId, HotelId, "yes");
 
     const pipeline = [
       {
@@ -626,7 +640,6 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       {
         $match: { vendorId: vendorId, hotelId: new ObjectId(HotelId) },
       },
-
       {
         $lookup: {
           from: "Users",
@@ -648,9 +661,6 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
       {
         $unwind: "$orderStatusDetails",
-      },
-      {
-        $unwind: "$orderedItems", // Unwind orderedItems array
       },
       {
         $lookup: {
@@ -676,9 +686,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
       {
         $group: {
-          _id: {
-            orderId: "$_id",
-          },
+          _id: { orderId: "$_id" },
           orderNumber: { $first: "$orderNumber" },
           isReviewed: { $first: "$isReviewed" },
           totalPrice: { $first: "$totalPrice" },
@@ -686,41 +694,38 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
-          orderNumber: { $first: "$orderNumber" },
-          hotelDetails: { $first: "$hotelDetails" },
-          // orderData: { $first: "$$ROOT" },
+          vendorDetails: { $first: "$hotelDetails" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
-
           orderedItems: {
             $push: {
-              $mergeObjects: [
-                "$orderedItems",
-                { itemDetails: "$itemDetails" },
-                { image: "$images" },
-              ],
+              itemId: "$orderedItems.itemId",
+              price: "$orderedItems.price",
+              quantity: "$orderedItems.quantity",
+              _id: "$orderedItems._id",
+              itemDetails: "$itemDetails",
+              image: "$images",
             },
           },
         },
       },
       {
         $project: {
-          _id: 0,
-          address: 1,
-          orderNumber: 1,
-          hotelId: 1,
-          hotelDetails: 1,
+          _id: 1,
           orderNumber: 1,
           isReviewed: 1,
           totalPrice: 1,
           address: 1,
           createdAt: 1,
-          orderStatusDetails: 1,
           updatedAt: 1,
-          // orderData: 1,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderStatusDetails: 1,
           orderedItems: 1,
         },
       },
     ]);
+
+    // console.log(orderData, "orderrrr");
 
     res.json({ hotelOrders: orderData });
   } catch (error) {
@@ -927,8 +932,8 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     for (let item of items) {
       totalPrice =
         totalPrice +
-        (item.price * item.quantity?.kg +
-          item.price * (item.quantity?.gram / 1000));
+        (item.price * item.quantity.kg +
+          item.price * (item.quantity.gram / 1000));
     }
 
     return totalPrice;
@@ -953,16 +958,16 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       </div>
       <div style="display:flex;justify-content:space-between">
         <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
-          data?.hotelDetails?.fullName
-        }.<br/>Thank you for shopping from ${data?.vendorDetails?.fullName}.</p>
+          data.hotelDetails.fullName
+        }.<br/>Thank you for shopping from ${data.vendorDetails.fullName}.</p>
         <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
-          data?.orderNumber
+          data.orderNumber
         } <br/> </p>
       </div>
       <div style="display:flex;margin-bottom:10px">
         <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
           <p style="font-weight:600;font-size:12px;">${
-            data?.vendorDetails?.fullName
+            data.vendorDetails.fullName
           }</p>
           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
           Rajasthan
@@ -979,18 +984,18 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         </div>
         <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
           <p style="font-weight:600;font-size:12px;">${
-            data?.hotelDetails?.fullName
+            data.hotelDetails.fullName
           }</p>
           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          ${data?.address?.addressLine1},${data?.address?.addressLine2},${
-    data?.address?.city
+          ${data.address.addressLine1},${data.address.addressLine2},${
+    data.address.city
   }
-          ,${data?.address?.pinCode} 
+          ,${data.address.pinCode} 
           </p>
           
           
           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-          State Name : ${data?.address?.state}, Code : 08
+          State Name : ${data.address.state}, Code : 08
           </p>
         </div>
       </div>
@@ -1005,23 +1010,23 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           </tr>
         </thead>
         <tbody>
-          ${data?.orderedItems
-            ?.map(
+          ${data.orderedItems
+            .map(
               (item, index) => `
             <tr key=${index}>
               <td style="${generateInlineStyles(styles.td)}">${
-                item?.itemDetails?.name
+                item.itemDetails.name
               }</td>
               <td style="${generateInlineStyles(styles.td)}">${
-                item?.itemDetails?.category?.name
+                item.itemDetails.category.name
               }</td>
               <td style="${generateInlineStyles(styles.td)}">${
-                item.quantity?.kg
-              } Kg   ${item?.quantity?.gram} Grams</td>
+                item.quantity.kg
+              } Kg   ${item.quantity.gram} Grams</td>
               <td style="${generateInlineStyles(styles.td)}">${item.price}</td>
               <td style="${generateInlineStyles(styles.td)}">${
-                item.price * item.quantity?.kg +
-                item.price * (item.quantity?.gram / 1000)
+                item.price * item.quantity.kg +
+                item.price * (item.quantity.gram / 1000)
               }</td>
             </tr>
           `
@@ -1030,7 +1035,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         </tbody>
       </table>
       <div style="${generateInlineStyles(styles.total)}">
-        <p>Total:₹${totalPrice(data?.orderedItems)}</p>
+        <p>Total:₹${totalPrice(data.orderedItems)}</p>
       </div>
       <div style="display:flex;margin-bottom:10px;margin-top:20px">
         <div style="flex:1;margin-right:5px">
@@ -1117,7 +1122,7 @@ const addItemToStock = catchAsyncError(async (req, res, next) => {
     if (vendorStocks.length > 0) {
       res.json({
         message: "Stock added successfully",
-        data: vendorStocks[0],
+        data: vendorStocks[0].stocks,
       });
     }
   } catch (error) {
@@ -1193,6 +1198,7 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     // Query the database to find the item in the stock
     const stock = await vendorStock.findOne({ vendorId: vendorId });
 
+    // console.log(stock, "stock");
     if (!stock) {
       return res
         .status(404)
@@ -1203,6 +1209,8 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     const itemIndex = stock.stocks.findIndex(
       (item) => item.itemId.toString() === itemId
     );
+
+    // console.log(itemIndex, "itemIndex");
 
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Item not found in the stock." });
@@ -1215,14 +1223,15 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     await stock.save();
 
     const vendorStocks = await getVendorStockFunc(vendorId);
+    console.log(vendorStocks, "stocksss");
     if (vendorStocks.length > 0) {
       res.json({
         message: "Stock deleted successfully",
-        data: vendorStocks[0],
+        data: vendorStocks[0].stocks,
       });
     }
   } catch (error) {
-    // Handle errors
+    console.log(error, "err");
     next(error);
   }
 });
@@ -1263,53 +1272,73 @@ const deleteHotelItem = catchAsyncError(async (req, res, next) => {
 
 const addHotelItem = catchAsyncError(async (req, res, next) => {
   try {
-    const { hotelId, itemId } = req.body;
-
+    const { hotelId, itemIds } = req.body;
     const vendorId = req.user._id;
 
     // Validate required fields
-    if (!vendorId || !hotelId || !itemId) {
+    if (
+      !vendorId ||
+      !hotelId ||
+      !itemIds ||
+      !Array.isArray(itemIds) ||
+      itemIds.length === 0
+    ) {
       return res.status(400).json({
-        message: "vendorId, hotelId and itemId  are required fields",
+        message:
+          "vendorId, hotelId, and itemIds are required fields and must be provided as a non-empty array.",
       });
     }
-    console.log(itemId, "ii");
+
     const items = await VendorItems.findOne({ vendorId: vendorId }).select(
       "items"
     );
-    let price;
-    for (const item of items.items) {
-      // Use for loop for clarity
-      if (item.itemId.equals(itemId)) {
-        // Use equals method for ObjectIds
-        price = item.todayCostPrice;
-        break; // Exit loop once price is found
+    console.log(items, "items");
+    const hotelItems = [];
+
+    for (const itemId of itemIds) {
+      const item = items.items.find((item) => item.itemId.equals(itemId));
+      if (!item) {
+        continue; // Skip if item not found
       }
+
+      const category = await Items.findOne({ _id: itemId });
+      console.log(category, "category");
+      // Create new HotelItemPrice document
+      const hotelItemPrice = new HotelItemPrice({
+        vendorId,
+        hotelId,
+        itemId,
+        categoryId: category.categoryId,
+        todayCostPrice: item.todayCostPrice,
+        todayPercentageProfit: 0,
+        showPrice: true, // Default to true if not provided
+      });
+
+      // Save the new document to the database
+      console.log(hotelItemPrice, "hotelItem");
+      await hotelItemPrice.save();
+      hotelItems.push(hotelItemPrice);
     }
 
-    const category = await Items.findOne({ _id: itemId });
-
-    // Create new HotelItemPrice document
-    const hotelItemPrice = new HotelItemPrice({
-      vendorId,
-      hotelId,
-      itemId,
-      categoryId: category.categoryId,
-      todayCostPrice: price,
-      todayPercentageProfit: 0,
-      showPrice: true, // Default to true if not provided
-    });
-
-    // Save the new document to the database
-    await hotelItemPrice.save();
     const itemList = await getHotelItemsFunc({
       HotelId: hotelId,
       vendorId: vendorId,
     });
+
     // Send success response
-    res.json({ message: "Document added successfully", data: itemList });
+    res.json({ message: "Documents added successfully", data: itemList });
+
+    // const category = new ObjectId("65c093bb6b33fbcf67fb2784");
+
+    // const items = await item.updateMany(
+    //   { categoryId: category },
+    //   { $set: { categoryId: new ObjectId("65cc61c193a94ee59d679497") } }
+    // );
+
+    // return res.json({ Message: "done", items });
   } catch (error) {
     // Pass any errors to the error handling middleware
+    console.log(error, "err");
     next(error);
   }
 });
@@ -1330,7 +1359,9 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
     );
 
     items.items.map((item) => {
-      allItemsIds.push(item.itemId);
+      if (item.todayCostPrice !== 0) {
+        allItemsIds.push(item.itemId);
+      }
     });
 
     // console.log(allItemsIds, "all");
@@ -1380,11 +1411,18 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
 
-    const vendorItems = await HotelItemPrice.find({
+    const vendor = await VendorItems.findOne({
       vendorId: new ObjectId(vendorId),
-    }).select("itemId");
+    }).select("items");
 
-    const allItemsIds = vendorItems.map((item) => item.itemId.toString());
+    let vendorItems = [];
+
+    vendor.items.forEach((item) => {
+      console.log(item, "item");
+      vendorItems.push(item.itemId);
+    });
+
+    const allItemsIds = vendorItems.map((item) => item.toString());
 
     let item = await vendorStock.findOne({ vendorId });
 
@@ -1398,7 +1436,7 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
       (item) => item && !assignedItemIds.includes(item.toString())
     );
 
-    console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
+    // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
 
     let assignItems = [];
 
@@ -1545,13 +1583,13 @@ const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
 
 const addVendorItem = catchAsyncError(async (req, res, next) => {
   try {
-    const { itemId } = req.body;
+    const { itemIds } = req.body;
     const vendorId = req.user._id;
 
     // Validate required fields
-    if (!itemId) {
+    if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({
-        message: "Please Provide itemId.",
+        message: "Please provide an array of itemIds.",
       });
     }
 
@@ -1564,19 +1602,21 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
     }
 
     if (vendor) {
-      vendor.items.push({
-        itemId: itemId,
-        todayCostPrice: 0,
+      // Add each itemId from the array to the vendor's items
+      itemIds.forEach((itemId) => {
+        vendor.items.push({
+          itemId: itemId,
+          todayCostPrice: 0,
+        });
       });
     } else {
+      // Create a new vendor object with the array of itemIds
       vendor = new VendorItems({
         vendorId,
-        items: [
-          {
-            itemId: itemId,
-            todayCostPrice: 0,
-          },
-        ],
+        items: itemIds.map((itemId) => ({
+          itemId: itemId,
+          todayCostPrice: 0,
+        })),
       });
     }
 
@@ -1585,9 +1625,8 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
 
     const itemList = await getVendorItemsFunc(vendorId);
 
-    // console.log(itemList, "il");
     // Send success response only after successful save
-    res.json({ message: "Item added successfully", data: itemList });
+    res.json({ message: "Items added successfully", data: itemList });
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
@@ -1596,7 +1635,11 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
 
 const getAllVendorItems = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("abcdef");
     const vendorId = req.user._id;
+    const pageSize = 10;
+    const { offset } = req.body;
+    console.log(offset, "offset");
 
     const vendor = await VendorItems.aggregate([
       {
@@ -1627,12 +1670,19 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$items.images",
       },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: parseInt(pageSize),
+      },
     ]);
 
     if (!vendor) {
       return res.json({ message: "Vendor not found" });
     }
 
+    console.log(vendor, "items");
     // Send success response with vendor items
     res.json({
       message: "Vendor items retrieved successfully",
@@ -1654,7 +1704,7 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
     }).select("items");
 
-    console.log(vendorItems, "vi");
+    // console.log(vendorItems, "vi");
     if (!vendorItems) {
       return res.json({
         message: "Vendor items retrieved successfully",
@@ -1667,12 +1717,12 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
       assignedItemsArray.push(item);
     }
 
-    console.log(AllItems, assignedItemsArray, "aia");
+    // console.log(AllItems, assignedItemsArray, "aia");
     const ItemList = AllItems.filter(
       (obj1) => !assignedItemsArray.some((obj2) => obj1._id.equals(obj2.itemId))
     );
 
-    console.log(ItemList, "il");
+    // console.log(ItemList, "il");
     // Send success response with vendor items
     res.json({
       message: "Vendor items retrieved successfully",
@@ -1747,8 +1797,8 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
     });
 
     if (itemsToBeChange.length !== 0) {
-      itemsToBeChange?.forEach(async (item) => {
-        if (item?.pastPercentageProfits?.length > 3) {
+      itemsToBeChange.forEach(async (item) => {
+        if (item.pastPercentageProfits.length > 3) {
           let newProfitPercentage;
 
           do {
@@ -2471,6 +2521,54 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendor = req.user._id;
+    const { quantity, itemId, orderNumber } = req.body;
+
+    console.log(quantity, itemId, orderNumber);
+
+    if (!quantity || !itemId || !orderNumber) {
+      return res.json({ message: "All Fields are required!" });
+    }
+
+    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+
+    if (!order) {
+      return res.json({ message: "Order not found!" });
+    }
+
+    const orderStatus = await OrderStatus.findOne({ _id: order.orderStatus });
+
+    if (orderStatus.status !== "Order Placed") {
+      return res.json({
+        message: "Not Authorized to change Quantity of orders in process!",
+      });
+    }
+
+    // Find the index of the ordered item in the orderedItems array
+    const orderedItemIndex = order.orderedItems.findIndex(
+      (item) => item.itemId.toString() === itemId
+    );
+
+    if (orderedItemIndex === -1) {
+      return res.json({ message: "Item not found in order!" });
+    }
+
+    // Update the quantity of the ordered item
+    order.orderedItems[orderedItemIndex].quantity = quantity;
+
+    // Save the updated order back to the database
+    await order.save();
+
+    console.log("fdghfh");
+    return res.json({ message: "Quantity updated successfully!" });
+  } catch (error) {
+    console.log(error, "errr");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2504,4 +2602,5 @@ module.exports = {
   getAllPaymentPlans,
   generatePlanToken,
   orderStatusUpdate,
+  changeOrderQuantity,
 };

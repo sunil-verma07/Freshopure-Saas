@@ -41,7 +41,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     let totalOrderPrice = 0;
 
-    for (let item of cart_doc?.cartItems) {
+    for (let item of cart_doc.cartItems) {
       const itemPrice = await HotelItemPrice.findOne({
         vendorId: item.vendorId,
         itemId: item.itemId,
@@ -57,7 +57,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         vendorId: item.vendorId,
         itemId: item.itemId,
         quantity: item.quantity,
-        price: itemPrice?.todayCostPrice,
+        price: itemPrice.todayCostPrice,
       };
 
       if (!orders[item.vendorId]) {
@@ -123,10 +123,19 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
+    const pageSize = 7;
+    const { offset, status } = req.body;
+    // console.log(req);
 
+    console.log(offset, status, "offset");
+
+    const statusId = await OrderStatus.findOne({ status: status });
     const orderData = await UserOrder.aggregate([
       {
-        $match: { hotelId: hotelId },
+        $match: {
+          hotelId: hotelId,
+          orderStatus: new ObjectId(statusId._id),
+        },
       },
       {
         $lookup: {
@@ -203,7 +212,7 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       },
       {
         $project: {
-          _id: 0,
+          _id: 1,
           hotelId: 1,
           vendorDetails: 1,
           orderNumber: 1,
@@ -217,8 +226,15 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: parseInt(pageSize),
+      },
     ]);
 
+    console.log(orderData, "order");
     res.status(200).json({
       status: "success message",
       data: orderData,
@@ -253,7 +269,7 @@ const orderAgain = catchAsyncError(async (req, res, next) => {
 
     const findOrder = await UserOrder.findOne({ _id: new ObjectId(order_id) });
     if (findOrder) {
-      const orderedItems = findOrder?.orderedItems ?? [];
+      const orderedItems = findOrder.orderedItems[0];
       const cartPresent = await Cart.findOne({ UserId: new ObjectId(UserId) });
       if (cartPresent) {
         const x = await Cart.updateOne(
@@ -293,7 +309,7 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
         UserId: UserId,
       };
       fetch(
-        `https://ap-south-1.aws.data.mongodb-api.com/app/letusfarm-fuadi/endpoint/compiledOrderForHotel?secret=alwaysShine`,
+        `https://ap-south-1.aws.data.mongodb-api.com/app/letusfarm-fuadi/endpoint/compiledOrderForHotelsecret=alwaysShine`,
         {
           method: "POST",
           headers: {
