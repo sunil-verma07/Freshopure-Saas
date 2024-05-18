@@ -27,7 +27,7 @@ router.post(
   vendorcontroller.freshoCalculator
 );
 
-router.get(
+router.post(
   "/orderhistory",
   authMiddleware.authMiddleware,
   vendorcontroller.orderHistoryForVendors
@@ -131,7 +131,7 @@ router.post(
   vendorcontroller.addVendorItem
 );
 
-router.get(
+router.post(
   "/getVendorItem",
   authMiddleware.authMiddleware,
   vendorcontroller.getAllVendorItems
@@ -187,6 +187,10 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.generatePlanToken
 );
+
+router.post("/changeOrderQuantity", authMiddleware.authMiddleware, () => {
+  console.log("jkhdjkh");
+});
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

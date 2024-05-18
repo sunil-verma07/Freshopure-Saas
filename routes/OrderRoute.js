@@ -9,7 +9,7 @@ router.post(
   authMiddleware.authMiddleware,
   ordercontroller.placeOrder
 );
-router.get(
+router.post(
   "/orderhistory",
   authMiddleware.authMiddleware,
   ordercontroller.orderHistory

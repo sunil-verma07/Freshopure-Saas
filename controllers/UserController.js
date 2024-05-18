@@ -78,19 +78,18 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
     } else {
       const user = await User.findOne({ phone: phone });
       if (user) {
-         if(!user.isProfileComplete && !user.isReviewed && !user.isApproved){
-             return res.status(200).json({ success: true, user });
-         }else{
+        if (!user.isProfileComplete && !user.isReviewed && !user.isApproved) {
+          return res.status(200).json({ success: true, user });
+        } else {
           const roleId = await Role.findOne({ _id: user.roleId });
           return sendToken(user, 200, res, roleId.name);
-         }
-          
+        }
       } else {
         const newUser = await User.create({
           phone: phone,
         });
-        console.log(newUser,'newUser')
-        res.status(200).json({ success: true, user:newUser });
+        console.log(newUser, "newUser");
+        res.status(200).json({ success: true, user: newUser });
       }
     }
   } catch (error) {
@@ -202,21 +201,24 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
     } else {
       const roleId = await Role.findOne({ name: role });
       const user = await User.findOne({ phone: phone });
-     
+
       if (user) {
         user.fullName = fullName;
         user.organization = organization;
         user.roleId = roleId._id;
         user.email = email;
         user.isProfileComplete = true;
-
         await user.save();
 
         const updatedUser = await User.findOne({ phone: phone });
 
         return res
           .status(200)
-          .json({ success: true, message: "Profile Completed!", user: updatedUser});
+          .json({
+            success: true,
+            message: "Profile Completed!",
+            user: updatedUser,
+          });
       } else {
         console.log("errr");
         return res
