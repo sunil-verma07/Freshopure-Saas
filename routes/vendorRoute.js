@@ -131,7 +131,7 @@ router.post(
   vendorcontroller.addVendorItem
 );
 
-router.post(
+router.get(
   "/getVendorItem",
   authMiddleware.authMiddleware,
   vendorcontroller.getAllVendorItems
