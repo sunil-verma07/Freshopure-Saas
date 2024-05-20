@@ -85,12 +85,9 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
 
 const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
-    console.log("asdasd");
     const vendorId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.body;
-
-    console.log(offset, status, "offset");
+    const { offset, status } = req.query;
 
     const statusId = await OrderStatus.findOne({ status: status });
     const orderData = await UserOrder.aggregate([
@@ -123,7 +120,7 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
         $unwind: "$orderStatusDetails",
       },
       {
-        $unwind: "$orderedItems", // Unwind orderedItems array
+        $unwind: "$orderedItems",
       },
       {
         $lookup: {
@@ -160,7 +157,6 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
           vendorDetails: { $first: "$vendorDetails" },
-          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
@@ -185,21 +181,28 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
-          // orderData: 1,
           orderedItems: 1,
         },
       },
       {
-        $skip: offset,
+        $skip: parseInt(offset),
       },
       {
-        $limit: parseInt(pageSize),
+        $limit: pageSize,
       },
     ]);
 
-    console.log(orderData);
+    // console.log(
+    //   "data:" + orderData.length,
+    //   "offset:" + offset,
+    //   "page size: " + pageSize
+    // );
+    // orderData.map((order) => {
+    //   console.log(order.orderNumber);
+    // });
+
     res.status(200).json({
-      status: "success message",
+      status: "success",
       data: orderData,
     });
   } catch (error) {
@@ -1796,6 +1799,8 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
     });
 
+    console.log(itemsToBeChange, "itemsToBeChange");
+
     if (itemsToBeChange.length !== 0) {
       itemsToBeChange.forEach(async (item) => {
         if (item.pastPercentageProfits.length > 3) {
@@ -1828,6 +1833,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
             { new: true }
           );
 
+          console.log(doc, "doc");
           // Check if pastPercentageProfits length is greater than 10
           if (doc.pastPercentageProfits.length > 10) {
             // Trim the array to keep only the last 10 elements
@@ -2074,7 +2080,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   let itemDetailsArray = [];
 
   const getItemName = async (itemId) => {
-    const items = await item.findOne({ _id: itemId });
+    const items = await Items.findOne({ _id: itemId });
     const image = await Image.findOne({ itemId: itemId });
     const itemObj = {
       name: items.name,

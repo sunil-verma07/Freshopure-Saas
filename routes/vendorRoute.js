@@ -27,7 +27,7 @@ router.post(
   vendorcontroller.freshoCalculator
 );
 
-router.post(
+router.get(
   "/orderhistory",
   authMiddleware.authMiddleware,
   vendorcontroller.orderHistoryForVendors

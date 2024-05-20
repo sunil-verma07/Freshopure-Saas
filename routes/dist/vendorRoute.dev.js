@@ -13,7 +13,7 @@ router.post("/updateItemPrice", authMiddleware.authMiddleware, vendorcontroller.
 router.post("/orderAnalytics", authMiddleware.authMiddleware, vendorcontroller.getVendorOrderAnalytics);
 router.post("/itemAnalytics", authMiddleware.authMiddleware, vendorcontroller.getItemAnalytics);
 router.post("/freshoCalculator", authMiddleware.authMiddleware, vendorcontroller.freshoCalculator);
-router.post("/orderhistory", authMiddleware.authMiddleware, vendorcontroller.orderHistoryForVendors);
+router.get("/orderhistory", authMiddleware.authMiddleware, vendorcontroller.orderHistoryForVendors);
 router.get("/hotelsLinkedWithVendor", authMiddleware.authMiddleware, vendorcontroller.hotelsLinkedWithVendor);
 router.get("/todayCompiledOrder", authMiddleware.authMiddleware, vendorcontroller.todayCompiledOrders);
 router.get("/vendorItems", authMiddleware.authMiddleware, vendorcontroller.vendorItem);

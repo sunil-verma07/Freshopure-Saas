@@ -124,8 +124,7 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.body;
-    // console.log(req);
+    const { offset, status } = req.query; // Read from query parameters
 
     console.log(offset, status, "offset");
 
@@ -197,7 +196,6 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
           vendorDetails: { $first: "$vendorDetails" },
-          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
@@ -222,12 +220,11 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
-          // orderData: 1,
           orderedItems: 1,
         },
       },
       {
-        $skip: offset,
+        $skip: parseInt(offset), // Convert offset to integer
       },
       {
         $limit: parseInt(pageSize),
@@ -236,7 +233,7 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
 
     console.log(orderData, "order");
     res.status(200).json({
-      status: "success message",
+      status: "success",
       data: orderData,
     });
   } catch (error) {

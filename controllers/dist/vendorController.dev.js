@@ -183,26 +183,24 @@ var setHotelItemPrice = catchAsyncError(function _callee(req, res, next) {
   }, null, null, [[0, 29]]);
 });
 var orderHistoryForVendors = catchAsyncError(function _callee2(req, res, next) {
-  var vendorId, pageSize, _req$body2, offset, status, statusId, orderData;
+  var vendorId, pageSize, _req$query, offset, status, statusId, orderData;
 
   return regeneratorRuntime.async(function _callee2$(_context2) {
     while (1) {
       switch (_context2.prev = _context2.next) {
         case 0:
           _context2.prev = 0;
-          console.log("asdasd");
           vendorId = req.user._id;
           pageSize = 7;
-          _req$body2 = req.body, offset = _req$body2.offset, status = _req$body2.status;
-          console.log(offset, status, "offset");
-          _context2.next = 8;
+          _req$query = req.query, offset = _req$query.offset, status = _req$query.status;
+          _context2.next = 6;
           return regeneratorRuntime.awrap(OrderStatus.findOne({
             status: status
           }));
 
-        case 8:
+        case 6:
           statusId = _context2.sent;
-          _context2.next = 11;
+          _context2.next = 9;
           return regeneratorRuntime.awrap(UserOrder.aggregate([{
             $match: {
               vendorId: vendorId,
@@ -227,8 +225,7 @@ var orderHistoryForVendors = catchAsyncError(function _callee2(req, res, next) {
           }, {
             $unwind: "$orderStatusDetails"
           }, {
-            $unwind: "$orderedItems" // Unwind orderedItems array
-
+            $unwind: "$orderedItems"
           }, {
             $lookup: {
               from: "Items",
@@ -276,7 +273,6 @@ var orderHistoryForVendors = catchAsyncError(function _callee2(req, res, next) {
               vendorDetails: {
                 $first: "$vendorDetails"
               },
-              // orderData: { $first: "$$ROOT" },
               orderStatusDetails: {
                 $first: "$orderStatusDetails"
               },
@@ -302,36 +298,42 @@ var orderHistoryForVendors = catchAsyncError(function _callee2(req, res, next) {
               createdAt: 1,
               updatedAt: 1,
               orderStatusDetails: 1,
-              // orderData: 1,
               orderedItems: 1
             }
           }, {
-            $skip: offset
+            $skip: parseInt(offset)
           }, {
-            $limit: parseInt(pageSize)
+            $limit: pageSize
           }]));
 
-        case 11:
+        case 9:
           orderData = _context2.sent;
-          console.log(orderData);
+          // console.log(
+          //   "data:" + orderData.length,
+          //   "offset:" + offset,
+          //   "page size: " + pageSize
+          // );
+          // orderData.map((order) => {
+          //   console.log(order.orderNumber);
+          // });
           res.status(200).json({
-            status: "success message",
+            status: "success",
             data: orderData
           });
-          _context2.next = 19;
+          _context2.next = 16;
           break;
 
-        case 16:
-          _context2.prev = 16;
+        case 13:
+          _context2.prev = 13;
           _context2.t0 = _context2["catch"](0);
           next(_context2.t0);
 
-        case 19:
+        case 16:
         case "end":
           return _context2.stop();
       }
     }
-  }, null, null, [[0, 16]]);
+  }, null, null, [[0, 13]]);
 });
 var hotelsLinkedWithVendor = catchAsyncError(function _callee3(req, res, next) {
   var vendorId, orderData;
@@ -1128,14 +1130,14 @@ var getAllOrdersbyHotel = catchAsyncError(function _callee9(req, res, next) {
   }, null, null, [[0, 9]]);
 });
 var updateStock = catchAsyncError(function _callee10(req, res, next) {
-  var _req$body3, itemId, quantity, vendorId, _item2, stocks, vendorStocks;
+  var _req$body2, itemId, quantity, vendorId, _item2, stocks, vendorStocks;
 
   return regeneratorRuntime.async(function _callee10$(_context10) {
     while (1) {
       switch (_context10.prev = _context10.next) {
         case 0:
           _context10.prev = 0;
-          _req$body3 = req.body, itemId = _req$body3.itemId, quantity = _req$body3.quantity;
+          _req$body2 = req.body, itemId = _req$body2.itemId, quantity = _req$body2.quantity;
           vendorId = req.user._id;
 
           if (!(!itemId || !quantity)) {
@@ -1719,14 +1721,14 @@ var deleteItemFromStock = catchAsyncError(function _callee14(req, res, next) {
   }, null, null, [[0, 21]]);
 });
 var deleteHotelItem = catchAsyncError(function _callee15(req, res, next) {
-  var _req$body4, hotelId, itemId, vendorId, _item4, itemList;
+  var _req$body3, hotelId, itemId, vendorId, _item4, itemList;
 
   return regeneratorRuntime.async(function _callee15$(_context15) {
     while (1) {
       switch (_context15.prev = _context15.next) {
         case 0:
           _context15.prev = 0;
-          _req$body4 = req.body, hotelId = _req$body4.hotelId, itemId = _req$body4.itemId;
+          _req$body3 = req.body, hotelId = _req$body3.hotelId, itemId = _req$body3.itemId;
           vendorId = req.user._id; // Check if vendorId, hotelId, and itemId are provided
 
           if (!(!vendorId || !hotelId || !itemId)) {
@@ -1792,14 +1794,14 @@ var deleteHotelItem = catchAsyncError(function _callee15(req, res, next) {
   }, null, null, [[0, 18]]);
 });
 var addHotelItem = catchAsyncError(function _callee16(req, res, next) {
-  var _req$body5, hotelId, itemIds, vendorId, items, hotelItems, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _loop, _iterator4, _step4, _ret, itemList;
+  var _req$body4, hotelId, itemIds, vendorId, items, hotelItems, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _loop, _iterator4, _step4, _ret, itemList;
 
   return regeneratorRuntime.async(function _callee16$(_context17) {
     while (1) {
       switch (_context17.prev = _context17.next) {
         case 0:
           _context17.prev = 0;
-          _req$body5 = req.body, hotelId = _req$body5.hotelId, itemIds = _req$body5.itemIds;
+          _req$body4 = req.body, hotelId = _req$body4.hotelId, itemIds = _req$body4.itemIds;
           vendorId = req.user._id; // Validate required fields
 
           if (!(!vendorId || !hotelId || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0)) {
@@ -2742,14 +2744,14 @@ var getVendorItemsFunc = function getVendorItemsFunc(vendorId) {
 };
 
 var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
-  var _req$body6, itemId, price, _vendorId7, updated, itemsToBeChange, data;
+  var _req$body5, itemId, price, _vendorId7, updated, itemsToBeChange, data;
 
   return regeneratorRuntime.async(function _callee24$(_context28) {
     while (1) {
       switch (_context28.prev = _context28.next) {
         case 0:
           _context28.prev = 0;
-          _req$body6 = req.body, itemId = _req$body6.itemId, price = _req$body6.price;
+          _req$body5 = req.body, itemId = _req$body5.itemId, price = _req$body5.price;
           _vendorId7 = req.user._id;
 
           if (!(!itemId || !price)) {
@@ -2782,6 +2784,7 @@ var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
 
         case 10:
           itemsToBeChange = _context28.sent;
+          console.log(itemsToBeChange, "itemsToBeChange");
 
           if (itemsToBeChange.length !== 0) {
             itemsToBeChange.forEach(function _callee23(item) {
@@ -2791,7 +2794,7 @@ var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
                   switch (_context27.prev = _context27.next) {
                     case 0:
                       if (!(item.pastPercentageProfits.length > 3)) {
-                        _context27.next = 12;
+                        _context27.next = 13;
                         break;
                       }
 
@@ -2832,13 +2835,14 @@ var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
 
                     case 8:
                       doc = _context27.sent;
+                      console.log(doc, "doc"); // Check if pastPercentageProfits length is greater than 10
 
                       if (!(doc.pastPercentageProfits.length > 10)) {
-                        _context27.next = 12;
+                        _context27.next = 13;
                         break;
                       }
 
-                      _context27.next = 12;
+                      _context27.next = 13;
                       return regeneratorRuntime.awrap(HotelItemPrice.updateOne({
                         itemId: item.itemId,
                         vendorId: _vendorId7
@@ -2848,7 +2852,7 @@ var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
                         }
                       }));
 
-                    case 12:
+                    case 13:
                     case "end":
                       return _context27.stop();
                   }
@@ -2857,30 +2861,30 @@ var setVendorItemPrice = catchAsyncError(function _callee24(req, res, next) {
             });
           }
 
-          _context28.next = 14;
+          _context28.next = 15;
           return regeneratorRuntime.awrap(getVendorItemsFunc(_vendorId7));
 
-        case 14:
+        case 15:
           data = _context28.sent;
           return _context28.abrupt("return", res.status(200).json({
             message: "Price updated successfully.",
             data: data
           }));
 
-        case 18:
-          _context28.prev = 18;
+        case 19:
+          _context28.prev = 19;
           _context28.t0 = _context28["catch"](0);
           console.log(_context28.t0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 22:
+        case 23:
         case "end":
           return _context28.stop();
       }
     }
-  }, null, null, [[0, 18]]);
+  }, null, null, [[0, 19]]);
 });
 
 var removeVendorItem = function removeVendorItem(req, res, next) {
@@ -3898,7 +3902,7 @@ var getItemAnalytics = catchAsyncError(function _callee29(req, res, next) {
                 switch (_context35.prev = _context35.next) {
                   case 0:
                     _context35.next = 2;
-                    return regeneratorRuntime.awrap(item.findOne({
+                    return regeneratorRuntime.awrap(Items.findOne({
                       _id: itemId
                     }));
 
@@ -4086,14 +4090,14 @@ function createModel() {
 }
 
 var updateHotelItemProfit = function updateHotelItemProfit(req, res, next) {
-  var _req$body7, _hotelId2, itemId, newPercentage, _vendorId9, updatedDoc, itemPrice, selectedItem, costPrice, newPrice, updatedPrice, newDoc, itemList;
+  var _req$body6, _hotelId2, itemId, newPercentage, _vendorId9, updatedDoc, itemPrice, selectedItem, costPrice, newPrice, updatedPrice, newDoc, itemList;
 
   return regeneratorRuntime.async(function updateHotelItemProfit$(_context45) {
     while (1) {
       switch (_context45.prev = _context45.next) {
         case 0:
           _context45.prev = 0;
-          _req$body7 = req.body, _hotelId2 = _req$body7.hotelId, itemId = _req$body7.itemId, newPercentage = _req$body7.newPercentage;
+          _req$body6 = req.body, _hotelId2 = _req$body6.hotelId, itemId = _req$body6.itemId, newPercentage = _req$body6.newPercentage;
           _vendorId9 = req.user._id;
           _context45.next = 5;
           return regeneratorRuntime.awrap(HotelItemPrice.findOne({
@@ -4449,7 +4453,7 @@ var generatePlanToken = catchAsyncErrors(function _callee33(req, res, next) {
   }, null, null, [[0, 28]]);
 });
 var changeOrderQuantity = catchAsyncErrors(function _callee34(req, res, next) {
-  var vendor, _req$body8, quantity, itemId, orderNumber, order, orderStatus, orderedItemIndex;
+  var vendor, _req$body7, quantity, itemId, orderNumber, order, orderStatus, orderedItemIndex;
 
   return regeneratorRuntime.async(function _callee34$(_context51) {
     while (1) {
@@ -4457,7 +4461,7 @@ var changeOrderQuantity = catchAsyncErrors(function _callee34(req, res, next) {
         case 0:
           _context51.prev = 0;
           vendor = req.user._id;
-          _req$body8 = req.body, quantity = _req$body8.quantity, itemId = _req$body8.itemId, orderNumber = _req$body8.orderNumber;
+          _req$body7 = req.body, quantity = _req$body7.quantity, itemId = _req$body7.itemId, orderNumber = _req$body7.orderNumber;
           console.log(quantity, itemId, orderNumber);
 
           if (!(!quantity || !itemId || !orderNumber)) {
