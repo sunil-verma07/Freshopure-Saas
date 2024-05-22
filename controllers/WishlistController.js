@@ -30,7 +30,11 @@ const addItemToWishlist = catchAsyncError(async (req, res, next) => {
           { hotelId: new ObjectId(hotelId) },
           { $set: { wishlistItem: items } }
         );
-        res.status(200).json({ message: "Items added to Wishist" });
+        const wishlistData = await getWishlistItemFunc(hotelId);
+        res.status(200).json({
+          message: "Items added to Wishist",
+          wishlistData: wishlistData,
+        });
       } else {
         try {
           const wishlist = new Wishlist({
@@ -39,9 +43,12 @@ const addItemToWishlist = catchAsyncError(async (req, res, next) => {
           });
           await wishlist.save();
 
-          const wishlistData = await getWishlistItemFunc(hotelId)
+          const wishlistData = await getWishlistItemFunc(hotelId);
 
-          res.status(200).json({ message: "Items added to Wishist" ,wishlistData: wishlistData});
+          res.status(200).json({
+            message: "Items added to Wishist",
+            wishlistData: wishlistData,
+          });
         } catch (error) {
           res.status(500).json({ error: "Internal server error" });
         }
@@ -73,9 +80,12 @@ const removeItemFormWishlist = catchAsyncError(async (req, res, next) => {
           { $set: { wishlistItem: wishlistPresent[0].wishlistItem } }
         );
 
-        const wishlistData = await getWishlistItemFunc(hotelId)
+        const wishlistData = await getWishlistItemFunc(hotelId);
 
-        return res.status(200).json({ message: "item Removed From WishList",wishlistData:wishlistData });
+        return res.status(200).json({
+          message: "item Removed From WishList",
+          wishlistData: wishlistData,
+        });
       }
       return res.status(400).json({ error: "No item found" });
     } else {
@@ -90,18 +100,16 @@ const getWishlistItems = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
 
-    const wishlistData = await getWishlistItemFunc(hotelId)
+    const wishlistData = await getWishlistItemFunc(hotelId);
 
     res.status(200).json({ wishlistData });
-    
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-const getWishlistItemFunc = async(hotelId)=>{
-
+const getWishlistItemFunc = async (hotelId) => {
   const pipeline = [
     {
       $match: {
@@ -132,14 +140,13 @@ const getWishlistItemFunc = async(hotelId)=>{
     },
     {
       $unwind: "$items.image",
-    }
+    },
   ];
 
   const wishlistData = await Wishlist.aggregate(pipeline);
 
-  return wishlistData
-
-}
+  return wishlistData;
+};
 
 module.exports = {
   addItemToWishlist,
