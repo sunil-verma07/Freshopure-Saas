@@ -188,9 +188,11 @@ router.post(
   vendorcontroller.generatePlanToken
 );
 
-router.post("/changeOrderQuantity", authMiddleware.authMiddleware, () => {
-  console.log("jkhdjkh");
-});
+router.post(
+  "/changeOrderQuantity",
+  authMiddleware.authMiddleware,
+  vendorcontroller.changeOrderQuantity
+);
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

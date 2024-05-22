@@ -346,9 +346,10 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
+    // console.log(orderId, "orderId??");
     const orderData = await UserOrder.aggregate([
       {
-        $match: { _id: new ObjectId(orderId) },
+        $match: { _id: new ObjectId(orderId[0]) },
       },
       {
         $lookup: {

@@ -2588,9 +2588,8 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
 const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
   try {
     const vendor = req.user._id;
-    const { quantity, itemId, orderNumber } = req.body;
 
-    console.log(quantity, itemId, orderNumber);
+    const { quantity, itemId, orderNumber } = req.body;
 
     if (!quantity || !itemId || !orderNumber) {
       return res.json({ message: "All Fields are required!" });
@@ -2625,8 +2624,104 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
     // Save the updated order back to the database
     await order.save();
 
-    console.log("fdghfh");
-    return res.json({ message: "Quantity updated successfully!" });
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { orderNumber: orderNumber },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: { orderId: "$_id" },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          vendorDetails: { $first: "$hotelDetails" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
+          orderedItems: {
+            $push: {
+              itemId: "$orderedItems.itemId",
+              price: "$orderedItems.price",
+              quantity: "$orderedItems.quantity",
+              _id: "$orderedItems._id",
+              itemDetails: "$itemDetails",
+              image: "$images",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderStatusDetails: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+    orderData.map((orders) => {
+      order.orderedItems.map((item) => {
+        if (item.itemId.toString() === itemId.toString()) {
+          return res.json({ data: orders });
+        }
+      });
+    });
+
+    // return res.json({ message: "Order not found" });
   } catch (error) {
     console.log(error, "errr");
     return res.status(500).json({ message: "Internal server error" });

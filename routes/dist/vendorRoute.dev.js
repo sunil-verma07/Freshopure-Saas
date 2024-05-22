@@ -32,7 +32,7 @@ router.post("/gethotelAssignableItems", authMiddleware.authMiddleware, vendorcon
 router.get("/getVendorCategories", authMiddleware.authMiddleware, vendorcontroller.getVendorCategories);
 router.get("/addStockOptions", authMiddleware.authMiddleware, vendorcontroller.addStockItemOptions);
 router.post("/addVendorItem", authMiddleware.authMiddleware, vendorcontroller.addVendorItem);
-router.post("/getVendorItem", authMiddleware.authMiddleware, vendorcontroller.getAllVendorItems);
+router.get("/getVendorItem", authMiddleware.authMiddleware, vendorcontroller.getAllVendorItems);
 router.get("/getAllPaymentPlans", // authMiddleware.authMiddleware,
 vendorcontroller.getAllPaymentPlans);
 router.post("/orderAnalytics", authMiddleware.authMiddleware, vendorcontroller.getVendorOrderAnalytics);
@@ -44,9 +44,7 @@ router.post("/updateOrderStatus", vendorcontroller.orderStatusUpdate);
 router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
 router.get("/getAllPlans", authMiddleware.authMiddleware, vendorcontroller.getAllPaymentPlans);
 router.post("/planSubscribed", authMiddleware.authMiddleware, vendorcontroller.generatePlanToken);
-router.post("/changeOrderQuantity", authMiddleware.authMiddleware, function () {
-  console.log("jkhdjkh");
-}); // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
+router.post("/changeOrderQuantity", authMiddleware.authMiddleware, vendorcontroller.changeOrderQuantity); // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
 module.exports = router;
