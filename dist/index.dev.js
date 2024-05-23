@@ -2,14 +2,15 @@
 
 require("dotenv").config();
 
+var http = require("http");
+
 var aws = require("aws-sdk");
 
 var path = require("path");
 
 var express = require("express");
 
-var bodyParser = require("body-parser"); // const msg91 = require('msg91').default;
-
+var bodyParser = require("body-parser");
 
 var cookieParser = require("cookie-parser");
 
@@ -35,8 +36,9 @@ var vendorRoute = require("./routes/vendorRoute");
 
 var hotelRoute = require("./routes/HotelRoute");
 
-var subVendorRoute = require("./routes/subVendorRoute"); // const paymentRoutes = require("./routes/paymentRoute");
+var subVendorRoute = require("./routes/subVendorRoute");
 
+var socketIo = require("./utils/socket");
 
 var errorMiddleware = require("./middleware/error");
 
@@ -46,22 +48,23 @@ require("./db");
 
 var cors = require("cors");
 
+var ACTIONS = require("./actions");
+
 var app = express();
 app.use(cookieParser());
-app.use(errorMiddleware); // msg91.initialize({ authKey: process.env.AUTHKEY });
-
+app.use(errorMiddleware);
 app.use(bodyParser.urlencoded({
   extended: false
 }));
 app.use(bodyParser.json());
 var corsOptions = {
-  origin: ["http://localhost:3000"],
+  origin: ["http://localhost:19006"],
   credentials: true,
-  //access-control-allow-credentials:true
   optionSuccessStatus: 200
 };
-app.use(cors(corsOptions)); // Set headers to allow CORS
-
+app.use(cors(corsOptions));
+var server = http.createServer(app);
+socketIo.initWebSocket(server);
 app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", ["http://localhost:3000"]);
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -77,8 +80,7 @@ app.use("/address", addressRoute);
 app.use("/admin", adminRoute);
 app.use("/vendor", vendorRoute);
 app.use("/hotel", hotelRoute);
-app.use("/subvendor", subVendorRoute); // app.use("/api", paymentRoutes);
-
+app.use("/subvendor", subVendorRoute);
 var port = process.env.PORT;
 app.listen(port, function () {
   console.log("Server is running on http://localhost:".concat(port));

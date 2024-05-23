@@ -264,7 +264,7 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
   }, null, null, [[0, 61], [17, 35, 39, 47], [40,, 42, 46]]);
 });
 var orderHistory = catchAsyncError(function _callee3(req, res, next) {
-  var hotelId, pageSize, _req$body, offset, status, statusId, orderData;
+  var hotelId, pageSize, _req$query, offset, status, statusId, orderData;
 
   return regeneratorRuntime.async(function _callee3$(_context3) {
     while (1) {
@@ -273,7 +273,7 @@ var orderHistory = catchAsyncError(function _callee3(req, res, next) {
           _context3.prev = 0;
           hotelId = req.user._id;
           pageSize = 7;
-          _req$body = req.body, offset = _req$body.offset, status = _req$body.status; // console.log(req);
+          _req$query = req.query, offset = _req$query.offset, status = _req$query.status; // Read from query parameters
 
           console.log(offset, status, "offset");
           _context3.next = 7;
@@ -357,7 +357,6 @@ var orderHistory = catchAsyncError(function _callee3(req, res, next) {
               vendorDetails: {
                 $first: "$vendorDetails"
               },
-              // orderData: { $first: "$$ROOT" },
               orderStatusDetails: {
                 $first: "$orderStatusDetails"
               },
@@ -383,11 +382,11 @@ var orderHistory = catchAsyncError(function _callee3(req, res, next) {
               createdAt: 1,
               updatedAt: 1,
               orderStatusDetails: 1,
-              // orderData: 1,
               orderedItems: 1
             }
           }, {
-            $skip: offset
+            $skip: parseInt(offset) // Convert offset to integer
+
           }, {
             $limit: parseInt(pageSize)
           }]));
@@ -396,7 +395,7 @@ var orderHistory = catchAsyncError(function _callee3(req, res, next) {
           orderData = _context3.sent;
           console.log(orderData, "order");
           res.status(200).json({
-            status: "success message",
+            status: "success",
             data: orderData
           });
           _context3.next = 18;
@@ -450,7 +449,7 @@ var allHotelOrders = catchAsyncError(function _callee4(req, res, next) {
   }, null, null, [[0, 8]]);
 });
 var orderAgain = catchAsyncError(function _callee5(req, res, next) {
-  var UserId, _req$body2, order_id, addressId, findOrder, orderedItems, cartPresent, x, cart;
+  var UserId, _req$body, order_id, addressId, findOrder, orderedItems, cartPresent, x, cart;
 
   return regeneratorRuntime.async(function _callee5$(_context5) {
     while (1) {
@@ -458,7 +457,7 @@ var orderAgain = catchAsyncError(function _callee5(req, res, next) {
         case 0:
           _context5.prev = 0;
           UserId = req.hotel._id;
-          _req$body2 = req.body, order_id = _req$body2.order_id, addressId = _req$body2.addressId;
+          _req$body = req.body, order_id = _req$body.order_id, addressId = _req$body.addressId;
 
           if (!(!addressId || !order_id)) {
             _context5.next = 5;
@@ -625,11 +624,12 @@ var orderDetails = catchAsyncError(function _callee7(req, res, next) {
       switch (_context8.prev = _context8.next) {
         case 0:
           _context8.prev = 0;
-          orderId = req.body.orderId;
+          orderId = req.body.orderId; // console.log(orderId, "orderId??");
+
           _context8.next = 4;
           return regeneratorRuntime.awrap(UserOrder.aggregate([{
             $match: {
-              _id: new ObjectId(orderId)
+              _id: new ObjectId(orderId[0])
             }
           }, {
             $lookup: {

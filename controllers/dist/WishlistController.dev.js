@@ -25,7 +25,8 @@ var db = getDatabase(); // const Wishlist = db.collection('hotelwishlists');
 // const collectionImages = db.collection('Images');
 
 var addItemToWishlist = catchAsyncError(function _callee(req, res, next) {
-  var wishlistItem, hotelId, wishlistPresent, elementFound, items, wishlist;
+  var wishlistItem, hotelId, wishlistPresent, elementFound, items, wishlistData, wishlist, _wishlistData;
+
   return regeneratorRuntime.async(function _callee$(_context) {
     while (1) {
       switch (_context.prev = _context.next) {
@@ -54,12 +55,12 @@ var addItemToWishlist = catchAsyncError(function _callee(req, res, next) {
           elementFound = _context.sent;
 
           if (elementFound) {
-            _context.next = 29;
+            _context.next = 35;
             break;
           }
 
           if (!(wishlistPresent.length > 0)) {
-            _context.next = 17;
+            _context.next = 20;
             break;
           }
 
@@ -74,64 +75,76 @@ var addItemToWishlist = catchAsyncError(function _callee(req, res, next) {
           }));
 
         case 14:
+          _context.next = 16;
+          return regeneratorRuntime.awrap(getWishlistItemFunc(hotelId));
+
+        case 16:
+          wishlistData = _context.sent;
           res.status(200).json({
-            message: "Items added to Wishist"
+            message: "Items added to Wishist",
+            wishlistData: wishlistData
           });
-          _context.next = 27;
+          _context.next = 33;
           break;
 
-        case 17:
-          _context.prev = 17;
+        case 20:
+          _context.prev = 20;
           wishlist = new Wishlist({
             hotelId: hotelId,
             wishlistItem: wishlistItem
           });
-          _context.next = 21;
+          _context.next = 24;
           return regeneratorRuntime.awrap(wishlist.save());
 
-        case 21:
+        case 24:
+          _context.next = 26;
+          return regeneratorRuntime.awrap(getWishlistItemFunc(hotelId));
+
+        case 26:
+          _wishlistData = _context.sent;
           res.status(200).json({
-            message: "Items added to Wishist"
+            message: "Items added to Wishist",
+            wishlistData: _wishlistData
           });
-          _context.next = 27;
+          _context.next = 33;
           break;
 
-        case 24:
-          _context.prev = 24;
-          _context.t0 = _context["catch"](17);
+        case 30:
+          _context.prev = 30;
+          _context.t0 = _context["catch"](20);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 27:
-          _context.next = 30;
+        case 33:
+          _context.next = 36;
           break;
 
-        case 29:
+        case 35:
           res.status(400).json({
             error: "Item already added"
           });
 
-        case 30:
-          _context.next = 35;
+        case 36:
+          _context.next = 41;
           break;
 
-        case 32:
-          _context.prev = 32;
+        case 38:
+          _context.prev = 38;
           _context.t1 = _context["catch"](0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 35:
+        case 41:
         case "end":
           return _context.stop();
       }
     }
-  }, null, null, [[0, 32], [17, 24]]);
+  }, null, null, [[0, 38], [20, 30]]);
 });
 var removeItemFormWishlist = catchAsyncError(function _callee2(req, res, next) {
-  var Itemid, hotelId, wishlistPresent, indexToRemove;
+  var Itemid, hotelId, wishlistPresent, indexToRemove, wishlistData;
   return regeneratorRuntime.async(function _callee2$(_context2) {
     while (1) {
       switch (_context2.prev = _context2.next) {
@@ -148,7 +161,7 @@ var removeItemFormWishlist = catchAsyncError(function _callee2(req, res, next) {
           wishlistPresent = _context2.sent;
 
           if (!(wishlistPresent.length > 0)) {
-            _context2.next = 16;
+            _context2.next = 19;
             break;
           }
 
@@ -157,7 +170,7 @@ var removeItemFormWishlist = catchAsyncError(function _callee2(req, res, next) {
           });
 
           if (!(indexToRemove != -1)) {
-            _context2.next = 13;
+            _context2.next = 16;
             break;
           }
 
@@ -172,46 +185,85 @@ var removeItemFormWishlist = catchAsyncError(function _callee2(req, res, next) {
           }));
 
         case 12:
-          return _context2.abrupt("return", res.status(200).json({
-            message: "item Removed From WishList"
-          }));
+          _context2.next = 14;
+          return regeneratorRuntime.awrap(getWishlistItemFunc(hotelId));
 
-        case 13:
-          return _context2.abrupt("return", res.status(400).json({
-            error: "No item found"
+        case 14:
+          wishlistData = _context2.sent;
+          return _context2.abrupt("return", res.status(200).json({
+            message: "item Removed From WishList",
+            wishlistData: wishlistData
           }));
 
         case 16:
           return _context2.abrupt("return", res.status(400).json({
+            error: "No item found"
+          }));
+
+        case 19:
+          return _context2.abrupt("return", res.status(400).json({
             error: "No items Found"
           }));
 
-        case 17:
-          _context2.next = 22;
+        case 20:
+          _context2.next = 25;
           break;
 
-        case 19:
-          _context2.prev = 19;
+        case 22:
+          _context2.prev = 22;
           _context2.t0 = _context2["catch"](0);
           return _context2.abrupt("return", res.status(500).json({
             error: "Internal server error"
           }));
 
-        case 22:
+        case 25:
         case "end":
           return _context2.stop();
       }
     }
-  }, null, null, [[0, 19]]);
+  }, null, null, [[0, 22]]);
 });
 var getWishlistItems = catchAsyncError(function _callee3(req, res, next) {
-  var hotelId, pipeline, wishlistData;
+  var hotelId, wishlistData;
   return regeneratorRuntime.async(function _callee3$(_context3) {
     while (1) {
       switch (_context3.prev = _context3.next) {
         case 0:
           _context3.prev = 0;
           hotelId = req.user._id;
+          _context3.next = 4;
+          return regeneratorRuntime.awrap(getWishlistItemFunc(hotelId));
+
+        case 4:
+          wishlistData = _context3.sent;
+          res.status(200).json({
+            wishlistData: wishlistData
+          });
+          _context3.next = 12;
+          break;
+
+        case 8:
+          _context3.prev = 8;
+          _context3.t0 = _context3["catch"](0);
+          console.log(_context3.t0);
+          res.status(500).json({
+            error: "Internal server error"
+          });
+
+        case 12:
+        case "end":
+          return _context3.stop();
+      }
+    }
+  }, null, null, [[0, 8]]);
+});
+
+var getWishlistItemFunc = function getWishlistItemFunc(hotelId) {
+  var pipeline, wishlistData;
+  return regeneratorRuntime.async(function getWishlistItemFunc$(_context4) {
+    while (1) {
+      switch (_context4.prev = _context4.next) {
+        case 0:
           pipeline = [{
             $match: {
               hotelId: hotelId
@@ -236,44 +288,22 @@ var getWishlistItems = catchAsyncError(function _callee3(req, res, next) {
             }
           }, {
             $unwind: "$items.image"
-          } // {
-          //     $group: {
-          //         _id: null,
-          //         data: { $push: '$item' }
-          //     }
-          // }
-          ];
-          _context3.next = 5;
+          }];
+          _context4.next = 3;
           return regeneratorRuntime.awrap(Wishlist.aggregate(pipeline));
 
+        case 3:
+          wishlistData = _context4.sent;
+          return _context4.abrupt("return", wishlistData);
+
         case 5:
-          wishlistData = _context3.sent;
-          res.status(200).json({
-            wishlistData: wishlistData
-          }); // const wishlistData = data[0]?.data
-          // if (wishlistData && wishlistData.length > 0) {
-          // } else {
-          //     res.status(400).json({ error: 'No Item' })
-          // }
-
-          _context3.next = 13;
-          break;
-
-        case 9:
-          _context3.prev = 9;
-          _context3.t0 = _context3["catch"](0);
-          console.log(_context3.t0);
-          res.status(500).json({
-            error: "Internal server error"
-          });
-
-        case 13:
         case "end":
-          return _context3.stop();
+          return _context4.stop();
       }
     }
-  }, null, null, [[0, 9]]);
-});
+  });
+};
+
 module.exports = {
   addItemToWishlist: addItemToWishlist,
   removeItemFormWishlist: removeItemFormWishlist,

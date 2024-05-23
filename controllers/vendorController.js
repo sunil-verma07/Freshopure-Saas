@@ -85,12 +85,9 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
 
 const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
-    console.log("asdasd");
     const vendorId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.body;
-
-    console.log(offset, status, "offset");
+    const { offset, status } = req.query;
 
     const statusId = await OrderStatus.findOne({ status: status });
     const orderData = await UserOrder.aggregate([
@@ -119,8 +116,12 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           as: "orderStatusDetails",
         },
       },
-      { $unwind: "$orderStatusDetails" },
-      { $unwind: "$orderedItems" }, // Unwind orderedItems array
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $unwind: "$orderedItems",
+      },
       {
         $lookup: {
           from: "Items",
@@ -150,7 +151,6 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
           vendorDetails: { $first: "$vendorDetails" },
-          // orderData: { $first: "$$ROOT" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
@@ -175,19 +175,26 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
-          // orderData: 1,
           orderedItems: 1,
         },
       },
       {
-        $skip: offset,
+        $skip: parseInt(offset),
       },
       {
-        $limit: parseInt(pageSize),
+        $limit: pageSize,
       },
     ]);
 
-    console.log(orderData);
+    console.log(
+      "data:" + orderData.length,
+      "offset:" + offset,
+      "page size: " + pageSize
+    );
+    orderData.map((order) => {
+      console.log(order._id);
+    });
+
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -769,10 +776,15 @@ const updateStock = catchAsyncError(async (req, res, next) => {
     await item.save();
 
     const vendorStocks = await getVendorStockFunc(vendorId);
+
+    const updatedStock = vendorStocks.find(
+      (item) => item.itemId.toString() === itemId.toString()
+    );
+
     if (vendorStocks.length > 0) {
       res.json({
         message: "Stock updated successfully",
-        data: vendorStocks[0],
+        data: updatedStock,
       });
     }
   } catch (error) {
@@ -795,7 +807,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           localField: "orderStatus",
           foreignField: "_id",
           as: "orderStatus",
-          pipeline: [{ $limit: 1 }] // Limit to ensure only one document is returned
+          pipeline: [{ $limit: 1 }], // Limit to ensure only one document is returned
         },
       },
       {
@@ -810,7 +822,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           localField: "hotelId",
           foreignField: "_id",
           as: "hotelDetails",
-          pipeline: [{ $limit: 1 }]
+          pipeline: [{ $limit: 1 }],
         },
       },
       {
@@ -825,7 +837,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           localField: "vendorId",
           foreignField: "_id",
           as: "vendorDetails",
-          pipeline: [{ $limit: 1 }]
+          pipeline: [{ $limit: 1 }],
         },
       },
       {
@@ -921,7 +933,10 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         day: "numeric",
       };
 
-      const formattedDateTime = new Intl.DateTimeFormat("en-US", options).format(createdOn);
+      const formattedDateTime = new Intl.DateTimeFormat(
+        "en-US",
+        options
+      ).format(createdOn);
 
       return `${formattedDateTime}`;
     };
@@ -929,7 +944,9 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     const totalPrice = (items) => {
       let totalPrice = 0;
       for (let item of items) {
-        totalPrice += (item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000));
+        totalPrice +=
+          item.price * item.quantity?.kg +
+          item.price * (item.quantity?.gram / 1000);
       }
 
       return totalPrice;
@@ -945,18 +962,28 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       <div style="${generateInlineStyles(styles.container)}">
         <div style="${generateInlineStyles(styles.header)}">
           
-          <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(styles.logo)} /> -->
+          <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
+            styles.logo
+          )} /> -->
           <div>
             <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
           </div>
         </div>
         <div style="display:flex;justify-content:space-between">
-          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${data?.hotelDetails?.fullName}.<br/>Thank you for shopping from ${data?.vendorDetails?.fullName}.</p>
-          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${data?.orderNumber} <br/> </p>
+          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
+            data?.hotelDetails?.fullName
+          }.<br/>Thank you for shopping from ${
+      data?.vendorDetails?.fullName
+    }.</p>
+          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
+            data?.orderNumber
+          } <br/> </p>
         </div>
         <div style="display:flex;margin-bottom:10px">
           <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
-            <p style="font-weight:600;font-size:12px;">${data?.vendorDetails?.fullName}</p>
+            <p style="font-weight:600;font-size:12px;">${
+              data?.vendorDetails?.fullName
+            }</p>
             <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
             Rajasthan
             302017
@@ -971,9 +998,13 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             </p>
           </div>
           <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
-            <p style="font-weight:600;font-size:12px;">${data?.hotelDetails?.fullName}</p>
+            <p style="font-weight:600;font-size:12px;">${
+              data?.hotelDetails?.fullName
+            }</p>
             <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            ${data?.address?.addressLine1},${data?.address?.addressLine2},${data?.address?.city}
+            ${data?.address?.addressLine1},${data?.address?.addressLine2},${
+      data?.address?.city
+    }
             ,${data?.address?.pinCode} 
             </p>
             
@@ -998,11 +1029,22 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
               ?.map(
                 (item, index) => `
               <tr key=${index}>
-                <td style="${generateInlineStyles(styles.td)}">${item?.itemDetails?.name}</td>
-                <td style="${generateInlineStyles(styles.td)}">${item?.itemDetails?.category?.name}</td>
-                <td style="${generateInlineStyles(styles.td)}">${item.quantity?.kg} Kg   ${item?.quantity?.gram} Grams</td>
-                <td style="${generateInlineStyles(styles.td)}">${item.price}</td>
-                <td style="${generateInlineStyles(styles.td)}">${item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000)}</td>
+                <td style="${generateInlineStyles(styles.td)}">${
+                  item?.itemDetails?.name
+                }</td>
+                <td style="${generateInlineStyles(styles.td)}">${
+                  item?.itemDetails?.category?.name
+                }</td>
+                <td style="${generateInlineStyles(styles.td)}">${
+                  item.quantity?.kg
+                } Kg   ${item?.quantity?.gram} Grams</td>
+                <td style="${generateInlineStyles(styles.td)}">${
+                  item.price
+                }</td>
+                <td style="${generateInlineStyles(styles.td)}">${
+                  item.price * item.quantity?.kg +
+                  item.price * (item.quantity?.gram / 1000)
+                }</td>
               </tr>
             `
               )
@@ -1060,7 +1102,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
   }
 });
 
-
 const addItemToStock = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId } = req.body;
@@ -1094,10 +1135,16 @@ const addItemToStock = catchAsyncError(async (req, res, next) => {
 
     const vendorStocks = await getVendorStockFunc(vendorId);
 
+    const addedStock = vendorStocks.find(
+      (item) => item.itemId.toString() === itemId.toString()
+    );
+
+    console.log(addedStock, "added");
+
     if (vendorStocks.length > 0) {
       res.json({
         message: "Stock added successfully",
-        data: vendorStocks[0].stocks,
+        data: addedStock,
       });
     }
   } catch (error) {
@@ -1140,24 +1187,36 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
         $unwind: "$images",
       },
       {
-        $addFields: {
-          "stocks.itemDetails": "$itemDetails",
-          "stocks.images": "$images",
-        },
-      },
-      {
         $group: {
           _id: "$_id",
           vendorId: { $first: "$vendorId" },
-          stocks: { $push: "$stocks" },
+          stocks: {
+            $push: {
+              itemId: "$stocks.itemId",
+              quantity: "$stocks.quantity",
+              itemDetails: "$itemDetails",
+              images: "$images",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          vendorId: 1,
+          "stocks.itemId": 1,
+          "stocks.quantity": 1,
+          "stocks.itemDetails": 1,
+          "stocks.images": 1,
         },
       },
     ]);
 
-    if (stocks.length > 0) {
-      return res.json({ data: stocks[0] }); // Assuming each vendor has only one stock entry
+    console.log(stocks);
+    if (stocks?.length > 0) {
+      return res.status(200).json({ data: stocks[0]?.stocks }); // Assuming each vendor has only one stock entry
     } else {
-      return res.status(404).json({ message: "Vendor stock not found!" });
+      return res.status(200).json({ data: [] });
     }
   } catch (error) {
     next(error);
@@ -1197,16 +1256,8 @@ const deleteItemFromStock = catchAsyncError(async (req, res, next) => {
     // Save the changes to the database
     await stock.save();
 
-    const vendorStocks = await getVendorStockFunc(vendorId);
-    console.log(vendorStocks, "stocksss");
-    if (vendorStocks.length > 0) {
-      res.json({
-        message: "Stock deleted successfully",
-        data: vendorStocks[0].stocks,
-      });
-    }
+    return res.status(200).json({ message: "Stck removed successfully" });
   } catch (error) {
-    console.log(error, "err");
     next(error);
   }
 });
@@ -1267,7 +1318,6 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
     const items = await VendorItems.findOne({ vendorId: vendorId }).select(
       "items"
     );
-    console.log(items, "items");
     const hotelItems = [];
 
     for (const itemId of itemIds) {
@@ -1393,9 +1443,10 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
     let vendorItems = [];
 
     vendor.items.forEach((item) => {
-      console.log(item, "item");
       vendorItems.push(item.itemId);
     });
+
+    // console.log(vendorItems, "vendorItems");
 
     const allItemsIds = vendorItems.map((item) => item.toString());
 
@@ -1525,23 +1576,34 @@ const getVendorStockFunc = async (vendorId) => {
       $unwind: "$images",
     },
     {
-      $addFields: {
-        "stocks.itemDetails": "$itemDetails",
-        "stocks.images": "$images",
-      },
-    },
-    {
       $group: {
         _id: "$_id",
         vendorId: { $first: "$vendorId" },
-        stocks: { $push: "$stocks" },
+        stocks: {
+          $push: {
+            itemId: "$stocks.itemId",
+            quantity: "$stocks.quantity",
+            itemDetails: "$itemDetails",
+            images: "$images",
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        vendorId: 1,
+        "stocks.itemId": 1,
+        "stocks.quantity": 1,
+        "stocks.itemDetails": 1,
+        "stocks.images": 1,
       },
     },
   ];
 
   const stocks = await vendorStock.aggregate(pipeline);
 
-  return stocks;
+  return stocks[0]?.stocks;
 };
 
 const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
@@ -1588,7 +1650,6 @@ const getHotelItemsFunc = async ({ HotelId, vendorId }) => {
   ];
 
   const itemList = await HotelItemPrice.aggregate(pipeline);
-  
 
   return itemList;
 };
@@ -1635,13 +1696,14 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
     // Save the vendor object (either existing or new)
     await vendor.save();
 
-    const item = await getVendorItemsFunc(vendorId)
+    const item = await getVendorItemsFunc(vendorId);
 
-    const addedItems =  item.filter(item1 => itemIds.includes(item1.itemId.toString()));
-
+    const addedItems = item.filter((item1) =>
+      itemIds.includes(item1.itemId.toString())
+    );
 
     // Send success response only after successful save
-    res.json({ message: "Items added successfully",data:addedItems });
+    res.json({ message: "Items added successfully", data: addedItems });
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
@@ -1651,60 +1713,59 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
 const getAllVendorItems = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
-    const pageSize =  7;
+    const pageSize = 7;
     const offset = parseInt(req.query.offset);
 
     const vendorItems = await VendorItems.aggregate([
-    {
-      $match: { vendorId: vendorId},
-    },
-    {
-      $unwind: "$items",
-    },
-    {
-      $lookup: {
-        from: "Items",
-        localField: "items.itemId",
-        foreignField: "_id",
-        as: "items.itemDetails",
+      {
+        $match: { vendorId: vendorId },
       },
-    },
-    {
-      $unwind: "$items.itemDetails",
-    },
-    {
-      $lookup: {
-        from: "Images",
-        localField: "items.itemId",
-        foreignField: "itemId",
-        as: "items.images",
+      {
+        $unwind: "$items",
       },
-    },
-    {
-      $unwind: "$items.images",
-    },
-    {
-       $skip:offset,
-    },
-    {
-       $limit:parseInt(pageSize)
-    },
-    {
-      $group: {
-        _id: "$_id",
-        items: { $push: "$items" },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "items.itemDetails",
+        },
       },
-    },
-  ]);
+      {
+        $unwind: "$items.itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "items.itemId",
+          foreignField: "itemId",
+          as: "items.images",
+        },
+      },
+      {
+        $unwind: "$items.images",
+      },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: parseInt(pageSize),
+      },
+      {
+        $group: {
+          _id: "$_id",
+          items: { $push: "$items" },
+        },
+      },
+    ]);
 
+    if (vendorItems[0]?.items > 0) {
+      res.status(200).json({
+        message: "Vendor items not found",
+        data: [],
+      });
+    }
 
-   if(vendorItems[0]?.items > 0){
-     res.status(200).json({
-      message: "Vendor items not found",
-      data: [],
-    });
-   }
-    
     // Send success response with vendor items
     res.status(200).json({
       message: "Vendor items retrieved successfully",
@@ -1715,7 +1776,6 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
-
 
 const itemsForVendor = catchAsyncError(async (req, res, next) => {
   try {
@@ -1757,10 +1817,10 @@ const itemsForVendor = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const getVendorItemsFunc = async (vendorId,itemId) => {
+const getVendorItemsFunc = async (vendorId, itemId) => {
   const vendorItems = await VendorItems.aggregate([
     {
-      $match: { vendorId: vendorId},
+      $match: { vendorId: vendorId },
     },
     {
       $unwind: "$items",
@@ -1795,7 +1855,6 @@ const getVendorItemsFunc = async (vendorId,itemId) => {
     },
   ]);
 
-
   return vendorItems[0]?.items;
 };
 
@@ -1818,6 +1877,8 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       itemId: itemId,
       vendorId: vendorId,
     });
+
+    console.log(itemsToBeChange, "itemsToBeChange");
 
     if (itemsToBeChange.length !== 0) {
       itemsToBeChange.forEach(async (item) => {
@@ -1851,6 +1912,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
             { new: true }
           );
 
+          console.log(doc, "doc");
           // Check if pastPercentageProfits length is greater than 10
           if (doc.pastPercentageProfits.length > 10) {
             // Trim the array to keep only the last 10 elements
@@ -1867,13 +1929,15 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       });
     }
 
-    const item = await getVendorItemsFunc(vendorId)
+    const item = await getVendorItemsFunc(vendorId);
 
     // console.log(item,itemId)
 
-    const updatedItem =  item.find(item=>item.itemId.toString() === itemId.toString());
+    const updatedItem = item.find(
+      (item) => item.itemId.toString() === itemId.toString()
+    );
 
-    console.log(updatedItem)
+    console.log(updatedItem);
     return res
       .status(200)
       .json({ message: "Price updated successfully.", data: updatedItem });
@@ -2101,7 +2165,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   let itemDetailsArray = [];
 
   const getItemName = async (itemId) => {
-    const items = await item.findOne({ _id: itemId });
+    const items = await Items.findOne({ _id: itemId });
     const image = await Image.findOne({ itemId: itemId });
     const itemObj = {
       name: items.name,
@@ -2110,6 +2174,15 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
 
     return itemObj;
   };
+
+  const filterZeroQuantityItems = (itemsArray) => {
+    return itemsArray.filter(
+      (item) =>
+        item.orderedItems.totalQuantity.kg > 0 ||
+        item.orderedItems.totalQuantity.gram > 0
+    );
+  };
+
   const today = new Date();
   async function getLastWeekData() {
     const result = [];
@@ -2169,7 +2242,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray; // Returning reversed orders as before
+    return filterZeroQuantityItems(itemDetailsArray); // Returning reversed orders as before
   }
 
   async function getLastMonthData() {
@@ -2231,7 +2304,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray;
+    return filterZeroQuantityItems(itemDetailsArray);
   }
 
   async function getLastSixMonthsData() {
@@ -2308,7 +2381,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray;
+    return filterZeroQuantityItems(itemDetailsArray);
   }
 
   if (duration === "week") {
@@ -2551,9 +2624,8 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
 const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
   try {
     const vendor = req.user._id;
-    const { quantity, itemId, orderNumber } = req.body;
 
-    console.log(quantity, itemId, orderNumber);
+    const { quantity, itemId, orderNumber } = req.body;
 
     if (!quantity || !itemId || !orderNumber) {
       return res.json({ message: "All Fields are required!" });
@@ -2588,8 +2660,131 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
     // Save the updated order back to the database
     await order.save();
 
-    console.log("fdghfh");
-    return res.json({ message: "Quantity updated successfully!" });
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { orderNumber: orderNumber },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatusDetails",
+        },
+      },
+      {
+        $unwind: "$orderStatusDetails",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "itemDetails._id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $group: {
+          _id: { orderId: "$_id" },
+          orderNumber: { $first: "$orderNumber" },
+          isReviewed: { $first: "$isReviewed" },
+          totalPrice: { $first: "$totalPrice" },
+          address: { $first: "$address" },
+          createdAt: { $first: "$createdAt" },
+          updatedAt: { $first: "$updatedAt" },
+          hotelId: { $first: "$hotelId" },
+          vendorDetails: { $first: "$hotelDetails" },
+          orderStatusDetails: { $first: "$orderStatusDetails" },
+          orderedItems: {
+            $push: {
+              itemId: "$orderedItems.itemId",
+              price: "$orderedItems.price",
+              quantity: "$orderedItems.quantity",
+              _id: "$orderedItems._id",
+              itemDetails: "$itemDetails",
+              image: "$images",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          orderNumber: 1,
+          isReviewed: 1,
+          totalPrice: 1,
+          address: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          hotelId: 1,
+          vendorDetails: 1,
+          orderStatusDetails: 1,
+          orderedItems: 1,
+        },
+      },
+    ]);
+
+    orderData.map((orders) => {
+      order.orderedItems.map((item) => {
+        if (item.itemId.toString() === itemId.toString()) {
+          return res.json({ data: orders });
+        }
+      });
+    });
+
+    // return res.json({ message: "Order not found" });
+  } catch (error) {
+    console.log(error, "errr");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+const totalSales = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendor = req.user._id;
+
+    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const orders = await UserOrder.find({
+      vendorId: vendor,
+      orderStatus: status._id,
+    });
+    console.log(vendor);
+    let total = 0;
+    orders.map((order) => {
+      console.log(order, "orderr");
+
+      total += order.totalPrice;
+    });
+
+    console.log(total, "total");
+    return res.json({
+      sales: total,
+    });
   } catch (error) {
     console.log(error, "errr");
     return res.status(500).json({ message: "Internal server error" });
@@ -2630,4 +2825,5 @@ module.exports = {
   generatePlanToken,
   orderStatusUpdate,
   changeOrderQuantity,
+  totalSales,
 };

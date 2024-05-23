@@ -285,6 +285,13 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
     return itemObj;
   };
   const today = new Date();
+  const filterZeroQuantityItems = (itemsArray) => {
+    return itemsArray.filter(
+      (item) =>
+        item.orderedItems.totalQuantity.kg > 0 ||
+        item.orderedItems.totalQuantity.gram > 0
+    );
+  };
   async function getLastWeekData() {
     const result = [];
     const weekEnd = new Date(today);
@@ -343,7 +350,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray; // Returning reversed orders as before
+    return filterZeroQuantityItems(itemDetailsArray); // Returning reversed orders as before
   }
 
   async function getLastMonthData() {
@@ -403,7 +410,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray;
+    return filterZeroQuantityItems(itemDetailsArray);
   }
 
   async function getLastSixMonthsData() {
@@ -480,7 +487,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
-    return itemDetailsArray;
+    return filterZeroQuantityItems(itemDetailsArray);
   }
 
   if (duration === "week") {
@@ -500,10 +507,38 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const totalSales = catchAsyncError(async (req, res, next) => {
+  try {
+    const hotel = req.user._id;
+
+    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const orders = await UserOrder.find({
+      hotelId: hotel,
+      orderStatus: status._id,
+    });
+    console.log(hotel);
+    let total = 0;
+    orders.map((order) => {
+      console.log(order, "orderr");
+
+      total += order.totalPrice;
+    });
+
+    console.log(total, "total");
+    return res.json({
+      sales: total,
+    });
+  } catch (error) {
+    console.log(error, "errr");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = {
   getAllItemsForHotel,
   myHotelProfile,
   getAllCategories,
   getHotelOrderAnalytics,
   getItemAnalytics,
+  totalSales,
 };

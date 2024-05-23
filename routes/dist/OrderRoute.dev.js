@@ -10,7 +10,7 @@ var authMiddleware = require("../middleware/auth"); // const profileCompleteMidd
 var ordercontroller = require("../controllers/OrderController");
 
 router.post("/placeorder", authMiddleware.authMiddleware, ordercontroller.placeOrder);
-router.post("/orderhistory", authMiddleware.authMiddleware, ordercontroller.orderHistory);
+router.get("/orderhistory", authMiddleware.authMiddleware, ordercontroller.orderHistory);
 router.post("/orderagain", authMiddleware.authMiddleware, authMiddleware.profileComplete, ordercontroller.orderAgain);
 router.get("/compiledorderforhotel", authMiddleware.authMiddleware, authMiddleware.profileComplete, ordercontroller.compiledOrderForHotel);
 router.post("/orderDetails", authMiddleware.authMiddleware, ordercontroller.orderDetails);
