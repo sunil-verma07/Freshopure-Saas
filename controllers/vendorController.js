@@ -782,6 +782,8 @@ const updateStock = catchAsyncError(async (req, res, next) => {
 
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
+
+  console.log(orderId)
   try {
     const orderData = await UserOrder.aggregate([
       {
@@ -1399,39 +1401,75 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
 
     let item = await vendorStock.findOne({ vendorId });
 
-    // Update the quantity of the item in the stock
-    let assignedItemIds = [];
-    item.stocks.map((stock) => {
-      assignedItemIds.push(stock.itemId.toString());
-    });
-    // Filter out items from allItemsIds that are not present in assignedItemIds
-    const notAssignedItemIds = allItemsIds.filter(
-      (item) => item && !assignedItemIds.includes(item.toString())
-    );
-
-    // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
-
-    let assignItems = [];
-
-    // Retrieve item details for not assigned items
-    for (let item of notAssignedItemIds) {
-      let newItem = {
-        itemDetails: null,
-      };
-
-      const itemDetails = await Items.findOne({
-        _id: new ObjectId(item),
+    if(item){
+      let assignedItemIds = [];
+      item.stocks.map((stock) => {
+        assignedItemIds.push(stock.itemId.toString());
       });
+      // Filter out items from allItemsIds that are not present in assignedItemIds
+      const notAssignedItemIds = allItemsIds.filter(
+        (item) => item && !assignedItemIds.includes(item.toString())
+      );
+  
+      // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
+  
+      let assignItems = [];
+  
+      // Retrieve item details for not assigned items
+      for (let item of notAssignedItemIds) {
+        let newItem = {
+          itemDetails: null,
+        };
+  
+        const itemDetails = await Items.findOne({
+          _id: new ObjectId(item),
+        });
+  
+        newItem.itemDetails = itemDetails;
+  
+        assignItems.push(newItem);
+      }
+  
+      res.status(200).json({
+        assignItems,
+        message: "filtered",
+      });
+    }else{
 
-      newItem.itemDetails = itemDetails;
 
-      assignItems.push(newItem);
+      let assignedItemIds = [];
+      // Filter out items from allItemsIds that are not present in assignedItemIds
+      const notAssignedItemIds = allItemsIds.filter(
+        (item) => item && !assignedItemIds.includes(item.toString())
+      );
+  
+      // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
+  
+      let assignItems = [];
+  
+      // Retrieve item details for not assigned items
+      for (let item of notAssignedItemIds) {
+        let newItem = {
+          itemDetails: null,
+        };
+  
+        const itemDetails = await Items.findOne({
+          _id: new ObjectId(item),
+        });
+  
+        newItem.itemDetails = itemDetails;
+  
+        assignItems.push(newItem);
+      }
+  
+      res.status(200).json({
+        assignItems,
+        message: "filtered",
+      });
     }
 
-    res.status(200).json({
-      assignItems,
-      message: "filtered",
-    });
+    // Update the quantity of the item in the stock
+   
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, error: "Internal server error" });
