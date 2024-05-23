@@ -39,6 +39,11 @@ router.get(
   authMiddleware.authMiddleware,
   hotelcontroller.getAllCategories
 );
+router.get(
+  "/totalSales",
+  authMiddleware.authMiddleware,
+  hotelcontroller.totalSales
+);
 // router.post("/vendorhotellink", authMiddleware.authMiddleware, vendorcontroller.linkHoteltoVendor)
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

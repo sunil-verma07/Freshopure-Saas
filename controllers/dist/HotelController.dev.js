@@ -1185,10 +1185,63 @@ var getItemAnalytics = catchAsyncError(function _callee8(req, res, next) {
     }
   });
 });
+var totalSales = catchAsyncError(function _callee9(req, res, next) {
+  var hotel, _status, _orders, total;
+
+  return regeneratorRuntime.async(function _callee9$(_context17) {
+    while (1) {
+      switch (_context17.prev = _context17.next) {
+        case 0:
+          _context17.prev = 0;
+          hotel = req.user._id;
+          _context17.next = 4;
+          return regeneratorRuntime.awrap(OrderStatus.findOne({
+            status: "Delivered"
+          }));
+
+        case 4:
+          _status = _context17.sent;
+          _context17.next = 7;
+          return regeneratorRuntime.awrap(UserOrder.find({
+            hotelId: hotel,
+            orderStatus: _status._id
+          }));
+
+        case 7:
+          _orders = _context17.sent;
+          console.log(hotel);
+          total = 0;
+
+          _orders.map(function (order) {
+            console.log(order, "orderr");
+            total += order.totalPrice;
+          });
+
+          console.log(total, "total");
+          return _context17.abrupt("return", res.json({
+            sales: total
+          }));
+
+        case 15:
+          _context17.prev = 15;
+          _context17.t0 = _context17["catch"](0);
+          console.log(_context17.t0, "errr");
+          return _context17.abrupt("return", res.status(500).json({
+            message: "Internal server error"
+          }));
+
+        case 19:
+        case "end":
+          return _context17.stop();
+      }
+    }
+  }, null, null, [[0, 15]]);
+});
 module.exports = {
   getAllItemsForHotel: getAllItemsForHotel,
   myHotelProfile: myHotelProfile,
   getAllCategories: getAllCategories,
   getHotelOrderAnalytics: getHotelOrderAnalytics,
-  getItemAnalytics: getItemAnalytics
+  getItemAnalytics: getItemAnalytics,
+  totalSales: totalSales
 };

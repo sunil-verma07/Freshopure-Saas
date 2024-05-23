@@ -44,7 +44,8 @@ router.post("/updateOrderStatus", vendorcontroller.orderStatusUpdate);
 router.post("/msgToSubvendor", vendorcontroller.msgToSubVendor);
 router.get("/getAllPlans", authMiddleware.authMiddleware, vendorcontroller.getAllPaymentPlans);
 router.post("/planSubscribed", authMiddleware.authMiddleware, vendorcontroller.generatePlanToken);
-router.post("/changeOrderQuantity", authMiddleware.authMiddleware, vendorcontroller.changeOrderQuantity); // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
+router.post("/changeOrderQuantity", authMiddleware.authMiddleware, vendorcontroller.changeOrderQuantity);
+router.post("/totalSales", authMiddleware.authMiddleware, vendorcontroller.totalSales); // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 
 module.exports = router;

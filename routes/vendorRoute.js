@@ -194,6 +194,12 @@ router.post(
   vendorcontroller.changeOrderQuantity
 );
 
+router.post(
+  "/totalSales",
+  authMiddleware.authMiddleware,
+  vendorcontroller.totalSales
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

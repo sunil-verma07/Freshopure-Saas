@@ -2728,6 +2728,33 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+const totalSales = catchAsyncErrors(async (req, res, next) => {
+  try {
+    const vendor = req.user._id;
+
+    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const orders = await UserOrder.find({
+      vendorId: vendor,
+      orderStatus: status._id,
+    });
+    console.log(vendor);
+    let total = 0;
+    orders.map((order) => {
+      console.log(order, "orderr");
+
+      total += order.totalPrice;
+    });
+
+    console.log(total, "total");
+    return res.json({
+      sales: total,
+    });
+  } catch (error) {
+    console.log(error, "errr");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2762,4 +2789,5 @@ module.exports = {
   generatePlanToken,
   orderStatusUpdate,
   changeOrderQuantity,
+  totalSales,
 };
