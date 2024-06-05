@@ -29,9 +29,13 @@ var HotelOrdersSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "OrderStatus"
   },
-  addressId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "address"
+  totalPrice: Number,
+  address: {
+    addressLine1: String,
+    addressLine2: String,
+    state: String,
+    city: String,
+    pinCode: Number
   },
   orderedItems: [{
     itemId: {
@@ -42,7 +46,8 @@ var HotelOrdersSchema = new mongoose.Schema({
     quantity: {
       kg: Number,
       gram: Number,
-      piece: Number
+      piece: Number,
+      packet: Number
     }
   }],
   isItemAdded: {

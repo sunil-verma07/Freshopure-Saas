@@ -42,7 +42,7 @@ const newPayment = async (req, res) => {
     axios
       .request(options)
       .then(function (response) {
-        console.log(response.data);
+        // console.log(response.data);
         return res.redirect(
           response.data.data.instrumentResponse.redirectInfo.url
         );

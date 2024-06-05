@@ -11,6 +11,10 @@ const validatePhone = (phone) => {
 };
 
 const UserSchema = new mongoose.Schema({
+  uniqueId: {
+    type: String,
+    // required: true,
+  },
   organization: {
     type: String,
   },
@@ -53,7 +57,7 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  hasActiveSubscription: { type: Boolean, default: false },
+  hasActiveSubscription: { type: Boolean, default: true },
   activeSubscription: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PaymentPlan",

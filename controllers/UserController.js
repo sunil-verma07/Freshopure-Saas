@@ -26,6 +26,10 @@ const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 const { isAuthenticatedUser } = require("../middleware/auth.js");
 const userDetails = require("../models/userDetails.js");
 const { sendOtp, verifyOtp } = require("../utils/sendEmailVerification.js");
+const {
+  generateUniqueId,
+  verifyUniqueId,
+} = require("../services/uniqueIdVerification.js");
 
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
@@ -88,7 +92,7 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
         const newUser = await User.create({
           phone: phone,
         });
-        console.log(newUser, "newUser");
+        // console.log(newUser, "newUser");
         res.status(200).json({ success: true, user: newUser });
       }
     }
@@ -100,18 +104,40 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
 
 const login = catchAsyncErrors(async (req, res, next) => {
   try {
-    const { phone } = req.body;
+    // console.log(req.body, "body");
+    const { phone, code } = req.body;
 
     if (!phone) {
       return res
         .status(400)
         .json({ success: false, error: "Please enter your phone number!" });
     } else {
-      await sendOtp(phone);
-      // console.log(res, "res");
-    }
+      if (!code) {
+        await sendOtp(phone);
+      } else if (code.length === 8) {
+        const user = await User.findOne({ phone: phone });
+        if (!user) {
+          return res.status(400).json({
+            success: false,
+            error: "User not found!",
+          });
+        }
 
-    return res.status(200).json({ message: "OTP sent" });
+        const existingCode = await decrypt(user.uniqueId);
+        const isUser = await verifyUniqueId(code, existingCode);
+
+        const roleId = await Role.findOne({ _id: user.roleId });
+        if (isUser) {
+          return sendToken(user, 200, res, roleId.name);
+        } else {
+          return res.json({ success: false, message: "Incorrect UniqueId!" });
+        }
+      } else {
+        return res.json({ success: false, error: "Please Recheck your code!" });
+      }
+
+      return res.status(200).json({ message: "OTP sent", otp: true });
+    }
   } catch (error) {
     console.log(error, "err");
     return res.status(401).json({ message: "Failed to send OTP" });
@@ -121,7 +147,7 @@ const login = catchAsyncErrors(async (req, res, next) => {
 const resend = catchAsyncErrors(async (req, res, next) => {
   try {
     const { phone } = req.body;
-    console.log(phone);
+    // console.log(phone);
 
     if (!phone) {
       return res
@@ -199,26 +225,31 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         .status(400)
         .json({ success: false, error: "Please enter all fields properly!" });
     } else {
+      const code = await generateUniqueId();
+      const encryptedCode = await encrypt(code);
       const roleId = await Role.findOne({ name: role });
       const user = await User.findOne({ phone: phone });
 
       if (user) {
+        user.uniqueId = encryptedCode;
         user.fullName = fullName;
         user.organization = organization;
         user.roleId = roleId._id;
         user.email = email;
         user.isProfileComplete = true;
+        user.isApproved = true;
+        user.isReviewed = true;
         await user.save();
 
         const updatedUser = await User.findOne({ phone: phone });
 
-        return res
-          .status(200)
-          .json({
-            success: true,
-            message: "Profile Completed!",
-            user: updatedUser,
-          });
+        // return res.status(200).json({
+        //   success: true,
+        //   message: "Profile Completed!",
+        //   user: updatedUser,
+        // });
+
+        return sendToken(updatedUser, 200, res, role);
       } else {
         console.log("errr");
         return res
@@ -234,11 +265,11 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
 
 const setProfileImage = catchAsyncErrors(async (req, res, next) => {
   try {
-    console.log(req, "req");
+    // console.log(req, "req");
     const userId = req.user._id;
     const images = req.files;
 
-    console.log(images, "img");
+    // console.log(images, "img");
 
     if (!images) {
       return res.json({ message: "Please Select an Image" });
@@ -361,7 +392,7 @@ const addUserDetails = catchAsyncErrors(async function (req, res, next) {
   const userId = req.user._id;
   const image = req.file; // Changed to req.file to handle only one image
 
-  console.log(image, "img");
+  // console.log(image, "img");
   try {
     if (!image) {
       return res.json({ message: "Please Select an Image" });

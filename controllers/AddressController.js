@@ -26,9 +26,11 @@ const addAddress = catchAsyncError(async (req, res, next) => {
     });
     await address.save();
 
-    const hotelAddresses = await getAddressFunc(HotelId)
+    const hotelAddresses = await getAddressFunc(HotelId);
 
-    res.status(200).json({ message: "Address Added" ,hotelAddresses:hotelAddresses});
+    res
+      .status(200)
+      .json({ message: "Address Added", hotelAddresses: hotelAddresses });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -52,18 +54,20 @@ const removeAddress = catchAsyncError(async (req, res, next) => {
     } else {
       await Address.deleteOne({ _id: new ObjectId(addressId) });
 
-      const hotelAddresses = await getAddressFunc(UserId)
-      
-      res.status(200).json({ message: "Address removed" ,hotelAddresses:hotelAddresses});
+      const hotelAddresses = await getAddressFunc(UserId);
+
+      res
+        .status(200)
+        .json({ message: "Address removed", hotelAddresses: hotelAddresses });
     }
   } catch (error) {
     if (error.message == "Selected Address Cannot be removed") {
       res.status(400).json({ error: error.message });
     } else {
-      console.log(error);
+      // console.log(error);
       res.status(500).json({ error: "Internal server" });
     }
-  } 
+  }
 });
 
 const getAllAddress = catchAsyncError(async (req, res, next) => {
@@ -71,12 +75,11 @@ const getAllAddress = catchAsyncError(async (req, res, next) => {
     // console.log("controller");
     const UserId = req.user._id;
 
-    const hotelAddresses = await getAddressFunc(UserId)
-    
+    const hotelAddresses = await getAddressFunc(UserId);
 
     res.status(200).json({ hotelAddresses });
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -94,17 +97,18 @@ const updateSelectedAddress = catchAsyncError(async (req, res, next) => {
       { $set: { selected: true } }
     );
 
-    const hotelAddresses = await getAddressFunc(UserId)
+    const hotelAddresses = await getAddressFunc(UserId);
 
-    res.status(200).json({ message: "Updated selected address" ,hotelAddresses:hotelAddresses});
+    res.status(200).json({
+      message: "Updated selected address",
+      hotelAddresses: hotelAddresses,
+    });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-
-const getAddressFunc = async(hotelId)=>{
-
+const getAddressFunc = async (hotelId) => {
   const selectedAddress = await Address.findOne({
     HotelId: new ObjectId(hotelId),
     selected: true,
@@ -115,8 +119,8 @@ const getAddressFunc = async(hotelId)=>{
     selected: false,
   });
 
-  return {selectedAddress: selectedAddress, allAddresses: allAddresses}
-}
+  return { selectedAddress: selectedAddress, allAddresses: allAddresses };
+};
 
 module.exports = {
   addAddress,

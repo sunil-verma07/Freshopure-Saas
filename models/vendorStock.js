@@ -15,6 +15,7 @@ const StockSchema = new mongoose.Schema(
             kg: { type: Number, default: 0 },
             gram: { type: Number, default: 0 },
             piece: { type: Number, default: 0 },
+            packet: { type: Number, default: 0 },
           },
         },
       },

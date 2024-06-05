@@ -31,9 +31,8 @@ const messageToSubvendor = async () => {
 
     // console.log(vendors, "vendors");
     const compiledOrders = await todayCompiledOrders(vendors);
-    
-    return compiledOrders
-    
+
+    return compiledOrders;
   } catch (error) {
     console.log(error, "error");
   }
@@ -172,8 +171,16 @@ const messageToSubvendor = async () => {
 // };
 
 const todayCompiledOrders = async (vendors) => {
-  const today = new Date(); // Assuming you have today's date
-  today.setHours(0, 0, 0, 0); // Set time to the start of the day
+  // const today = new Date(); // Assuming you have today's date
+  // today.setHours(0, 0, 0, 0); // Set time to the start of the day
+
+  // Get the start of today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get the start of yesterday
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
 
   try {
     let compiledOrders = [];
@@ -187,7 +194,7 @@ const todayCompiledOrders = async (vendors) => {
         {
           $match: {
             vendorId: vendorId,
-            createdAt: { $gte: today }, // Filter orders for today
+            createdAt: { $gte: yesterday, $lt: today }, // Filter orders for today
           },
         },
         {
@@ -310,7 +317,7 @@ const todayCompiledOrders = async (vendors) => {
       compiledOrders.push(...vendorArr);
     }
 
-    console.log(compiledOrders);
+    console.log(compiledOrders, "compiledOrders");
     return compiledOrders;
   } catch (error) {
     console.log(error);

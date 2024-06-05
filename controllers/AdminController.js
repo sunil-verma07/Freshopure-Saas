@@ -146,7 +146,7 @@ const orderDetailById = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
 
-    console.log(req.body);
+    // console.log(req.body);
 
     const orderData = await UserOrder.aggregate([
       {
@@ -401,7 +401,7 @@ const reviewUser = catchAsyncError(async (req, res, next) => {
   try {
     const { userId, status } = req.body;
 
-    console.log(userId, status);
+    // console.log(userId, status);
 
     if (!status || !userId) {
       return res.status(404).json({ error: "Status or userId not received" });
@@ -625,7 +625,7 @@ const getVendorHotels = catchAsyncError(async (req, res, next) => {
 const getVendorOrders = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.params.vendorId;
-    console.log(vendorId);
+    // console.log(vendorId);
 
     const orders = await UserOrder.aggregate([
       {
@@ -712,14 +712,17 @@ const getVendorItems = catchAsyncError(async (req, res, next) => {
 
 const addNewPaymentPlan = catchAsyncError(async (req, res, next) => {
   try {
-    const { name,duration,features,price } = req.body;
+    const { name, duration, features, price } = req.body;
 
     if (!name) {
       throw new Error("All fields are required");
     }
 
     const paymentPlan = new PaymentPlan({
-      name,duration,features,price
+      name,
+      duration,
+      features,
+      price,
     });
 
     await paymentPlan.save();
@@ -729,8 +732,6 @@ const addNewPaymentPlan = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-
 
 module.exports = {
   linkHoteltoVendor,

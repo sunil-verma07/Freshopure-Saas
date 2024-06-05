@@ -1,5 +1,7 @@
 "use strict";
 
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var ErrorHandler = require("../utils/errorhander.js");
 
 var catchAsyncError = require("../middleware/catchAsyncErrors.js");
@@ -73,22 +75,23 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
 
         case 10:
           cart_doc = _context2.sent;
-          console.log(cart_doc, hotelId, "abcd");
+          // console.log(cart_doc, hotelId, "abcd");
           orders = {};
           totalOrderPrice = 0;
           _iteratorNormalCompletion = true;
           _didIteratorError = false;
           _iteratorError = undefined;
-          _context2.prev = 17;
+          _context2.prev = 16;
           _iterator = cart_doc.cartItems[Symbol.iterator]();
 
-        case 19:
+        case 18:
           if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
             _context2.next = 33;
             break;
           }
 
           _item = _step.value;
+          console.log(_item, "mainItem");
           _context2.next = 23;
           return regeneratorRuntime.awrap(HotelItemPrice.findOne({
             vendorId: _item.vendorId,
@@ -123,7 +126,7 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
 
         case 30:
           _iteratorNormalCompletion = true;
-          _context2.next = 19;
+          _context2.next = 18;
           break;
 
         case 33:
@@ -132,7 +135,7 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
 
         case 35:
           _context2.prev = 35;
-          _context2.t0 = _context2["catch"](17);
+          _context2.t0 = _context2["catch"](16);
           _didIteratorError = true;
           _iteratorError = _context2.t0;
 
@@ -161,23 +164,22 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
           return _context2.finish(39);
 
         case 47:
-          console.log(totalOrderPrice, "cost");
           _context2.t1 = regeneratorRuntime.keys(orders);
 
-        case 49:
+        case 48:
           if ((_context2.t2 = _context2.t1()).done) {
-            _context2.next = 56;
+            _context2.next = 55;
             break;
           }
 
           vendorId = _context2.t2.value;
 
           if (!Object.hasOwnProperty.call(orders, vendorId)) {
-            _context2.next = 54;
+            _context2.next = 53;
             break;
           }
 
-          _context2.next = 54;
+          _context2.next = 53;
           return regeneratorRuntime.awrap(function _callee() {
             var items, currentDate, formattedDate, randomNumber, orderNumber, totalPrice, order;
             return regeneratorRuntime.async(function _callee$(_context) {
@@ -192,11 +194,19 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
                     orderNumber = "".concat(formattedDate, "-").concat(randomNumber);
                     totalPrice = 0;
                     items.forEach(function (item) {
-                      if (item.quantity.kg === 0 && item.quantity.gram < 100) {
-                        return res.status(400).json({
-                          message: "Quantity must be greater than 100 gm."
-                        });
-                      }
+                      console.log(item, "item"); // if (item.quantity.kg === 0 && item.quantity.gram < 100) {
+                      //   return res
+                      //     .status(400)
+                      //     .json({ message: "Quantity must be greater than 100 gm." });
+                      // }
+                      // if (item.itemDetails.unit === "kg") {
+                      //   kg = Math.floor(weight);
+                      //   grams = Math.round((weight % 1) * 1000);
+                      // } else if (item.itemDetails.unit === "packet") {
+                      //   packet = weight;
+                      // } else if (item.itemDetails.unit === "piece") {
+                      //   piece = weight;
+                      // }
 
                       var totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
 
@@ -223,26 +233,26 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
             });
           }());
 
-        case 54:
-          _context2.next = 49;
+        case 53:
+          _context2.next = 48;
           break;
 
-        case 56:
-          _context2.next = 58;
+        case 55:
+          _context2.next = 57;
           return regeneratorRuntime.awrap(Cart.deleteOne({
             hotelId: new ObjectId(hotelId)
           }));
 
-        case 58:
+        case 57:
           res.status(200).json({
             message: "Order Placed",
             orders: orders
           });
-          _context2.next = 66;
+          _context2.next = 65;
           break;
 
-        case 61:
-          _context2.prev = 61;
+        case 60:
+          _context2.prev = 60;
           _context2.t3 = _context2["catch"](0);
           console.log(_context2.t3);
 
@@ -256,12 +266,12 @@ var placeOrder = catchAsyncError(function _callee2(req, res, next) {
             error: "Internal server error"
           });
 
-        case 66:
+        case 65:
         case "end":
           return _context2.stop();
       }
     }
-  }, null, null, [[0, 61], [17, 35, 39, 47], [40,, 42, 46]]);
+  }, null, null, [[0, 60], [16, 35, 39, 47], [40,, 42, 46]]);
 });
 var orderHistory = catchAsyncError(function _callee3(req, res, next) {
   var hotelId, pageSize, _req$query, offset, status, statusId, orderData;
@@ -393,11 +403,13 @@ var orderHistory = catchAsyncError(function _callee3(req, res, next) {
 
         case 10:
           orderData = _context3.sent;
-          console.log(orderData, "order");
-          res.status(200).json({
+          orderData.map(function (order) {// console.log(order.orderNumber, "orderNumber");
+          }); // console.log(orderData, "order");
+
+          res.status(200).json(_defineProperty({
             status: "success",
             data: orderData
-          });
+          }, "status", status));
           _context3.next = 18;
           break;
 
@@ -868,27 +880,26 @@ var cancelOrder = catchAsyncError(function _callee8(req, res, next) {
 
         case 21:
           orderData = _context9.sent;
-          console.log(orderData);
           return _context9.abrupt("return", res.status(200).json({
             success: true,
             message: "Order Cancelled!",
             data: orderData
           }));
 
-        case 26:
-          _context9.prev = 26;
+        case 25:
+          _context9.prev = 25;
           _context9.t0 = _context9["catch"](0);
           console.log(_context9.t0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 30:
+        case 29:
         case "end":
           return _context9.stop();
       }
     }
-  }, null, null, [[0, 26]]);
+  }, null, null, [[0, 25]]);
 });
 
 function orderHistoryForHotel(hotelId) {
@@ -1004,20 +1015,19 @@ function orderHistoryForHotel(hotelId) {
 
         case 3:
           orderData = _context10.sent;
-          console.log(orderData);
           return _context10.abrupt("return", orderData);
 
-        case 8:
-          _context10.prev = 8;
+        case 7:
+          _context10.prev = 7;
           _context10.t0 = _context10["catch"](0);
           console.log(_context10.t0);
 
-        case 11:
+        case 10:
         case "end":
           return _context10.stop();
       }
     }
-  }, null, null, [[0, 8]]);
+  }, null, null, [[0, 7]]);
 }
 
 module.exports = {

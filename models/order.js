@@ -18,8 +18,8 @@ const HotelOrdersSchema = new mongoose.Schema(
     orderNumber: String,
     isReviewed: { type: Boolean, default: false },
     orderStatus: { type: mongoose.Schema.Types.ObjectId, ref: "OrderStatus" },
-    totalPrice:Number,
-    address: { 
+    totalPrice: Number,
+    address: {
       addressLine1: String,
       addressLine2: String,
       state: String,
@@ -34,6 +34,7 @@ const HotelOrdersSchema = new mongoose.Schema(
           kg: Number,
           gram: Number,
           piece: Number,
+          packet: Number,
         },
       },
     ],

@@ -78,7 +78,7 @@ const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
         .json({ message: "Price updated successfully.", data: items });
     }
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -179,6 +179,11 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
         },
       },
       {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+      {
         $skip: parseInt(offset),
       },
       {
@@ -186,13 +191,13 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    console.log(
-      "data:" + orderData.length,
-      "offset:" + offset,
-      "page size: " + pageSize
-    );
+    // console.log(
+    //   "data:" + orderData.length,
+    //   "offset:" + offset,
+    //   "page size: " + pageSize
+    // );
     orderData.map((order) => {
-      console.log(order._id);
+      // console.log(order._id);
     });
 
     res.status(200).json({
@@ -387,7 +392,7 @@ const vendorItem = catchAsyncErrors(async (req, res, next) => {
 
     res.status(200).json({ success: true, Items }); // Sending the items back to the client
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
@@ -576,7 +581,7 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
     const { HotelId } = req.body;
-    console.log(vendorId, HotelId, "yes");
+    // console.log(vendorId, HotelId, "yes");
 
     const pipeline = [
       {
@@ -720,6 +725,11 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
     ]);
 
     // console.log(orderData, "orderrrr");
@@ -735,6 +745,7 @@ const updateStock = catchAsyncError(async (req, res, next) => {
     const { itemId, quantity } = req.body;
     const vendorId = req.user._id;
 
+    // console.log(quantity, "quantity");
     if (!itemId || !quantity) {
       return res.status(400).json({ message: "All the fields are required!" });
     }
@@ -751,6 +762,7 @@ const updateStock = catchAsyncError(async (req, res, next) => {
               kg: 0,
               gram: 0,
               piece: 0,
+              packet: 0,
             },
           },
         ],
@@ -763,9 +775,10 @@ const updateStock = catchAsyncError(async (req, res, next) => {
         return {
           itemId: itemId,
           quantity: {
-            kg: quantity.kg || stock.quantity.kg,
-            gram: quantity.gram || stock.quantity.gram,
-            piece: quantity.piece || stock.quantity.piece,
+            kg: quantity.kg,
+            gram: quantity.gram,
+            piece: quantity?.piece || stock?.quantity?.piece,
+            packet: quantity?.packet || stock?.quantity?.packet,
           },
         };
       }
@@ -780,7 +793,7 @@ const updateStock = catchAsyncError(async (req, res, next) => {
     const updatedStock = vendorStocks.find(
       (item) => item.itemId.toString() === itemId.toString()
     );
-
+    // console.log(updatedStock, "updated");
     if (vendorStocks.length > 0) {
       res.json({
         message: "Stock updated successfully",
@@ -795,7 +808,7 @@ const updateStock = catchAsyncError(async (req, res, next) => {
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
 
-  console.log(orderId)
+  // console.log(orderId, "orderId");
   try {
     const orderData = await UserOrder.aggregate([
       {
@@ -1075,7 +1088,10 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       </div>
     `;
 
-    const browser = await puppeteer.launch();
+    // const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
     const page = await browser.newPage();
 
     // Set the content of the page to the provided HTML
@@ -1097,7 +1113,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     // Close the Puppeteer browser
     await browser.close();
   } catch (error) {
-    console.error("Error creating PDF:", error);
+    // console.error("Error creating PDF:", error);
     res.status(500).send("Error creating PDF");
   }
 });
@@ -1139,7 +1155,7 @@ const addItemToStock = catchAsyncError(async (req, res, next) => {
       (item) => item.itemId.toString() === itemId.toString()
     );
 
-    console.log(addedStock, "added");
+    // console.log(addedStock, "added");
 
     if (vendorStocks.length > 0) {
       res.json({
@@ -1212,7 +1228,7 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    console.log(stocks);
+    // console.log(stocks);
     if (stocks?.length > 0) {
       return res.status(200).json({ data: stocks[0]?.stocks }); // Assuming each vendor has only one stock entry
     } else {
@@ -1327,7 +1343,7 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
       }
 
       const category = await Items.findOne({ _id: itemId });
-      console.log(category, "category");
+      // console.log(category, "category");
       // Create new HotelItemPrice document
       const hotelItemPrice = new HotelItemPrice({
         vendorId,
@@ -1340,7 +1356,7 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
       });
 
       // Save the new document to the database
-      console.log(hotelItemPrice, "hotelItem");
+      // console.log(hotelItemPrice, "hotelItem");
       await hotelItemPrice.save();
       hotelItems.push(hotelItemPrice);
     }
@@ -1363,7 +1379,7 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
     // return res.json({ Message: "done", items });
   } catch (error) {
     // Pass any errors to the error handling middleware
-    console.log(error, "err");
+    // console.log(error, "err");
     next(error);
   }
 });
@@ -1403,7 +1419,7 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
       (item) => item._id && !assignedItemIds.includes(item._id.toString())
     );
 
-    console.log(hotelItems);
+    // console.log(hotelItems);
 
     let assignItems = [];
 
@@ -1452,7 +1468,7 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
 
     let item = await vendorStock.findOne({ vendorId });
 
-    if(item){
+    if (item) {
       let assignedItemIds = [];
       item.stocks.map((stock) => {
         assignedItemIds.push(stock.itemId.toString());
@@ -1461,58 +1477,56 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
       const notAssignedItemIds = allItemsIds.filter(
         (item) => item && !assignedItemIds.includes(item.toString())
       );
-  
+
       // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
-  
+
       let assignItems = [];
-  
+
       // Retrieve item details for not assigned items
       for (let item of notAssignedItemIds) {
         let newItem = {
           itemDetails: null,
         };
-  
+
         const itemDetails = await Items.findOne({
           _id: new ObjectId(item),
         });
-  
+
         newItem.itemDetails = itemDetails;
-  
+
         assignItems.push(newItem);
       }
-  
+
       res.status(200).json({
         assignItems,
         message: "filtered",
       });
-    }else{
-
-
+    } else {
       let assignedItemIds = [];
       // Filter out items from allItemsIds that are not present in assignedItemIds
       const notAssignedItemIds = allItemsIds.filter(
         (item) => item && !assignedItemIds.includes(item.toString())
       );
-  
+
       // console.log(allItemsIds, assignedItemIds, notAssignedItemIds);
-  
+
       let assignItems = [];
-  
+
       // Retrieve item details for not assigned items
       for (let item of notAssignedItemIds) {
         let newItem = {
           itemDetails: null,
         };
-  
+
         const itemDetails = await Items.findOne({
           _id: new ObjectId(item),
         });
-  
+
         newItem.itemDetails = itemDetails;
-  
+
         assignItems.push(newItem);
       }
-  
+
       res.status(200).json({
         assignItems,
         message: "filtered",
@@ -1520,7 +1534,6 @@ const addStockItemOptions = catchAsyncError(async (req, res, next) => {
     }
 
     // Update the quantity of the item in the stock
-   
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, error: "Internal server error" });
@@ -1533,7 +1546,7 @@ const getVendorCategories = catchAsyncError(async (req, res, next) => {
 
     const vendor = await vendorCategories.findOne({ vendorId: vendorId });
 
-    console.log(vendor);
+    // console.log(vendor);
 
     if (!vendor) {
       return res.json({ message: "vendor not found!" });
@@ -1715,7 +1728,7 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
     const vendorId = req.user._id;
     const pageSize = 7;
     const offset = parseInt(req.query.offset);
-
+    // console.log(offset, "offset");
     const vendorItems = await VendorItems.aggregate([
       {
         $match: { vendorId: vendorId },
@@ -1766,6 +1779,7 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
       });
     }
 
+    // console.log(vendorItems[0]?.items, "items");
     // Send success response with vendor items
     res.status(200).json({
       message: "Vendor items retrieved successfully",
@@ -1878,7 +1892,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
     });
 
-    console.log(itemsToBeChange, "itemsToBeChange");
+    // console.log(itemsToBeChange, "itemsToBeChange");
 
     if (itemsToBeChange.length !== 0) {
       itemsToBeChange.forEach(async (item) => {
@@ -1912,7 +1926,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
             { new: true }
           );
 
-          console.log(doc, "doc");
+          // console.log(doc, "doc");
           // Check if pastPercentageProfits length is greater than 10
           if (doc.pastPercentageProfits.length > 10) {
             // Trim the array to keep only the last 10 elements
@@ -1937,7 +1951,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       (item) => item.itemId.toString() === itemId.toString()
     );
 
-    console.log(updatedItem);
+    // console.log(updatedItem);
     return res
       .status(200)
       .json({ message: "Price updated successfully.", data: updatedItem });
@@ -2528,9 +2542,28 @@ const updateHotelItemProfit = async (req, res, next) => {
 
 const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   try {
+    // Get the start of today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get the start of yesterday
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
     const response = await messageToSubvendor();
 
     await sendWhatsappmessge(response);
+
+    const statusId = await OrderStatus.findOne({ status: "In Process" });
+    const orders = await UserOrder.updateMany(
+      {
+        createdAt: { $gte: yesterday, $lt: today },
+      },
+      {
+        $set: { orderStatus: statusId._id },
+      }
+    );
+
     res.status(200).json({ data: response });
   } catch (error) {
     res.status(400).json({ error: error });
@@ -2595,7 +2628,7 @@ const generatePlanToken = catchAsyncErrors(async (req, res, next) => {
       planDuration: duration,
     });
 
-    console.log(token, "token");
+    // console.log(token, "token");
     if (!token) {
       return res.json({ message: "Failed To Generate Token" });
     }
@@ -2769,24 +2802,21 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
     const vendor = req.user._id;
 
     const status = await OrderStatus.findOne({ status: "Delivered" });
+
     const orders = await UserOrder.find({
       vendorId: vendor,
       orderStatus: status._id,
     });
-    console.log(vendor);
+
     let total = 0;
     orders.map((order) => {
-      console.log(order, "orderr");
-
       total += order.totalPrice;
     });
 
-    console.log(total, "total");
     return res.json({
       sales: total,
     });
   } catch (error) {
-    console.log(error, "errr");
     return res.status(500).json({ message: "Internal server error" });
   }
 });
