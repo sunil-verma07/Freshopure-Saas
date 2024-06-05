@@ -36,6 +36,7 @@ const HotelOrdersSchema = new mongoose.Schema(
           piece: Number,
           packet: Number,
         },
+        unit: { type: String },
       },
     ],
     isItemAdded: { type: Boolean, default: false },

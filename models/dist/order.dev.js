@@ -48,6 +48,9 @@ var HotelOrdersSchema = new mongoose.Schema({
       gram: Number,
       piece: Number,
       packet: Number
+    },
+    unit: {
+      type: String
     }
   }],
   isItemAdded: {

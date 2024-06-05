@@ -24,6 +24,9 @@ const hotelCartSchema = new mongoose.Schema({
         ref: "User",
         required: true,
       },
+      unit: {
+        type: String,
+      },
     },
   ],
 });

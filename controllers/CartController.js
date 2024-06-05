@@ -10,10 +10,11 @@ const Images = require("../models/image.js");
 
 const addItemToCart = catchAsyncError(async (req, res, next) => {
   try {
-    // console.log("fhgfh");
+    console.log("fhgfh");
     const { orderedItem } = req.body;
     const UserId = req.user._id;
 
+    console.log(orderedItem, "ordereditem");
     // const hotelPresent = await Cart.findOne({ UserId });
 
     const itemIdString = orderedItem[0]?.itemId;
@@ -37,6 +38,7 @@ const addItemToCart = catchAsyncError(async (req, res, next) => {
           $set: {
             "cartItems.$.quantity": orderedItem[0].quantity,
             "cartItems.$.vendorId": orderedItem[0].vendorId,
+            "cartItems.$.unit": orderedItem[0].unit,
           },
         }
       );
@@ -50,6 +52,7 @@ const addItemToCart = catchAsyncError(async (req, res, next) => {
               itemId: itemIdObjectId,
               quantity: orderedItem[0].quantity,
               vendorId: orderedItem[0].vendorId,
+              unit: orderedItem[0].unit,
             },
           },
         },
