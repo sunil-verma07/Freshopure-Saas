@@ -199,6 +199,16 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.totalSales
 );
+router.post(
+  "/StatusToDelivered",
+  authMiddleware.authMiddleware,
+  vendorcontroller.statusUpdateToDelivered
+);
+router.post(
+  "/importAssignedItems",
+  authMiddleware.authMiddleware,
+  vendorcontroller.importAssignedItems
+);
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

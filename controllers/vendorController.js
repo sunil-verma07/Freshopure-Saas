@@ -27,6 +27,7 @@ const OrderStatus = require("../models/orderStatus.js");
 const PaymentPlan = require("../models/paymentPlan.js");
 const hotelItemPrice = require("../models/hotelItemPrice.js");
 const { generatePaymentToken } = require("../utils/jwtToken.js");
+const hotelVendorLink = require("../models/hotelVendorLink.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -212,6 +213,8 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
 const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const orderData = await HotelVendorLink.aggregate([
       {
@@ -225,7 +228,12 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
           as: "hotelOrders",
         },
       },
-
+      {
+        $unwind: {
+          path: "$hotelOrders",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "Users",
@@ -237,23 +245,48 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
       {
         $unwind: "$hotelDetails",
       },
-
+      {
+        $sort: { "hotelOrders.createdAt": -1 },
+      },
       {
         $group: {
-          _id: "$hotelOrders._id",
+          _id: "$hotelId",
           hotelId: { $first: "$hotelId" },
           hotelDetails: { $first: "$hotelDetails" },
           orderData: { $first: "$hotelOrders" },
+          isPriceFixed: { $first: "$isPriceFixed" },
+        },
+      },
+      {
+        $addFields: {
+          orderPlacedToday: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$orderData", null] },
+                  {
+                    $gte: ["$orderData.createdAt", today],
+                  },
+                ],
+              },
+              true,
+              false,
+            ],
+          },
         },
       },
       {
         $project: {
-          _id: 0,
           hotelId: 1,
           hotelDetails: 1,
-          // orderData: 1,
-          // orderedItems: 2,
+          orderData: 1,
+          orderedItems: 1,
+          isPriceFixed: 1,
+          orderPlacedToday: 1,
         },
+      },
+      {
+        $sort: { "orderData.createdAt": -1 },
       },
     ]);
 
@@ -1778,8 +1811,11 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
         data: [],
       });
     }
+    // console.log(offset, "offset");
+    // vendorItems[0].items.map((item) => {
+    //   console.log(item.itemId, "itemID");
+    // });
 
-    // console.log(vendorItems[0]?.items, "items");
     // Send success response with vendor items
     res.status(200).json({
       message: "Vendor items retrieved successfully",
@@ -1875,16 +1911,16 @@ const getVendorItemsFunc = async (vendorId, itemId) => {
 const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
   try {
     const { itemId, price } = req.body;
-
     const vendorId = req.user._id;
 
     if (!itemId || !price) {
       throw new Error("All fields are required.");
     }
 
+    // Update vendor item price
     const updated = await VendorItems.updateOne(
-      { vendorId: vendorId, "items.itemId": itemId }, // Find vendor and item
-      { $set: { "items.$.todayCostPrice": price } } // Update nested item
+      { vendorId: vendorId, "items.itemId": itemId },
+      { $set: { "items.$.todayCostPrice": price } }
     );
 
     const itemsToBeChange = await HotelItemPrice.find({
@@ -1892,66 +1928,72 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
     });
 
-    // console.log(itemsToBeChange, "itemsToBeChange");
-
     if (itemsToBeChange.length !== 0) {
-      itemsToBeChange.forEach(async (item) => {
-        if (item.pastPercentageProfits.length > 3) {
-          let newProfitPercentage;
+      for (const item of itemsToBeChange) {
+        const hotelLink = await hotelVendorLink.findOne({
+          hotelId: item.hotelId,
+        });
+        if (hotelLink.isPriceFixed !== true) {
+          if (item.pastPercentageProfits.length > 3) {
+            let newProfitPercentage;
 
-          do {
-            newProfitPercentage = await freshoCalculator(
-              item.pastPercentageProfits
-            );
-          } while (newProfitPercentage < 0);
+            // Ensure newProfitPercentage is not negative
+            do {
+              newProfitPercentage = await freshoCalculator(
+                item.pastPercentageProfits
+              );
+            } while (newProfitPercentage < 0);
 
-          const updatedCostPrice = price + newProfitPercentage * price;
+            const updatedCostPrice = price + newProfitPercentage * price;
 
-          const doc = await HotelItemPrice.findOneAndUpdate(
-            { itemId: item.itemId, vendorId: vendorId },
-            {
-              $set: {
-                todayCostPrice: parseFloat(updatedCostPrice).toFixed(2),
-                todayPercentageProfit:
-                  parseFloat(newProfitPercentage).toFixed(2),
-              },
-              $push: {
-                pastPercentageProfits: {
-                  $each: [parseFloat(newProfitPercentage).toFixed(2)],
-                  $position: 0,
-                  $slice: 10,
-                },
-              },
-            },
-            { new: true }
-          );
-
-          // console.log(doc, "doc");
-          // Check if pastPercentageProfits length is greater than 10
-          if (doc.pastPercentageProfits.length > 10) {
-            // Trim the array to keep only the last 10 elements
-            await HotelItemPrice.updateOne(
+            const doc = await HotelItemPrice.findOneAndUpdate(
               { itemId: item.itemId, vendorId: vendorId },
               {
                 $set: {
-                  pastPercentageProfits: doc.pastPercentageProfits.slice(0, 10),
+                  todayCostPrice: parseFloat(updatedCostPrice).toFixed(2),
+                  todayPercentageProfit:
+                    parseFloat(newProfitPercentage).toFixed(2),
                 },
-              }
+                $push: {
+                  pastPercentageProfits: {
+                    $each: [parseFloat(newProfitPercentage).toFixed(2)],
+                    $position: 0,
+                    $slice: 10,
+                  },
+                },
+              },
+              { new: true }
             );
+
+            // Trim pastPercentageProfits array if necessary
+            if (doc.pastPercentageProfits.length > 10) {
+              await HotelItemPrice.updateOne(
+                { itemId: item.itemId, vendorId: vendorId },
+                {
+                  $set: {
+                    pastPercentageProfits: doc.pastPercentageProfits.slice(
+                      0,
+                      10
+                    ),
+                  },
+                }
+              );
+            }
+          } else {
+            const updatedCostPrice = price + item.todayPercentageProfit * price;
+            item.todayCostPrice = parseFloat(updatedCostPrice).toFixed(2);
+            await item.save();
           }
         }
-      });
+      }
     }
 
     const item = await getVendorItemsFunc(vendorId);
-
-    // console.log(item,itemId)
 
     const updatedItem = item.find(
       (item) => item.itemId.toString() === itemId.toString()
     );
 
-    // console.log(updatedItem);
     return res
       .status(200)
       .json({ message: "Price updated successfully.", data: updatedItem });
@@ -2563,7 +2605,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
         $set: { orderStatus: statusId._id },
       }
     );
-
+    console.log(orders, "orders");
     res.status(200).json({ data: response });
   } catch (error) {
     res.status(400).json({ error: error });
@@ -2813,11 +2855,85 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
       total += order.totalPrice;
     });
 
-    return res.json({
-      sales: total,
-    });
+    return res.json(total);
   } catch (error) {
     return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
+  try {
+    const { vendorId } = req.user._id;
+    const { orderNumber } = req.body;
+
+    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+
+    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const updatedOrder = await UserOrder.findOneAndUpdate(
+      { orderNumber: orderNumber },
+      { $set: { orderStatus: status._id } },
+      { new: true } // Return the updated document
+    );
+
+    // Check if the order was found and updated
+    if (!updatedOrder) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Status Updated!", data: updatedOrder });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const importAssignedItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { hotelTo, hotelFrom } = req.body;
+
+    if (!hotelTo || !hotelFrom) {
+      return res.status(400).json({ message: "HotelId not received!" });
+    }
+
+    // Find all items assigned to hotelFrom
+    const itemsFromHotel = await hotelItemPrice.find({
+      vendorId: vendorId,
+      hotelId: hotelFrom,
+    });
+
+    // Loop through each item
+    for (const item of itemsFromHotel) {
+      // Check if the item is already assigned to hotelTo
+      const existingItem = await hotelItemPrice.findOne({
+        vendorId: vendorId,
+        hotelId: hotelTo,
+        itemId: item.itemId,
+      });
+
+      // If the item is not assigned to hotelTo, clone it with the new hotelId
+      if (!existingItem) {
+        const newItem = new hotelItemPrice({
+          hotelId: hotelTo,
+          vendorId: item.vendorId,
+          itemId: item.itemId,
+          categoryId: item.categoryId,
+          todayCostPrice: item.todayCostPrice,
+          todayPercentageProfit: item.todayPercentageProfit,
+          pastPercentageProfits: item.pastPercentageProfits,
+          showPrice: true,
+        });
+
+        await newItem.save();
+      }
+    }
+
+    return res.json({ message: "Items imported successfully!" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
   }
 });
 
@@ -2856,4 +2972,6 @@ module.exports = {
   orderStatusUpdate,
   changeOrderQuantity,
   totalSales,
+  statusUpdateToDelivered,
+  importAssignedItems,
 };

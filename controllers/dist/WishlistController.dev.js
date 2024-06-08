@@ -236,26 +236,27 @@ var getWishlistItems = catchAsyncError(function _callee3(req, res, next) {
 
         case 4:
           wishlistData = _context3.sent;
+          console.log(wishlistData, "wishliststData");
           res.status(200).json({
             wishlistData: wishlistData
           });
-          _context3.next = 12;
+          _context3.next = 13;
           break;
 
-        case 8:
-          _context3.prev = 8;
+        case 9:
+          _context3.prev = 9;
           _context3.t0 = _context3["catch"](0);
           console.log(_context3.t0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 12:
+        case 13:
         case "end":
           return _context3.stop();
       }
     }
-  }, null, null, [[0, 8]]);
+  }, null, null, [[0, 9]]);
 });
 
 var getWishlistItemFunc = function getWishlistItemFunc(hotelId) {
