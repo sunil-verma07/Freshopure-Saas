@@ -22,7 +22,6 @@ router.post(
   usercontroller.setProfileImage
 );
 router.post("/profileComplete", usercontroller.profileComplete);
-router.post("/setprofile", authMiddleware, usercontroller.setProfile);
 router.post(
   "/updateUserDetails",
   authMiddleware,

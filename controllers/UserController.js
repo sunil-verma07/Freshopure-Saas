@@ -11,7 +11,7 @@ const util = require("util");
 const unlinkFile = util.promisify(fs.unlink);
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
-
+const UserDetails = require('../models/userDetails.js') 
 const Address = require("../models/address.js");
 const { encrypt, decrypt } = require("../services/encryptionServices");
 
@@ -77,19 +77,40 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
       return res.json({ success: false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
-      if (user) {
+
+      if (!user) {
+        const newUser = await User.create({
+          phone: phone,
+          isProfileComplete: false,
+          isReviewed: false,
+          isApproved: false,
+          hasActiveSubscription: false,
+          dateOfActivation: null,
+        });
+        res.status(200).json({ success: true, user: newUser });
+      } else {
+
         if (!user.isProfileComplete && !user.isReviewed && !user.isApproved) {
           return res.status(200).json({ success: true, user });
         } else {
-          const roleId = await Role.findOne({ _id: user.roleId });
+          const userDetail = await UserDetails.findOne({userId:user._id})
+          const roleId = await Role.findOne({ _id: userDetail.roleId });
+
+          const result = await User.aggregate([
+            { $match: { _id: user._id } },
+            {
+              $lookup: {
+                from: 'UserDetails', // Name of the UserDetails collection
+                localField: '_id',
+                foreignField: 'userId',
+                as: 'userDetails'
+              }
+            },
+            { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } } // Unwind the userDetails array
+          ]).exec();
+          console.log(result)
           return sendToken(user, 200, res, roleId.name);
         }
-      } else {
-        const newUser = await User.create({
-          phone: phone,
-        });
-        console.log(newUser, "newUser");
-        res.status(200).json({ success: true, user: newUser });
       }
     }
   } catch (error) {
@@ -138,58 +159,6 @@ const resend = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-const setProfile = catchAsyncErrors(async (req, res, next) => {
-  try {
-    const UserId = req.user._id;
-    const {
-      hotelName,
-      addressLine1,
-      addressLine2,
-      state,
-      city,
-      pinCode,
-      update,
-    } = req.body;
-    if (update) {
-      await User.updateOne(
-        { UserId: new ObjectId(UserId) },
-        { $set: { fullName: fullName, hotelName: hotelName } }
-      );
-      res.status(200).json({ message: "User Profile Updated" });
-    } else {
-      const profile = new User({
-        UserId,
-        hotelName,
-      });
-      await profile.save();
-
-      await Address.updateMany(
-        { UserId: new ObjectId(UserId), selected: true },
-        { $set: { selected: false } }
-      );
-
-      const address = new Address({
-        UserId,
-        hotelName,
-        addressLine1,
-        addressLine2,
-        state,
-        city,
-        pinCode,
-      });
-      await address.save();
-
-      await User.updateOne(
-        { _id: new ObjectId(UserId) },
-        { $set: { isProfieComplete: true } }
-      );
-      res.status(200).json({ message: "User Profile Updated" });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
     const { fullName, organization, role, email, phone } = req.body;
@@ -203,21 +172,28 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
       const user = await User.findOne({ phone: phone });
 
       if (user) {
-        user.fullName = fullName;
-        user.organization = organization;
-        user.roleId = roleId._id;
-        user.email = email;
-        user.isProfileComplete = true;
-        await user.save();
 
-        const updatedUser = await User.findOne({ phone: phone });
+        const newProfile = new UserDetails({
+          userId: user._id,
+          fullName:fullName,
+          email: email,
+          organization: organization,
+          roleId:roleId,
+          }) 
+
+          await newProfile.save();
+
+          await User.findOneAndUpdate({ phone: phone },{ isProfileComplete: true,
+            isReviewed:true,
+            isApproved: true})
+
 
         return res
           .status(200)
           .json({
             success: true,
             message: "Profile Completed!",
-            user: updatedUser,
+            user: newProfile,
           });
       } else {
         console.log("errr");
@@ -397,7 +373,6 @@ module.exports = {
   myProfile,
   logout,
   resend,
-  setProfile,
   setProfileImage,
   userDetailUpdate,
   addUserDetails,

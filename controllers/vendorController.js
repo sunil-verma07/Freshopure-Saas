@@ -1212,7 +1212,6 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    console.log(stocks);
     if (stocks?.length > 0) {
       return res.status(200).json({ data: stocks[0]?.stocks }); // Assuming each vendor has only one stock entry
     } else {
