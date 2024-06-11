@@ -28,6 +28,7 @@ const PaymentPlan = require("../models/paymentPlan.js");
 const hotelItemPrice = require("../models/hotelItemPrice.js");
 const { generatePaymentToken } = require("../utils/jwtToken.js");
 const hotelVendorLink = require("../models/hotelVendorLink.js");
+const { isPrimitive } = require("util");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -2931,6 +2932,39 @@ const importAssignedItems = catchAsyncError(async (req, res, next) => {
     }
 
     return res.json({ message: "Items imported successfully!" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const updateFixedPrice = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { hotelId, itemId, price } = req.body;
+
+    if (!hotelId || !itemId || !price) {
+      return res.status(400).json({ message: "HotelId not received!" });
+    }
+
+    // Find all items assigned to hotelFrom
+    const hotelLink = await hotelVendorLink.find({
+      vendorId: vendorId,
+      hotelId: hotelId,
+    });
+
+    if (hotelLink.isPriceFixed === true) {
+      const item = await hotelItemPrice.find({
+        vendorId: vendorId,
+        hotelId: hotelId,
+        itemId: itemId,
+      });
+
+      item.todayCostPrice = price;
+      await item.save();
+    }
+
+    return res.json({ message: "Price Updated successfully!" });
   } catch (error) {
     // Pass any errors to the error handling middleware
     next(error);
