@@ -21,7 +21,7 @@ router.post(
 
 router.post(
   "/vendorhotellink",
-  authMiddleware.authMiddleware,
+  // authMiddleware.authMiddleware, 
   admincontroller.linkHoteltoVendor
 );
 router.post(

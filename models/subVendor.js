@@ -12,11 +12,9 @@ const subVendorSchema = new mongoose.Schema({
   },
   fullName: {
     type: String,
-    unique:true
   },
   phone: {
     type: Number,
-    unique: true,
     trim: true,
     required: "Mobile Number is required",
   },

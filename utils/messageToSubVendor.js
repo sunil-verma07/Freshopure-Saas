@@ -154,6 +154,9 @@ const todayCompiledOrders = async (vendors) => {
           },
         },
       ]);
+      
+      console.log(orderData,'orderData');
+      
 
       console.log(orderData, "orderData");
 

@@ -26,12 +26,12 @@ const sendToken = (user, statusCode, res, role) => {
 
   // Create the token with expiration time
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: expireTimeSeconds,
+    expiresIn: '30d',
   });
 
   // Set cookie options
   const options = {
-    expires: new Date(Date.now() + expireTimeMilliseconds),
+    expiresIn: '30d',
     httpOnly: true,
   };
 

@@ -223,20 +223,6 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "orders",
-          localField: "hotelId",
-          foreignField: "hotelId",
-          as: "hotelOrders",
-        },
-      },
-      {
-        $unwind: {
-          path: "$hotelOrders",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
           from: "Users",
           localField: "hotelId",
           foreignField: "_id",
@@ -247,16 +233,28 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
         $unwind: "$hotelDetails",
       },
       {
-        $sort: { "hotelOrders.createdAt": -1 },
+        $lookup: {
+          from: "UserDetails", // Name of the UserDetails collection
+          localField: "hotelId",
+          foreignField: "userId",
+          as: "userDetails",
+        },
       },
       {
-        $group: {
-          _id: "$hotelId",
-          hotelId: { $first: "$hotelId" },
-          hotelDetails: { $first: "$hotelDetails" },
-          orderData: { $first: "$hotelOrders" },
-          isPriceFixed: { $first: "$isPriceFixed" },
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
         },
+      },
+      {
+        $addFields: {
+          hotelDetails: {
+            $mergeObjects: ["$hotelDetails", "$userDetails"],
+          },
+        },
+      },
+      {
+        $sort: { "hotelOrders.createdAt": -1 },
       },
       {
         $addFields: {
@@ -299,6 +297,7 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
+
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
@@ -689,6 +688,27 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
+          from: "UserDetails", // Name of the UserDetails collection
+          localField: "hotelId",
+          foreignField: "userId",
+          as: "userDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          hotelDetails: {
+            $mergeObjects: ["$hotelDetails", "$userDetails"],
+          },
+        },
+      },
+      {
+        $lookup: {
           from: "orderstatuses",
           localField: "orderStatus",
           foreignField: "_id",
@@ -773,6 +793,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
+
 
 const updateStock = catchAsyncError(async (req, res, next) => {
   try {
@@ -1262,7 +1283,6 @@ const getVendorStocks = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    // console.log(stocks);
     if (stocks?.length > 0) {
       return res.status(200).json({ data: stocks[0]?.stocks }); // Assuming each vendor has only one stock entry
     } else {
@@ -2514,7 +2534,7 @@ function createModel() {
 
 const updateHotelItemProfit = async (req, res, next) => {
   try {
-    const { hotelId, itemId, newPercentage } = req.body;
+    const { hotelId, itemId, newPercentage ,newPrice} = req.body;
     const vendorId = req.user._id;
 
     const updatedDoc = await HotelItemPrice.findOne({ hotelId, itemId });
@@ -2536,8 +2556,8 @@ const updateHotelItemProfit = async (req, res, next) => {
     }
 
     // Calculate the new price based on the cost price and profit percentage
-    const costPrice = selectedItem.todayCostPrice;
-    const newPrice = costPrice + costPrice * newPercentage;
+    // const costPrice = selectedItem.todayCostPrice;
+    // const newPrice = costPrice + costPrice * newPercentage;
 
     const updatedPrice = await HotelItemPrice.findOneAndUpdate(
       {
