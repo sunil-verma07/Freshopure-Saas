@@ -210,6 +210,12 @@ router.post(
   vendorcontroller.importAssignedItems
 );
 
+router.post(
+  "/updateFixedPrice",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateFixedPrice
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

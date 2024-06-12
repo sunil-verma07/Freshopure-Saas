@@ -1985,6 +1985,11 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
             item.todayCostPrice = parseFloat(updatedCostPrice).toFixed(2);
             await item.save();
           }
+        } else if (hotelLink.isPriceFixed === true) {
+          const profit = item.todayCostPrice - price;
+          const percen = (profit / item.todayCostPrice) * 100;
+          item.todayPercentageProfit = parseFloat(percen).toFixed(2);
+          await item.save();
         }
       }
     }
@@ -2953,6 +2958,14 @@ const updateFixedPrice = catchAsyncError(async (req, res, next) => {
       hotelId: hotelId,
     });
 
+    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    const vendorPrice = vendor.map((item) => {
+      return item.items.itemId.toString() === itemId.toString();
+    });
+    console.log(vendorPrice, "vp");
     if (hotelLink.isPriceFixed === true) {
       const item = await hotelItemPrice.find({
         vendorId: vendorId,
@@ -2961,6 +2974,9 @@ const updateFixedPrice = catchAsyncError(async (req, res, next) => {
       });
 
       item.todayCostPrice = price;
+      const profit = vendorPrice.todayCostPrice - price;
+      const percen = (profit / vendorPrice.todayCostPrice) * 100;
+      item.todayPercentageProfit = parseFloat(percen).toFixed(2);
       await item.save();
     }
 
@@ -3008,4 +3024,5 @@ module.exports = {
   totalSales,
   statusUpdateToDelivered,
   importAssignedItems,
+  updateFixedPrice,
 };
