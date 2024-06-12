@@ -101,6 +101,7 @@ const getWishlistItems = catchAsyncError(async (req, res, next) => {
     const hotelId = req.user._id;
 
     const wishlistData = await getWishlistItemFunc(hotelId);
+    // console.log(wishlistData, "wishliststData");
 
     res.status(200).json({ wishlistData });
   } catch (error) {

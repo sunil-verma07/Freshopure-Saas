@@ -15,7 +15,7 @@ var db = getDatabase();
 var Address = require("../models/address.js");
 
 var addAddress = catchAsyncError(function _callee(req, res, next) {
-  var HotelId, _req$body, addressLine1, addressLine2, state, city, pinCode, address;
+  var HotelId, _req$body, addressLine1, addressLine2, state, city, pinCode, address, hotelAddresses;
 
   return regeneratorRuntime.async(function _callee$(_context) {
     while (1) {
@@ -47,28 +47,34 @@ var addAddress = catchAsyncError(function _callee(req, res, next) {
           return regeneratorRuntime.awrap(address.save());
 
         case 8:
+          _context.next = 10;
+          return regeneratorRuntime.awrap(getAddressFunc(HotelId));
+
+        case 10:
+          hotelAddresses = _context.sent;
           res.status(200).json({
-            message: "Address Added"
+            message: "Address Added",
+            hotelAddresses: hotelAddresses
           });
-          _context.next = 14;
+          _context.next = 17;
           break;
 
-        case 11:
-          _context.prev = 11;
+        case 14:
+          _context.prev = 14;
           _context.t0 = _context["catch"](0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 14:
+        case 17:
         case "end":
           return _context.stop();
       }
     }
-  }, null, null, [[0, 11]]);
+  }, null, null, [[0, 14]]);
 });
 var removeAddress = catchAsyncError(function _callee2(req, res, next) {
-  var UserId, addressId, currentAddress;
+  var UserId, addressId, currentAddress, hotelAddresses;
   return regeneratorRuntime.async(function _callee2$(_context2) {
     while (1) {
       switch (_context2.prev = _context2.next) {
@@ -94,32 +100,36 @@ var removeAddress = catchAsyncError(function _callee2(req, res, next) {
           }));
 
         case 8:
-          console.log(currentAddress);
-
-          if (!(currentAddress.selected == true)) {
-            _context2.next = 13;
+          if (!(currentAddress.selected === true)) {
+            _context2.next = 12;
             break;
           }
 
           throw new Error("Selected Address Cannot be removed");
 
-        case 13:
-          _context2.next = 15;
+        case 12:
+          _context2.next = 14;
           return regeneratorRuntime.awrap(Address.deleteOne({
             _id: new ObjectId(addressId)
           }));
 
-        case 15:
-          res.status(200).json({
-            message: "Address removed"
-          });
+        case 14:
+          _context2.next = 16;
+          return regeneratorRuntime.awrap(getAddressFunc(UserId));
 
         case 16:
-          _context2.next = 21;
-          break;
+          hotelAddresses = _context2.sent;
+          res.status(200).json({
+            message: "Address removed",
+            hotelAddresses: hotelAddresses
+          });
 
         case 18:
-          _context2.prev = 18;
+          _context2.next = 23;
+          break;
+
+        case 20:
+          _context2.prev = 20;
           _context2.t0 = _context2["catch"](0);
 
           if (_context2.t0.message == "Selected Address Cannot be removed") {
@@ -127,18 +137,18 @@ var removeAddress = catchAsyncError(function _callee2(req, res, next) {
               error: _context2.t0.message
             });
           } else {
-            console.log(_context2.t0);
+            // console.log(error);
             res.status(500).json({
               error: "Internal server"
             });
           }
 
-        case 21:
+        case 23:
         case "end":
           return _context2.stop();
       }
     }
-  }, null, null, [[0, 18]]);
+  }, null, null, [[0, 20]]);
 });
 var getAllAddress = catchAsyncError(function _callee3(req, res, next) {
   var UserId, hotelAddresses;
@@ -148,88 +158,45 @@ var getAllAddress = catchAsyncError(function _callee3(req, res, next) {
         case 0:
           _context3.prev = 0;
           // console.log("controller");
-          UserId = req.user._id; // console.log(UserId);
-          // const { addressId } = req.body;
-
+          UserId = req.user._id;
           _context3.next = 4;
-          return regeneratorRuntime.awrap(Address.find({
-            HotelId: new ObjectId(UserId),
-            selected: false
-          }));
+          return regeneratorRuntime.awrap(getAddressFunc(UserId));
 
         case 4:
           hotelAddresses = _context3.sent;
-          // console.log(hotelAddresses);
           res.status(200).json({
             hotelAddresses: hotelAddresses
           });
-          _context3.next = 12;
+          _context3.next = 11;
           break;
 
         case 8:
           _context3.prev = 8;
           _context3.t0 = _context3["catch"](0);
-          console.log(_context3.t0);
+          // console.log(error);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 12:
+        case 11:
         case "end":
           return _context3.stop();
       }
     }
   }, null, null, [[0, 8]]);
 });
-var getSelectedAddress = catchAsyncError(function _callee4(req, res, next) {
-  var UserId, address;
+var updateSelectedAddress = catchAsyncError(function _callee4(req, res, next) {
+  var UserId, addressId, hotelAddresses;
   return regeneratorRuntime.async(function _callee4$(_context4) {
     while (1) {
       switch (_context4.prev = _context4.next) {
         case 0:
           _context4.prev = 0;
           UserId = req.user._id;
-          _context4.next = 4;
-          return regeneratorRuntime.awrap(Address.findOne({
-            HotelId: new ObjectId(UserId),
-            selected: true
-          }));
-
-        case 4:
-          address = _context4.sent;
-          console.log(UserId);
-          res.status(200).json({
-            address: address
-          });
-          _context4.next = 12;
-          break;
-
-        case 9:
-          _context4.prev = 9;
-          _context4.t0 = _context4["catch"](0);
-          res.status(500).json({
-            error: "Internal server error"
-          });
-
-        case 12:
-        case "end":
-          return _context4.stop();
-      }
-    }
-  }, null, null, [[0, 9]]);
-});
-var updateSelectedAddress = catchAsyncError(function _callee5(req, res, next) {
-  var UserId, addressId;
-  return regeneratorRuntime.async(function _callee5$(_context5) {
-    while (1) {
-      switch (_context5.prev = _context5.next) {
-        case 0:
-          _context5.prev = 0;
-          UserId = req.user._id;
           addressId = req.body.addressId;
-          _context5.next = 5;
+          _context4.next = 5;
           return regeneratorRuntime.awrap(Address.updateMany({
-            UserId: new ObjectId(UserId),
+            HotelId: new ObjectId(UserId),
             selected: true
           }, {
             $set: {
@@ -238,7 +205,7 @@ var updateSelectedAddress = catchAsyncError(function _callee5(req, res, next) {
           }));
 
         case 5:
-          _context5.next = 7;
+          _context4.next = 7;
           return regeneratorRuntime.awrap(Address.updateOne({
             _id: new ObjectId(addressId)
           }, {
@@ -248,30 +215,71 @@ var updateSelectedAddress = catchAsyncError(function _callee5(req, res, next) {
           }));
 
         case 7:
+          _context4.next = 9;
+          return regeneratorRuntime.awrap(getAddressFunc(UserId));
+
+        case 9:
+          hotelAddresses = _context4.sent;
           res.status(200).json({
-            message: "Updated selected address"
+            message: "Updated selected address",
+            hotelAddresses: hotelAddresses
           });
-          _context5.next = 13;
+          _context4.next = 16;
           break;
 
-        case 10:
-          _context5.prev = 10;
-          _context5.t0 = _context5["catch"](0);
+        case 13:
+          _context4.prev = 13;
+          _context4.t0 = _context4["catch"](0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 13:
+        case 16:
+        case "end":
+          return _context4.stop();
+      }
+    }
+  }, null, null, [[0, 13]]);
+});
+
+var getAddressFunc = function getAddressFunc(hotelId) {
+  var selectedAddress, allAddresses;
+  return regeneratorRuntime.async(function getAddressFunc$(_context5) {
+    while (1) {
+      switch (_context5.prev = _context5.next) {
+        case 0:
+          _context5.next = 2;
+          return regeneratorRuntime.awrap(Address.findOne({
+            HotelId: new ObjectId(hotelId),
+            selected: true
+          }));
+
+        case 2:
+          selectedAddress = _context5.sent;
+          _context5.next = 5;
+          return regeneratorRuntime.awrap(Address.find({
+            HotelId: new ObjectId(hotelId),
+            selected: false
+          }));
+
+        case 5:
+          allAddresses = _context5.sent;
+          return _context5.abrupt("return", {
+            selectedAddress: selectedAddress,
+            allAddresses: allAddresses
+          });
+
+        case 7:
         case "end":
           return _context5.stop();
       }
     }
-  }, null, null, [[0, 10]]);
-});
+  });
+};
+
 module.exports = {
   addAddress: addAddress,
   removeAddress: removeAddress,
   getAllAddress: getAllAddress,
-  getSelectedAddress: getSelectedAddress,
   updateSelectedAddress: updateSelectedAddress
 };

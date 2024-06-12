@@ -26,7 +26,10 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
       if (vendorWithCode) {
         return res
           .status(400)
-          .json({ success: false, error: "Vendor with this code already exists!" });
+          .json({
+            success: false,
+            error: "Vendor with this code already exists!",
+          });
       }
 
       // Check if phone number already exists
@@ -34,7 +37,10 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
       if (vendorWithPhone) {
         return res
           .status(400)
-          .json({ success: false, error: "Vendor with this phone number already exists!" });
+          .json({
+            success: false,
+            error: "Vendor with this phone number already exists!",
+          });
       }
 
       // Create new vendor
@@ -51,11 +57,10 @@ const addVendor = catchAsyncErrors(async (req, res, next) => {
       res.status(200).json({ message: "New Vendor Added!", data });
     }
   } catch (error) {
-    console.log(error, 'error');
+    console.log(error, "error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 const removeVendor = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -130,7 +135,7 @@ const addItemToVendor = async (req, res) => {
 
         const AssignedItems = await getSubVendorItemsFunc(vendorId);
 
-        console.log(AssignedItems, "sv Cont");
+        // console.log(AssignedItems, "sv Cont");
         res.status(200).json({
           message: "Items assigned to Sub Vendor",
           items: AssignedItems,
@@ -248,7 +253,7 @@ const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
         _id: new ObjectId(item.itemId),
       });
 
-      console.log(itemDetails);
+      // console.log(itemDetails);
       const itemImage = await Image.findOne({
         itemId: new ObjectId(item.itemId),
       });

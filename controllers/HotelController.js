@@ -79,7 +79,7 @@ const getAllCategories = catchAsyncError(async (req, res, next) => {
   try {
     const categories = await category.find();
 
-    console.log(categories);
+    // console.log(categories);
 
     return res.json({ categories });
   } catch (error) {
@@ -273,10 +273,10 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   let itemDetailsArray = [];
 
   const getItemName = async (itemId) => {
-    console.log(itemId, "ii");
+    // console.log(itemId, "ii");
     const items = await item.findOne({ _id: itemId });
     const image = await Image.findOne({ itemId: itemId });
-    console.log(items, image);
+    // console.log(items, image);
     const itemObj = {
       name: items.name,
       image: image.img,
@@ -342,7 +342,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       }
       item.orderedItems = obj;
 
-      console.log(item, "item");
+      // console.log(item, "item");
 
       const info = await getItemName(item.itemId);
 
@@ -516,15 +516,15 @@ const totalSales = catchAsyncError(async (req, res, next) => {
       hotelId: hotel,
       orderStatus: status._id,
     });
-    console.log(hotel);
+    // console.log(hotel);
     let total = 0;
     orders.map((order) => {
-      console.log(order, "orderr");
+      // console.log(order, "orderr");
 
       total += order.totalPrice;
     });
 
-    console.log(total, "total");
+    // console.log(total, "total");
     return res.json({
       sales: total,
     });

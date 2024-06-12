@@ -12,6 +12,8 @@ var _require2 = require("mongodb"),
 
 var Category = require("../models/category.js");
 
+var PaymentPlan = require("../models/paymentPlan.js");
+
 var Item = require("../models/item.js");
 
 var Image = require("../models/image.js");
@@ -45,52 +47,95 @@ var Role = require("../models/role.js");
 var hotelItemPrice = require("../models/hotelItemPrice.js");
 
 var addNewCategory = catchAsyncError(function _callee(req, res, next) {
-  var name, createdBy, isActive, category;
+  var name, images, createdBy, isActive, imagesReqBody, i, image, result, imageReqBody, category;
   return regeneratorRuntime.async(function _callee$(_context) {
     while (1) {
       switch (_context.prev = _context.next) {
         case 0:
           _context.prev = 0;
           name = req.body.name;
+          images = req.files;
           createdBy = req.user._id;
           isActive = true;
 
           if (name) {
-            _context.next = 6;
+            _context.next = 7;
             break;
           }
 
           throw new Error("Category Name is required.");
 
-        case 6:
-          category = new Category({
-            name: name,
-            createdBy: createdBy,
-            isActive: isActive
-          });
-          _context.next = 9;
-          return regeneratorRuntime.awrap(category.save());
+        case 7:
+          if (images) {
+            _context.next = 9;
+            break;
+          }
+
+          throw new Error("Category Image is required.");
 
         case 9:
+          imagesReqBody = [];
+          i = 0;
+
+        case 11:
+          if (!(i < images.length)) {
+            _context.next = 24;
+            break;
+          }
+
+          image = images[i];
+          _context.next = 15;
+          return regeneratorRuntime.awrap(itemImageS3.uploadFile(image));
+
+        case 15:
+          result = _context.sent;
+          _context.next = 18;
+          return regeneratorRuntime.awrap(unlinkFile(image.path));
+
+        case 18:
+          if (image.fieldname == "image") isDisplayImage = true;
+          imageReqBody = {
+            imageLink: "/category/image/".concat(result.Key)
+          }; // console.log(imageReqBody,result);
+
+          imagesReqBody.push(imageReqBody);
+
+        case 21:
+          ++i;
+          _context.next = 11;
+          break;
+
+        case 24:
+          category = new Category({
+            name: name,
+            img: imagesReqBody[0].imageLink,
+            createdBy: createdBy,
+            isActive: true
+          });
+          _context.next = 27;
+          return regeneratorRuntime.awrap(category.save());
+
+        case 27:
           res.status(200).json({
             message: "Category Added"
           });
-          _context.next = 15;
+          _context.next = 34;
           break;
 
-        case 12:
-          _context.prev = 12;
+        case 30:
+          _context.prev = 30;
           _context.t0 = _context["catch"](0);
+          console.log(_context.t0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 15:
+        case 34:
         case "end":
           return _context.stop();
       }
     }
-  }, null, null, [[0, 12]]);
+  }, null, null, [[0, 30]]);
 });
 var linkHoteltoVendor = catchAsyncError(function _callee2(req, res, next) {
   var _req$body, vendorId, hotelId, isActive, linkPresent, newLink;
@@ -251,9 +296,9 @@ var orderDetailById = catchAsyncError(function _callee4(req, res, next) {
       switch (_context4.prev = _context4.next) {
         case 0:
           _context4.prev = 0;
-          orderId = req.body.orderId;
-          console.log(req.body);
-          _context4.next = 5;
+          orderId = req.body.orderId; // console.log(req.body);
+
+          _context4.next = 4;
           return regeneratorRuntime.awrap(UserOrder.aggregate([{
             $match: {
               _id: new ObjectId(orderId)
@@ -327,27 +372,27 @@ var orderDetailById = catchAsyncError(function _callee4(req, res, next) {
             }
           }]));
 
-        case 5:
+        case 4:
           orderData = _context4.sent;
           res.status(200).json({
             orderData: orderData
           });
-          _context4.next = 12;
+          _context4.next = 11;
           break;
 
-        case 9:
-          _context4.prev = 9;
+        case 8:
+          _context4.prev = 8;
           _context4.t0 = _context4["catch"](0);
           res.status(500).json({
             error: "Internal server error"
           });
 
-        case 12:
+        case 11:
         case "end":
           return _context4.stop();
       }
     }
-  }, null, null, [[0, 9]]);
+  }, null, null, [[0, 8]]);
 });
 var getAllOrders = catchAsyncError(function _callee5(req, res, next) {
   var orderData;
@@ -703,11 +748,10 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
       switch (_context11.prev = _context11.next) {
         case 0:
           _context11.prev = 0;
-          _req$body3 = req.body, userId = _req$body3.userId, status = _req$body3.status;
-          console.log(userId, status);
+          _req$body3 = req.body, userId = _req$body3.userId, status = _req$body3.status; // console.log(userId, status);
 
           if (!(!status || !userId)) {
-            _context11.next = 5;
+            _context11.next = 4;
             break;
           }
 
@@ -715,17 +759,17 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             error: "Status or userId not received"
           }));
 
-        case 5:
-          _context11.next = 7;
+        case 4:
+          _context11.next = 6;
           return regeneratorRuntime.awrap(User.findOne({
             _id: userId
           }));
 
-        case 7:
+        case 6:
           user = _context11.sent;
 
           if (user) {
-            _context11.next = 10;
+            _context11.next = 9;
             break;
           }
 
@@ -733,13 +777,13 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             error: "User not found"
           }));
 
-        case 10:
+        case 9:
           if (!(status.toLowerCase() === "approved")) {
-            _context11.next = 16;
+            _context11.next = 15;
             break;
           }
 
-          _context11.next = 13;
+          _context11.next = 12;
           return regeneratorRuntime.awrap(User.findOneAndUpdate({
             _id: userId
           }, {
@@ -750,18 +794,18 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             returnDocument: "after"
           }));
 
-        case 13:
+        case 12:
           editedUser = _context11.sent;
-          _context11.next = 20;
+          _context11.next = 19;
           break;
 
-        case 16:
+        case 15:
           if (!(status.toLowerCase() === "rejected")) {
-            _context11.next = 20;
+            _context11.next = 19;
             break;
           }
 
-          _context11.next = 19;
+          _context11.next = 18;
           return regeneratorRuntime.awrap(User.findOneAndUpdate({
             _id: userId
           }, {
@@ -772,27 +816,27 @@ var reviewUser = catchAsyncError(function _callee11(req, res, next) {
             returnDocument: "after"
           }));
 
-        case 19:
+        case 18:
           editedUser = _context11.sent;
 
-        case 20:
+        case 19:
           res.status(201).json({
             editedUser: editedUser
           });
-          _context11.next = 26;
+          _context11.next = 25;
           break;
 
-        case 23:
-          _context11.prev = 23;
+        case 22:
+          _context11.prev = 22;
           _context11.t0 = _context11["catch"](0);
           res.send(_context11.t0);
 
-        case 26:
+        case 25:
         case "end":
           return _context11.stop();
       }
     }
-  }, null, null, [[0, 23]]);
+  }, null, null, [[0, 22]]);
 });
 var placeOrderByAdmin = catchAsyncError(function _callee12(req, res, next) {
   var _req$body4, HotelId, addressId, orderedItems, vendorId, orderStatusdoc, orderStatus, currentDate, formattedDate, randomNumber, orderNumber, order;
@@ -1108,9 +1152,9 @@ var getVendorOrders = catchAsyncError(function _callee18(req, res, next) {
       switch (_context18.prev = _context18.next) {
         case 0:
           _context18.prev = 0;
-          vendorId = req.params.vendorId;
-          console.log(vendorId);
-          _context18.next = 5;
+          vendorId = req.params.vendorId; // console.log(vendorId);
+
+          _context18.next = 4;
           return regeneratorRuntime.awrap(UserOrder.aggregate([{
             $match: {
               vendorId: new ObjectId(vendorId)
@@ -1135,25 +1179,25 @@ var getVendorOrders = catchAsyncError(function _callee18(req, res, next) {
             $unwind: "$hotelDetails"
           }]));
 
-        case 5:
+        case 4:
           orders = _context18.sent;
           res.json(orders);
-          _context18.next = 12;
+          _context18.next = 11;
           break;
 
-        case 9:
-          _context18.prev = 9;
+        case 8:
+          _context18.prev = 8;
           _context18.t0 = _context18["catch"](0);
           res.json({
             error: _context18.t0
           });
 
-        case 12:
+        case 11:
         case "end":
           return _context18.stop();
       }
     }
-  }, null, null, [[0, 9]]);
+  }, null, null, [[0, 8]]);
 });
 var getVendorItems = catchAsyncError(function _callee19(req, res, next) {
   var vendorId, items;
@@ -1219,6 +1263,55 @@ var getVendorItems = catchAsyncError(function _callee19(req, res, next) {
     }
   }, null, null, [[0, 8]]);
 });
+var addNewPaymentPlan = catchAsyncError(function _callee20(req, res, next) {
+  var _req$body5, name, duration, features, price, paymentPlan;
+
+  return regeneratorRuntime.async(function _callee20$(_context20) {
+    while (1) {
+      switch (_context20.prev = _context20.next) {
+        case 0:
+          _context20.prev = 0;
+          _req$body5 = req.body, name = _req$body5.name, duration = _req$body5.duration, features = _req$body5.features, price = _req$body5.price;
+
+          if (name) {
+            _context20.next = 4;
+            break;
+          }
+
+          throw new Error("All fields are required");
+
+        case 4:
+          paymentPlan = new PaymentPlan({
+            name: name,
+            duration: duration,
+            features: features,
+            price: price
+          });
+          _context20.next = 7;
+          return regeneratorRuntime.awrap(paymentPlan.save());
+
+        case 7:
+          res.status(200).json({
+            message: "Payment Plan Added"
+          });
+          _context20.next = 14;
+          break;
+
+        case 10:
+          _context20.prev = 10;
+          _context20.t0 = _context20["catch"](0);
+          console.log(_context20.t0);
+          res.status(500).json({
+            error: "Internal server error"
+          });
+
+        case 14:
+        case "end":
+          return _context20.stop();
+      }
+    }
+  }, null, null, [[0, 10]]);
+});
 module.exports = {
   linkHoteltoVendor: linkHoteltoVendor,
   addNewCategory: addNewCategory,
@@ -1238,5 +1331,6 @@ module.exports = {
   getHotelItems: getHotelItems,
   getVendorHotels: getVendorHotels,
   getVendorOrders: getVendorOrders,
-  getVendorItems: getVendorItems
+  getVendorItems: getVendorItems,
+  addNewPaymentPlan: addNewPaymentPlan
 };

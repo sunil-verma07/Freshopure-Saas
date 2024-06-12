@@ -2,22 +2,23 @@ const HotelVendorLink = require("../models/hotelVendorLink.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 
 async function sendWhatsappmessge(vendorsOrders) {
-  console.log(vendorsOrders, "orders");
+  console.log(vendorsOrders[0].items, "orders");
   try {
     function formatDate(date) {
       const options = { day: "numeric", month: "long", year: "numeric" };
       return new Date(date).toLocaleDateString("en-US", options);
     }
 
-    function itemDistribution(items){
-      let str = ``
-      for(let item of items){
-        str = str + `\\n${item?.itemName} - ${item?.quantity?.kg}Kg ${item?.quantity?.gram}grams \\n` 
+    function itemDistribution(items) {
+      let str = ``;
+      for (let item of items) {
+        str =
+          str +
+          `\\n${item?.itemName} - ${item?.quantity?.kg}Kg ${item?.quantity?.gram}grams \\n`;
       }
-      return str
-    } 
+      return str;
+    }
 
-  
     // Get today's date and format it
     const todayDate = formatDate(new Date());
 
@@ -30,7 +31,7 @@ async function sendWhatsappmessge(vendorsOrders) {
         integrated_number: "919216200680",
         content_type: "template",
         payload: {
-          to: '91'+ vendor.subVendorPhone,
+          to: "91" + vendor.subVendorPhone,
           type: "template",
           template: {
             name: "vendor_message",

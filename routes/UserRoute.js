@@ -27,6 +27,7 @@ router.post(
   authMiddleware,
   usercontroller.userDetailUpdate
 );
+
 router.post(
   "/addUserDetails",
   authMiddleware,

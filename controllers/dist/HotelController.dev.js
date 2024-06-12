@@ -147,24 +147,23 @@ var getAllCategories = catchAsyncError(function _callee3(req, res, next) {
 
         case 3:
           categories = _context3.sent;
-          console.log(categories);
           return _context3.abrupt("return", res.json({
             categories: categories
           }));
 
-        case 8:
-          _context3.prev = 8;
+        case 7:
+          _context3.prev = 7;
           _context3.t0 = _context3["catch"](0);
           return _context3.abrupt("return", res.json({
             message: "Internal Error"
           }));
 
-        case 11:
+        case 10:
         case "end":
           return _context3.stop();
       }
     }
-  }, null, null, [[0, 8]]);
+  }, null, null, [[0, 7]]);
 });
 var getHotelOrderAnalytics = catchAsyncError(function _callee4(req, res, next) {
   var hotelId, duration, status, today, getLastWeekData, getLastMonthData, getLastSixMonthsData;
@@ -959,7 +958,7 @@ var getItemAnalytics = catchAsyncError(function _callee8(req, res, next) {
 
                   case 18:
                     if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-                      _context11.next = 50;
+                      _context11.next = 49;
                       break;
                     }
 
@@ -1017,64 +1016,64 @@ var getItemAnalytics = catchAsyncError(function _callee8(req, res, next) {
                     return _context11.finish(32);
 
                   case 40:
-                    _item.orderedItems = obj;
-                    console.log(_item, "item");
-                    _context11.next = 44;
+                    _item.orderedItems = obj; // console.log(item, "item");
+
+                    _context11.next = 43;
                     return regeneratorRuntime.awrap(getItemName(_item.itemId));
 
-                  case 44:
+                  case 43:
                     info = _context11.sent;
                     _item.name = info.name;
                     _item.image = info.image;
 
-                  case 47:
+                  case 46:
                     _iteratorNormalCompletion = true;
                     _context11.next = 18;
                     break;
 
-                  case 50:
-                    _context11.next = 56;
+                  case 49:
+                    _context11.next = 55;
                     break;
 
-                  case 52:
-                    _context11.prev = 52;
+                  case 51:
+                    _context11.prev = 51;
                     _context11.t1 = _context11["catch"](16);
                     _didIteratorError = true;
                     _iteratorError = _context11.t1;
 
-                  case 56:
+                  case 55:
+                    _context11.prev = 55;
                     _context11.prev = 56;
-                    _context11.prev = 57;
 
                     if (!_iteratorNormalCompletion && _iterator["return"] != null) {
                       _iterator["return"]();
                     }
 
-                  case 59:
-                    _context11.prev = 59;
+                  case 58:
+                    _context11.prev = 58;
 
                     if (!_didIteratorError) {
-                      _context11.next = 62;
+                      _context11.next = 61;
                       break;
                     }
 
                     throw _iteratorError;
 
+                  case 61:
+                    return _context11.finish(58);
+
                   case 62:
-                    return _context11.finish(59);
+                    return _context11.finish(55);
 
                   case 63:
-                    return _context11.finish(56);
-
-                  case 64:
                     return _context11.abrupt("return", filterZeroQuantityItems(itemDetailsArray));
 
-                  case 65:
+                  case 64:
                   case "end":
                     return _context11.stop();
                 }
               }
-            }, null, null, [[16, 52, 56, 64], [24, 28, 32, 40], [33,, 35, 39], [57,, 59, 63]]);
+            }, null, null, [[16, 51, 55, 63], [24, 28, 32, 40], [33,, 35, 39], [56,, 58, 62]]);
           };
 
           hotelId = req.user._id;
@@ -1094,29 +1093,28 @@ var getItemAnalytics = catchAsyncError(function _callee8(req, res, next) {
               while (1) {
                 switch (_context9.prev = _context9.next) {
                   case 0:
-                    console.log(itemId, "ii");
-                    _context9.next = 3;
+                    _context9.next = 2;
                     return regeneratorRuntime.awrap(item.findOne({
                       _id: itemId
                     }));
 
-                  case 3:
+                  case 2:
                     items = _context9.sent;
-                    _context9.next = 6;
+                    _context9.next = 5;
                     return regeneratorRuntime.awrap(Image.findOne({
                       itemId: itemId
                     }));
 
-                  case 6:
+                  case 5:
                     image = _context9.sent;
-                    console.log(items, image);
+                    // console.log(items, image);
                     itemObj = {
                       name: items.name,
                       image: image.img
                     };
                     return _context9.abrupt("return", itemObj);
 
-                  case 10:
+                  case 8:
                   case "end":
                     return _context9.stop();
                 }
@@ -1209,33 +1207,33 @@ var totalSales = catchAsyncError(function _callee9(req, res, next) {
 
         case 7:
           _orders = _context17.sent;
-          console.log(hotel);
+          // console.log(hotel);
           total = 0;
 
           _orders.map(function (order) {
-            console.log(order, "orderr");
+            // console.log(order, "orderr");
             total += order.totalPrice;
-          });
+          }); // console.log(total, "total");
 
-          console.log(total, "total");
+
           return _context17.abrupt("return", res.json({
             sales: total
           }));
 
-        case 15:
-          _context17.prev = 15;
+        case 13:
+          _context17.prev = 13;
           _context17.t0 = _context17["catch"](0);
           console.log(_context17.t0, "errr");
           return _context17.abrupt("return", res.status(500).json({
             message: "Internal server error"
           }));
 
-        case 19:
+        case 17:
         case "end":
           return _context17.stop();
       }
     }
-  }, null, null, [[0, 15]]);
+  }, null, null, [[0, 13]]);
 });
 module.exports = {
   getAllItemsForHotel: getAllItemsForHotel,

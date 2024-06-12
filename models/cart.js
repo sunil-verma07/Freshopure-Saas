@@ -17,11 +17,15 @@ const hotelCartSchema = new mongoose.Schema({
         kg: Number,
         gram: Number,
         piece: Number,
+        packet: Number,
       },
       vendorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,
+      },
+      unit: {
+        type: String,
       },
     },
   ],

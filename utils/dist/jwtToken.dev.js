@@ -1,12 +1,38 @@
 "use strict";
 
-var jwt = require("jsonwebtoken");
+var jwt = require("jsonwebtoken"); // const sendToken = (user, statusCode, res, role) => {
+//   const token = user.getJWTToken();
+//   // options for cookie
+//   const options = {
+//     expiresIn: new Date(
+//       Date.now() + process.env.JWT_EXPIRE * 30 * 24 * 60 * 60 * 1000
+//     ),
+//     httpOnly: true,
+//   };
+//   res.status(statusCode).cookie("token", token, options).json({
+//     success: true,
+//     user,
+//     token,
+//     role,
+//   });
+// };
+
 
 var sendToken = function sendToken(user, statusCode, res, role) {
-  var token = user.getJWTToken(); // options for cookie
+  // Define the expiration period in days (1 day)
+  var expireTimeMilliseconds = process.env.JWT_EXPIRE * 24 * 60 * 60 * 1000; // Convert days to milliseconds for cookie
+
+  var expireTimeSeconds = process.env.JWT_EXPIRE * 24 * 60 * 60; // Convert days to seconds for JWT token
+  // Create the token with expiration time
+
+  var token = jwt.sign({
+    id: user._id
+  }, process.env.JWT_SECRET, {
+    expiresIn: expireTimeSeconds
+  }); // Set cookie options
 
   var options = {
-    expiresIn: new Date(Date.now() + process.env.JWT_EXPIRE * 30 * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + expireTimeMilliseconds),
     httpOnly: true
   };
   res.status(statusCode).cookie("token", token, options).json({

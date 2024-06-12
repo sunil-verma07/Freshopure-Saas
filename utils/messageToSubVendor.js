@@ -31,22 +31,26 @@ const messageToSubvendor = async () => {
 
     // console.log(vendors, "vendors");
     const compiledOrders = await todayCompiledOrders(vendors);
-    
-    return compiledOrders
-    
+
+    return compiledOrders;
   } catch (error) {
     console.log(error, "error");
   }
 };
 
 const todayCompiledOrders = async (vendors) => {
-  const today = new Date(); // Assuming you have today's date
-  today.setHours(0, 0, 0, 0); // Set time to the start of the day
+  // Get the start of today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get the start of yesterday
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
 
   try {
     let compiledOrders = [];
     // console.log(vendors, "ven");
-    for (let vendor of vendors) { 
+    for (let vendor of vendors) {
       const vendorId = vendor._id;
 
       const subVendors = await SubVendor.find({ vendorId: vendorId });
@@ -55,7 +59,7 @@ const todayCompiledOrders = async (vendors) => {
         {
           $match: {
             vendorId: vendorId,
-            createdAt: { $gte: today }, // Filter orders for today
+            createdAt: { $gte: yesterday, $lt: today },
           },
         },
         {
@@ -90,19 +94,32 @@ const todayCompiledOrders = async (vendors) => {
               $sum: {
                 $cond: [
                   { $eq: ["$itemDetails.unit", "kg"] },
-                  { $add: [{ $multiply: ["$orderedItems.quantity.kg", 1000] }, "$orderedItems.quantity.gram"] },
+                  {
+                    $add: [
+                      { $multiply: ["$orderedItems.quantity.kg", 1000] },
+                      "$orderedItems.quantity.gram",
+                    ],
+                  },
                   0,
                 ],
               },
             },
             totalQuantityOrderedPieces: {
               $sum: {
-                $cond: [{ $eq: ["$itemDetails.unit", "piece"] }, "$orderedItems.quantity.piece", 0],
+                $cond: [
+                  { $eq: ["$itemDetails.unit", "piece"] },
+                  "$orderedItems.quantity.piece",
+                  0,
+                ],
               },
             },
             totalQuantityOrderedPackets: {
               $sum: {
-                $cond: [{ $eq: ["$itemDetails.unit", "packet"] }, "$orderedItems.quantity.packet", 0],
+                $cond: [
+                  { $eq: ["$itemDetails.unit", "packet"] },
+                  "$orderedItems.quantity.packet",
+                  0,
+                ],
               },
             },
             itemDetails: { $first: "$itemDetails" },
@@ -116,7 +133,9 @@ const todayCompiledOrders = async (vendors) => {
               $cond: [
                 { $eq: ["$itemDetails.unit", "kg"] },
                 {
-                  kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
+                  kg: {
+                    $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] },
+                  }, // Convert total grams to kg
                   gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
                 },
                 {
@@ -138,6 +157,8 @@ const todayCompiledOrders = async (vendors) => {
       
       console.log(orderData,'orderData');
       
+
+      console.log(orderData, "orderData");
 
       for (const order of orderData) {
         const subVendor = await SubVendor.findOne({

@@ -1,13 +1,37 @@
 const jwt = require("jsonwebtoken");
 
+// const sendToken = (user, statusCode, res, role) => {
+//   const token = user.getJWTToken();
+//   // options for cookie
+//   const options = {
+//     expiresIn: new Date(
+//       Date.now() + process.env.JWT_EXPIRE * 30 * 24 * 60 * 60 * 1000
+//     ),
+//     httpOnly: true,
+//   };
+
+//   res.status(statusCode).cookie("token", token, options).json({
+//     success: true,
+//     user,
+//     token,
+//     role,
+//   });
+// };
+
 const sendToken = (user, statusCode, res, role) => {
-  console.log(user)
-  const token = user.getJWTToken();
-  // options for cookie
+  // Define the expiration period in days (1 day)
+
+  const expireTimeMilliseconds = process.env.JWT_EXPIRE * 24 * 60 * 60 * 1000; // Convert days to milliseconds for cookie
+  const expireTimeSeconds = process.env.JWT_EXPIRE * 24 * 60 * 60; // Convert days to seconds for JWT token
+
+  // Create the token with expiration time
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+
+  // Set cookie options
   const options = {
-    expiresIn: new Date(
-      Date.now() + process.env.JWT_EXPIRE * 30 * 24 * 60 * 60 * 1000
-    ),
+    expiresIn: '30d',
     httpOnly: true,
   };
 

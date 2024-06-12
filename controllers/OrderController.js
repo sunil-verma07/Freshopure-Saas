@@ -36,12 +36,13 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     //cart items
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
-    console.log(cart_doc, hotelId, "abcd");
+    // console.log(cart_doc, hotelId, "abcd");
     const orders = {};
-
+    console.log(cart_doc, "cartdoc");
     let totalOrderPrice = 0;
 
-    for (let item of cart_doc.cartItems) {
+    for (let item of cart_doc?.cartItems) {
+      console.log(item, "mainItem");
       const itemPrice = await HotelItemPrice.findOne({
         vendorId: item.vendorId,
         itemId: item.itemId,
@@ -58,6 +59,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         itemId: item.itemId,
         quantity: item.quantity,
         price: itemPrice.todayCostPrice,
+        unit: item.unit,
       };
 
       if (!orders[item.vendorId]) {
@@ -66,7 +68,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       orders[item.vendorId].push(updatedItem);
     }
 
-    console.log(totalOrderPrice, "cost");
+    // console.log(totalOrderPrice, "cost");
 
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
@@ -83,13 +85,24 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
         let totalPrice = 0;
         items.forEach((item) => {
-          if (item.quantity.kg === 0 && item.quantity.gram < 100) {
+          // console.log(item, "item");
+          if (
+            (item.quantity.kg === 0 && item.quantity.gram < 100) ||
+            item.quantity.packet === 0 ||
+            item.quantity.piece === 0
+          ) {
             return res
               .status(400)
               .json({ message: "Quantity must be greater than 100 gm." });
           }
-          const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
-          totalPrice = totalPrice + (totalGrams * item.price) / 1000; // Multiply total grams with price and store in totalPrice field
+          if (item.unit === "kg") {
+            const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
+            totalPrice = totalPrice + (totalGrams * item.price) / 1000; // Multiply total grams with price and store in totalPrice field
+          } else if (item.unit === "packet") {
+            totalPrice = totalPrice + item.price * item.quantity.packet; // Multiply total grams with price and store in totalPrice field
+          } else if (item.unit === "piece") {
+            totalPrice = totalPrice + item.price * item.quantity.piece;
+          }
         });
 
         const order = new UserOrder({
@@ -102,7 +115,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
-        console.log(order, "order");
+        // console.log(order.orderedItems[0].quantity, "order");
 
         await order.save();
       }
@@ -224,6 +237,11 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
         },
       },
       {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+      {
         $skip: parseInt(offset), // Convert offset to integer
       },
       {
@@ -231,10 +249,15 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    console.log(orderData, "order");
+    orderData.map((order) => {
+      // console.log(order.orderNumber, "orderNumber");
+    });
+
+    // console.log(orderData, "order");
     res.status(200).json({
       status: "success",
       data: orderData,
+      status: status,
     });
   } catch (error) {
     next(error);
@@ -346,10 +369,10 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
-    // console.log(orderId, "orderId??");
+    console.log(orderId, "orderId??");
     const orderData = await UserOrder.aggregate([
       {
-        $match: { _id: new ObjectId(orderId[0]) },
+        $match: { _id: new ObjectId(orderId) },
       },
       {
         $lookup: {
@@ -537,7 +560,7 @@ const cancelOrder = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    console.log(orderData);
+    // console.log(orderData);
 
     return res
       .status(200)
@@ -645,7 +668,7 @@ async function orderHistoryForHotel(hotelId) {
       },
     ]);
 
-    console.log(orderData);
+    // console.log(orderData);
     return orderData;
   } catch (error) {
     console.log(error);
