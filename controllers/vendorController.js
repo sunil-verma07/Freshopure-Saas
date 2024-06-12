@@ -687,6 +687,27 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
+          from: "UserDetails", // Name of the UserDetails collection
+          localField: "hotelId",
+          foreignField: "userId",
+          as: "userDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          hotelDetails: {
+            $mergeObjects: ["$hotelDetails", "$userDetails"],
+          },
+        },
+      },
+      {
+        $lookup: {
           from: "orderstatuses",
           localField: "orderStatus",
           foreignField: "_id",
@@ -771,6 +792,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
+
 
 const updateStock = catchAsyncError(async (req, res, next) => {
   try {

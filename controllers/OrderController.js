@@ -84,17 +84,18 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         const orderNumber = `${formattedDate}-${randomNumber}`;
 
         let totalPrice = 0;
+        console.log(items)
         items.forEach((item) => {
           // console.log(item, "item");
-          if (
-            (item.quantity.kg === 0 && item.quantity.gram < 100) ||
-            item.quantity.packet === 0 ||
-            item.quantity.piece === 0
-          ) {
-            return res
-              .status(400)
-              .json({ message: "Quantity must be greater than 100 gm." });
-          }
+          // if (
+          //   (item.quantity.kg === 0 && item.quantity.gram < 100) ||
+          //   item.quantity.packet === 0 ||
+          //   item.quantity.piece === 0
+          // ) {
+          //   return res
+          //     .status(400)
+          //     .json({ message: "Quantity must be greater than 100 gm." });
+          // }
           if (item.unit === "kg") {
             const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
             totalPrice = totalPrice + (totalGrams * item.price) / 1000; // Multiply total grams with price and store in totalPrice field
@@ -123,13 +124,9 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
 
-    res.status(200).json({ message: "Order Placed", orders });
+   res.status(200).json({ message: "Order Placed", orders });
   } catch (error) {
-    console.log(error);
-    if (error.message == "Both addressId and price are required fields.") {
-      res.status(400).json({ error: error.message });
-    }
-    res.status(500).json({ error: "Internal server error" });
+    next(error);
   }
 });
 
