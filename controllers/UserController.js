@@ -43,7 +43,7 @@ const myProfile = catchAsyncErrors(async (req, res, next) => {
         foreignField: "userId",
         as: "imageDetails",
       },
-    },
+    }, 
     {
       $unwind: "$imageDetails",
     },
@@ -124,8 +124,6 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
             },
             { $project: { userDetails: 0 } } 
           ]).exec();
-
-          console.log(result,'user')
 
           return sendToken(result[0], 200, res, roleId.name);
         }
