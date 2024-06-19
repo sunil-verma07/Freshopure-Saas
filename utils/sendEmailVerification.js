@@ -4,9 +4,11 @@ msg91.initialize({ authKey: process.env.AUTH_KEY_MSG91 });
 
 async function sendOtp(phone) {
   try {
+    console.log(phone);
     let otp = msg91.getOTP("64dc68c2d6fc05312a7edec3", { length: 4 });
 
     const res = await otp.send("91" + phone);
+    console.log(res, "res");
     return res;
   } catch (error) {
     return error;

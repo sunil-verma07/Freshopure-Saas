@@ -211,9 +211,14 @@ router.post(
 );
 
 router.post(
-  "/updateFixedPrice",
+  "/updatePrice",
   authMiddleware.authMiddleware,
-  vendorcontroller.updateFixedPrice
+  vendorcontroller.updatePrice
+);
+router.post(
+  "/changeHotelType",
+  authMiddleware.authMiddleware,
+  vendorcontroller.changeHotelType
 );
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
