@@ -1,5 +1,11 @@
 "use strict";
 
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(source, true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(source).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var express = require("express");
 
 require("dotenv").config();
@@ -25,6 +31,8 @@ var User = require("../models/user.js");
 
 var Role = require("../models/role.js");
 
+var UserDetails = require("../models/userDetails.js");
+
 var Address = require("../models/address.js");
 
 var _require2 = require("../services/encryptionServices"),
@@ -45,8 +53,6 @@ var catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 var _require5 = require("../middleware/auth.js"),
     isAuthenticatedUser = _require5.isAuthenticatedUser;
 
-var userDetails = require("../models/userDetails.js");
-
 var _require6 = require("../utils/sendEmailVerification.js"),
     sendOtp = _require6.sendOtp,
     verifyOtp = _require6.verifyOtp;
@@ -54,6 +60,8 @@ var _require6 = require("../utils/sendEmailVerification.js"),
 var _require7 = require("../services/uniqueIdVerification.js"),
     generateUniqueId = _require7.generateUniqueId,
     verifyUniqueId = _require7.verifyUniqueId;
+
+var userDetails = require("../models/userDetails.js");
 
 var myProfile = catchAsyncErrors(function _callee(req, res, next) {
   var userId, user;
@@ -125,24 +133,33 @@ var logout = catchAsyncErrors(function _callee2(req, res, next) {
   });
 });
 var emailVerification = catchAsyncErrors(function _callee3(req, res) {
-  var _req$body, phone, code, _ref, message, user, roleId, newUser;
+  var _req$body, phone, code, uniqueCode, encryptedCode, _ref, message, user, _userDetails, newUser, resUser, userDetail, roleId, result;
 
   return regeneratorRuntime.async(function _callee3$(_context3) {
     while (1) {
       switch (_context3.prev = _context3.next) {
         case 0:
           _context3.prev = 0;
-          _req$body = req.body, phone = _req$body.phone, code = _req$body.code; // console.log(phone, code);
-
+          _req$body = req.body, phone = _req$body.phone, code = _req$body.code;
           _context3.next = 4;
-          return regeneratorRuntime.awrap(verifyOtp(phone, code));
+          return regeneratorRuntime.awrap(generateUniqueId());
 
         case 4:
+          uniqueCode = _context3.sent;
+          _context3.next = 7;
+          return regeneratorRuntime.awrap(encrypt(uniqueCode));
+
+        case 7:
+          encryptedCode = _context3.sent;
+          _context3.next = 10;
+          return regeneratorRuntime.awrap(verifyOtp(phone, code));
+
+        case 10:
           _ref = _context3.sent;
           message = _ref.message;
 
           if (!(message !== "OTP verified success")) {
-            _context3.next = 10;
+            _context3.next = 16;
             break;
           }
 
@@ -151,22 +168,51 @@ var emailVerification = catchAsyncErrors(function _callee3(req, res) {
             message: message
           }));
 
-        case 10:
-          _context3.next = 12;
+        case 16:
+          _context3.next = 18;
           return regeneratorRuntime.awrap(User.findOne({
             phone: phone
           }));
 
-        case 12:
+        case 18:
           user = _context3.sent;
+          _context3.next = 21;
+          return regeneratorRuntime.awrap(UserDetails.findOne({
+            userId: user._id
+          }));
 
-          if (!user) {
-            _context3.next = 24;
+        case 21:
+          _userDetails = _context3.sent;
+
+          if (user) {
+            _context3.next = 30;
             break;
           }
 
+          _context3.next = 25;
+          return regeneratorRuntime.awrap(User.create({
+            uniqueId: encryptedCode,
+            phone: phone,
+            isProfileComplete: false,
+            isReviewed: false,
+            isApproved: false,
+            hasActiveSubscription: true,
+            dateOfActivation: null
+          }));
+
+        case 25:
+          newUser = _context3.sent;
+          resUser = _objectSpread({}, newUser, {}, _userDetails);
+          res.status(200).json({
+            success: true,
+            user: resUser
+          });
+          _context3.next = 44;
+          break;
+
+        case 30:
           if (!(!user.isProfileComplete && !user.isReviewed && !user.isApproved)) {
-            _context3.next = 18;
+            _context3.next = 34;
             break;
           }
 
@@ -175,40 +221,63 @@ var emailVerification = catchAsyncErrors(function _callee3(req, res) {
             user: user
           }));
 
-        case 18:
-          _context3.next = 20;
+        case 34:
+          _context3.next = 36;
+          return regeneratorRuntime.awrap(UserDetails.findOne({
+            userId: user._id
+          }));
+
+        case 36:
+          userDetail = _context3.sent;
+          _context3.next = 39;
           return regeneratorRuntime.awrap(Role.findOne({
-            _id: user.roleId
+            _id: userDetail.roleId
           }));
 
-        case 20:
+        case 39:
           roleId = _context3.sent;
-          return _context3.abrupt("return", sendToken(user, 200, res, roleId.name));
+          _context3.next = 42;
+          return regeneratorRuntime.awrap(User.aggregate([{
+            $match: {
+              _id: user._id
+            }
+          }, {
+            $lookup: {
+              from: "UserDetails",
+              // Name of the UserDetails collection
+              localField: "_id",
+              foreignField: "userId",
+              as: "userDetails"
+            }
+          }, {
+            $unwind: {
+              path: "$userDetails",
+              preserveNullAndEmptyArrays: true
+            }
+          }, // Unwind the userDetails array
+          {
+            $addFields: {
+              fullName: "$userDetails.fullName",
+              email: "$userDetails.email",
+              roleId: "$userDetails.roleId",
+              organization: "$userDetails.organization"
+            }
+          }, {
+            $project: {
+              userDetails: 0
+            }
+          }]).exec());
 
-        case 22:
-          _context3.next = 28;
+        case 42:
+          result = _context3.sent;
+          return _context3.abrupt("return", sendToken(result[0], 200, res, roleId.name));
+
+        case 44:
+          _context3.next = 50;
           break;
 
-        case 24:
-          _context3.next = 26;
-          return regeneratorRuntime.awrap(User.create({
-            phone: phone
-          }));
-
-        case 26:
-          newUser = _context3.sent;
-          // console.log(newUser, "newUser");
-          res.status(200).json({
-            success: true,
-            user: newUser
-          });
-
-        case 28:
-          _context3.next = 34;
-          break;
-
-        case 30:
-          _context3.prev = 30;
+        case 46:
+          _context3.prev = 46;
           _context3.t0 = _context3["catch"](0);
           console.log(_context3.t0);
           res.status(400).json({
@@ -216,22 +285,21 @@ var emailVerification = catchAsyncErrors(function _callee3(req, res) {
             error: _context3.t0
           });
 
-        case 34:
+        case 50:
         case "end":
           return _context3.stop();
       }
     }
-  }, null, null, [[0, 30]]);
+  }, null, null, [[0, 46]]);
 });
 var login = catchAsyncErrors(function _callee4(req, res, next) {
-  var _req$body2, phone, code, user, existingCode, isUser, roleId;
+  var _req$body2, phone, code, userId, user, existingCode, isUser, roleId, result;
 
   return regeneratorRuntime.async(function _callee4$(_context4) {
     while (1) {
       switch (_context4.prev = _context4.next) {
         case 0:
           _context4.prev = 0;
-          // console.log(req.body, "body");
           _req$body2 = req.body, phone = _req$body2.phone, code = _req$body2.code;
 
           if (phone) {
@@ -254,12 +322,12 @@ var login = catchAsyncErrors(function _callee4(req, res, next) {
           return regeneratorRuntime.awrap(sendOtp(phone));
 
         case 9:
-          _context4.next = 34;
+          _context4.next = 40;
           break;
 
         case 11:
           if (!(code.length === 8)) {
-            _context4.next = 33;
+            _context4.next = 39;
             break;
           }
 
@@ -269,10 +337,17 @@ var login = catchAsyncErrors(function _callee4(req, res, next) {
           }));
 
         case 14:
+          userId = _context4.sent;
+          _context4.next = 17;
+          return regeneratorRuntime.awrap(UserDetails.findOne({
+            userId: userId._id
+          }));
+
+        case 17:
           user = _context4.sent;
 
-          if (user) {
-            _context4.next = 17;
+          if (userId) {
+            _context4.next = 20;
             break;
           }
 
@@ -281,72 +356,106 @@ var login = catchAsyncErrors(function _callee4(req, res, next) {
             error: "User not found!"
           }));
 
-        case 17:
-          _context4.next = 19;
-          return regeneratorRuntime.awrap(decrypt(user.uniqueId));
-
-        case 19:
-          existingCode = _context4.sent;
+        case 20:
           _context4.next = 22;
-          return regeneratorRuntime.awrap(verifyUniqueId(code, existingCode));
+          return regeneratorRuntime.awrap(decrypt(userId.uniqueId));
 
         case 22:
-          isUser = _context4.sent;
+          existingCode = _context4.sent;
           _context4.next = 25;
+          return regeneratorRuntime.awrap(verifyUniqueId(code, existingCode));
+
+        case 25:
+          isUser = _context4.sent;
+          _context4.next = 28;
           return regeneratorRuntime.awrap(Role.findOne({
             _id: user.roleId
           }));
 
-        case 25:
+        case 28:
           roleId = _context4.sent;
 
           if (!isUser) {
-            _context4.next = 30;
+            _context4.next = 36;
             break;
           }
 
-          return _context4.abrupt("return", sendToken(user, 200, res, roleId.name));
+          _context4.next = 32;
+          return regeneratorRuntime.awrap(User.aggregate([{
+            $match: {
+              _id: userId._id
+            }
+          }, {
+            $lookup: {
+              from: "UserDetails",
+              // Name of the UserDetails collection
+              localField: "_id",
+              foreignField: "userId",
+              as: "userDetails"
+            }
+          }, {
+            $unwind: {
+              path: "$userDetails",
+              preserveNullAndEmptyArrays: true
+            }
+          }, // Unwind the userDetails array
+          {
+            $addFields: {
+              fullName: "$userDetails.fullName",
+              email: "$userDetails.email",
+              roleId: "$userDetails.roleId",
+              organization: "$userDetails.organization"
+            }
+          }, {
+            $project: {
+              userDetails: 0
+            }
+          }]).exec());
 
-        case 30:
+        case 32:
+          result = _context4.sent;
+          return _context4.abrupt("return", sendToken(result[0], 200, res, roleId.name));
+
+        case 36:
           return _context4.abrupt("return", res.json({
             success: false,
             message: "Incorrect UniqueId!"
           }));
 
-        case 31:
-          _context4.next = 34;
+        case 37:
+          _context4.next = 40;
           break;
 
-        case 33:
+        case 39:
           return _context4.abrupt("return", res.json({
             success: false,
             error: "Please Recheck your code!"
           }));
 
-        case 34:
+        case 40:
           return _context4.abrupt("return", res.status(200).json({
             message: "OTP sent",
             otp: true
           }));
 
-        case 35:
-          _context4.next = 41;
+        case 41:
+          _context4.next = 47;
           break;
 
-        case 37:
-          _context4.prev = 37;
+        case 43:
+          _context4.prev = 43;
           _context4.t0 = _context4["catch"](0);
           console.log(_context4.t0, "err");
           return _context4.abrupt("return", res.status(401).json({
             message: "Failed to send OTP"
           }));
 
-        case 41:
+        case 47:
         case "end":
           return _context4.stop();
       }
     }
-  }, null, null, [[0, 37]]);
+  }, null, null, [[0, 43]]);
 });
 var resend = catchAsyncErrors(function _callee5(req, res, next) {
   var phone;
@@ -391,219 +500,153 @@ var resend = catchAsyncErrors(function _callee5(req, res, next) {
     }
   }, null, null, [[0, 11]]);
 });
-var setProfile = catchAsyncErrors(function _callee6(req, res, next) {
-  var UserId, _req$body3, hotelName, addressLine1, addressLine2, state, city, pinCode, update, profile, address;
+var profileComplete = catchAsyncErrors(function _callee6(req, res, next) {
+  var _req$body3, fullName, organization, role, email, phone, roleId, user, _userDetails2, newProfile, result;
 
   return regeneratorRuntime.async(function _callee6$(_context6) {
     while (1) {
       switch (_context6.prev = _context6.next) {
         case 0:
           _context6.prev = 0;
-          UserId = req.user._id;
-          _req$body3 = req.body, hotelName = _req$body3.hotelName, addressLine1 = _req$body3.addressLine1, addressLine2 = _req$body3.addressLine2, state = _req$body3.state, city = _req$body3.city, pinCode = _req$body3.pinCode, update = _req$body3.update;
+          _req$body3 = req.body, fullName = _req$body3.fullName, organization = _req$body3.organization, role = _req$body3.role, email = _req$body3.email, phone = _req$body3.phone;
 
-          if (!update) {
-            _context6.next = 9;
+          if (!(!fullName || !organization || !role || !email || !phone)) {
+            _context6.next = 6;
             break;
           }
 
-          _context6.next = 6;
-          return regeneratorRuntime.awrap(User.updateOne({
-            UserId: new ObjectId(UserId)
-          }, {
-            $set: {
-              fullName: fullName,
-              hotelName: hotelName
-            }
-          }));
-
-        case 6:
-          res.status(200).json({
-            message: "User Profile Updated"
-          });
-          _context6.next = 20;
-          break;
-
-        case 9:
-          profile = new User({
-            UserId: UserId,
-            hotelName: hotelName
-          });
-          _context6.next = 12;
-          return regeneratorRuntime.awrap(profile.save());
-
-        case 12:
-          _context6.next = 14;
-          return regeneratorRuntime.awrap(Address.updateMany({
-            UserId: new ObjectId(UserId),
-            selected: true
-          }, {
-            $set: {
-              selected: false
-            }
-          }));
-
-        case 14:
-          address = new Address({
-            UserId: UserId,
-            hotelName: hotelName,
-            addressLine1: addressLine1,
-            addressLine2: addressLine2,
-            state: state,
-            city: city,
-            pinCode: pinCode
-          });
-          _context6.next = 17;
-          return regeneratorRuntime.awrap(address.save());
-
-        case 17:
-          _context6.next = 19;
-          return regeneratorRuntime.awrap(User.updateOne({
-            _id: new ObjectId(UserId)
-          }, {
-            $set: {
-              isProfieComplete: true
-            }
-          }));
-
-        case 19:
-          res.status(200).json({
-            message: "User Profile Updated"
-          });
-
-        case 20:
-          _context6.next = 25;
-          break;
-
-        case 22:
-          _context6.prev = 22;
-          _context6.t0 = _context6["catch"](0);
-          res.status(500).json({
-            error: "Internal server error"
-          });
-
-        case 25:
-        case "end":
-          return _context6.stop();
-      }
-    }
-  }, null, null, [[0, 22]]);
-});
-var profileComplete = catchAsyncErrors(function _callee7(req, res, next) {
-  var _req$body4, _fullName, organization, role, email, phone, code, encryptedCode, roleId, user, updatedUser;
-
-  return regeneratorRuntime.async(function _callee7$(_context7) {
-    while (1) {
-      switch (_context7.prev = _context7.next) {
-        case 0:
-          _context7.prev = 0;
-          _req$body4 = req.body, _fullName = _req$body4.fullName, organization = _req$body4.organization, role = _req$body4.role, email = _req$body4.email, phone = _req$body4.phone;
-
-          if (!(!_fullName || !organization || !role || !email || !phone)) {
-            _context7.next = 6;
-            break;
-          }
-
-          return _context7.abrupt("return", res.status(400).json({
+          return _context6.abrupt("return", res.status(400).json({
             success: false,
             error: "Please enter all fields properly!"
           }));
 
         case 6:
-          _context7.next = 8;
-          return regeneratorRuntime.awrap(generateUniqueId());
-
-        case 8:
-          code = _context7.sent;
-          _context7.next = 11;
-          return regeneratorRuntime.awrap(encrypt(code));
-
-        case 11:
-          encryptedCode = _context7.sent;
-          _context7.next = 14;
+          _context6.next = 8;
           return regeneratorRuntime.awrap(Role.findOne({
             name: role
           }));
 
-        case 14:
-          roleId = _context7.sent;
-          _context7.next = 17;
+        case 8:
+          roleId = _context6.sent;
+          _context6.next = 11;
           return regeneratorRuntime.awrap(User.findOne({
             phone: phone
           }));
 
-        case 17:
-          user = _context7.sent;
+        case 11:
+          user = _context6.sent;
+          _context6.next = 14;
+          return regeneratorRuntime.awrap(UserDetails.findOne({
+            userId: user._id
+          }));
 
-          if (!user) {
-            _context7.next = 35;
+        case 14:
+          _userDetails2 = _context6.sent;
+
+          if (!_userDetails2) {
+            _context6.next = 19;
             break;
           }
 
-          user.uniqueId = encryptedCode;
-          user.fullName = _fullName;
-          user.organization = organization;
-          user.roleId = roleId._id;
-          user.email = email;
-          user.isProfileComplete = true;
-          user.isApproved = true;
-          user.isReviewed = true;
-          _context7.next = 29;
-          return regeneratorRuntime.awrap(user.save());
-
-        case 29:
-          _context7.next = 31;
-          return regeneratorRuntime.awrap(User.findOne({
-            phone: phone
-          }));
-
-        case 31:
-          updatedUser = _context7.sent;
-          return _context7.abrupt("return", sendToken(updatedUser, 200, res, role));
-
-        case 35:
-          console.log("errr");
-          return _context7.abrupt("return", res.status(400).json({
+          return _context6.abrupt("return", res.status(400).json({
             success: false,
-            error: "Can't Update User Details!"
+            error: "Profile Already Completed"
           }));
 
-        case 37:
-          _context7.next = 43;
+        case 19:
+          newProfile = new UserDetails({
+            userId: user._id,
+            fullName: fullName,
+            email: email,
+            organization: organization,
+            roleId: roleId
+          });
+          _context6.next = 22;
+          return regeneratorRuntime.awrap(newProfile.save());
+
+        case 22:
+          _context6.next = 24;
+          return regeneratorRuntime.awrap(User.findOneAndUpdate({
+            phone: phone
+          }, {
+            isProfileComplete: true,
+            isReviewed: true,
+            isApproved: true
+          }));
+
+        case 24:
+          _context6.next = 26;
+          return regeneratorRuntime.awrap(User.aggregate([{
+            $match: {
+              _id: user._id
+            }
+          }, {
+            $lookup: {
+              from: "UserDetails",
+              // Name of the UserDetails collection
+              localField: "_id",
+              foreignField: "userId",
+              as: "userDetails"
+            }
+          }, {
+            $unwind: {
+              path: "$userDetails",
+              preserveNullAndEmptyArrays: true
+            }
+          }, // Unwind the userDetails array
+          {
+            $addFields: {
+              fullName: "$userDetails.fullName",
+              email: "$userDetails.email",
+              roleId: "$userDetails.roleId",
+              organization: "$userDetails.organization"
+            }
+          }, {
+            $project: {
+              userDetails: 0
+            }
+          }]).exec());
+
+        case 26:
+          result = _context6.sent;
+          return _context6.abrupt("return", sendToken(result[0], 200, res, role));
+
+        case 28:
+          _context6.next = 34;
           break;
 
-        case 39:
-          _context7.prev = 39;
-          _context7.t0 = _context7["catch"](0);
-          console.error(_context7.t0);
-          return _context7.abrupt("return", res.status(400).json({
+        case 30:
+          _context6.prev = 30;
+          _context6.t0 = _context6["catch"](0);
+          console.error(_context6.t0);
+          return _context6.abrupt("return", res.status(400).json({
             message: "Internal Server Error"
           }));
 
-        case 43:
+        case 34:
         case "end":
-          return _context7.stop();
+          return _context6.stop();
       }
     }
-  }, null, null, [[0, 39]]);
+  }, null, null, [[0, 30]]);
 });
-var setProfileImage = catchAsyncErrors(function _callee8(req, res, next) {
+var setProfileImage = catchAsyncErrors(function _callee7(req, res, next) {
   var userId, images, imagesReqBody, i, image, result, imageReqBody, user;
-  return regeneratorRuntime.async(function _callee8$(_context8) {
+  return regeneratorRuntime.async(function _callee7$(_context7) {
     while (1) {
-      switch (_context8.prev = _context8.next) {
+      switch (_context7.prev = _context7.next) {
         case 0:
-          _context8.prev = 0;
+          _context7.prev = 0;
           // console.log(req, "req");
           userId = req.user._id;
           images = req.files; // console.log(images, "img");
 
           if (images) {
-            _context8.next = 5;
+            _context7.next = 5;
             break;
           }
 
-          return _context8.abrupt("return", res.json({
+          return _context7.abrupt("return", res.json({
             message: "Please Select an Image"
           }));
 
@@ -613,17 +656,17 @@ var setProfileImage = catchAsyncErrors(function _callee8(req, res, next) {
 
         case 7:
           if (!(i < images.length)) {
-            _context8.next = 20;
+            _context7.next = 20;
             break;
           }
 
           image = images[i];
-          _context8.next = 11;
+          _context7.next = 11;
           return regeneratorRuntime.awrap(itemImageS3.uploadFile(image));
 
         case 11:
-          result = _context8.sent;
-          _context8.next = 14;
+          result = _context7.sent;
+          _context7.next = 14;
           return regeneratorRuntime.awrap(unlinkFile(image.path));
 
         case 14:
@@ -636,17 +679,17 @@ var setProfileImage = catchAsyncErrors(function _callee8(req, res, next) {
 
         case 17:
           ++i;
-          _context8.next = 7;
+          _context7.next = 7;
           break;
 
         case 20:
-          _context8.next = 22;
+          _context7.next = 22;
           return regeneratorRuntime.awrap(userDetails.findOne({
             userId: userId
           }));
 
         case 22:
-          user = _context8.sent;
+          user = _context7.sent;
 
           if (user) {
             user.img = imagesReqBody[0].imageLink;
@@ -657,7 +700,7 @@ var setProfileImage = catchAsyncErrors(function _callee8(req, res, next) {
             });
           }
 
-          _context8.next = 26;
+          _context7.next = 26;
           return regeneratorRuntime.awrap(user.save());
 
         case 26:
@@ -666,92 +709,92 @@ var setProfileImage = catchAsyncErrors(function _callee8(req, res, next) {
             message: "File uploaded and saved successfully",
             user: user
           });
-          _context8.next = 33;
+          _context7.next = 33;
           break;
 
         case 29:
-          _context8.prev = 29;
-          _context8.t0 = _context8["catch"](0);
-          console.log(_context8.t0, "err");
+          _context7.prev = 29;
+          _context7.t0 = _context7["catch"](0);
+          console.log(_context7.t0, "err");
           res.status(200).json({
             error: "Internal server error"
           });
 
         case 33:
         case "end":
-          return _context8.stop();
+          return _context7.stop();
       }
     }
   }, null, null, [[0, 29]]);
 });
-var userDetailUpdate = catchAsyncErrors(function _callee9(req, res, next) {
-  var _req$body5, _fullName2, organization, phone, email, userId, user;
+var userDetailUpdate = catchAsyncErrors(function _callee8(req, res, next) {
+  var _req$body4, fullName, organization, phone, email, userId, user;
 
-  return regeneratorRuntime.async(function _callee9$(_context9) {
+  return regeneratorRuntime.async(function _callee8$(_context8) {
     while (1) {
-      switch (_context9.prev = _context9.next) {
+      switch (_context8.prev = _context8.next) {
         case 0:
-          _context9.prev = 0;
-          _req$body5 = req.body, _fullName2 = _req$body5.fullName, organization = _req$body5.organization, phone = _req$body5.phone, email = _req$body5.email;
+          _context8.prev = 0;
+          _req$body4 = req.body, fullName = _req$body4.fullName, organization = _req$body4.organization, phone = _req$body4.phone, email = _req$body4.email;
           userId = req.user._id;
 
-          if (!(!_fullName2 || !organization || !phone || !email)) {
-            _context9.next = 7;
+          if (!(!fullName || !organization || !phone || !email)) {
+            _context8.next = 7;
             break;
           }
 
-          return _context9.abrupt("return", res.status(400).json({
+          return _context8.abrupt("return", res.status(400).json({
             success: false,
             error: "Please enter all fields properly!"
           }));
 
         case 7:
-          _context9.next = 9;
+          _context8.next = 9;
           return regeneratorRuntime.awrap(User.findOne({
             _id: userId
           }));
 
         case 9:
-          user = _context9.sent;
+          user = _context8.sent;
 
           if (!user) {
-            _context9.next = 20;
+            _context8.next = 20;
             break;
           }
 
-          user.fullName = _fullName2;
+          user.fullName = fullName;
           user.organization = organization;
           user.phone = phone;
           user.email = email;
-          _context9.next = 17;
+          _context8.next = 17;
           return regeneratorRuntime.awrap(user.save());
 
         case 17:
-          return _context9.abrupt("return", res.json({
+          return _context8.abrupt("return", res.json({
             message: "User Details Updated",
             user: user
           }));
 
         case 20:
-          return _context9.abrupt("return", res.status(400).json({
+          return _context8.abrupt("return", res.status(400).json({
             success: false,
             error: "Can't Update User Details!"
           }));
 
         case 21:
-          _context9.next = 26;
+          _context8.next = 26;
           break;
 
         case 23:
-          _context9.prev = 23;
-          _context9.t0 = _context9["catch"](0);
-          return _context9.abrupt("return", res.status(400).json({
+          _context8.prev = 23;
+          _context8.t0 = _context8["catch"](0);
+          return _context8.abrupt("return", res.status(400).json({
             message: "Internal Server Error"
           }));
 
         case 26:
         case "end":
-          return _context9.stop();
+          return _context8.stop();
       }
     }
   }, null, null, [[0, 23]]);
@@ -795,44 +838,44 @@ var userDetailUpdate = catchAsyncErrors(function _callee9(req, res, next) {
 //   }
 // });
 
-var addUserDetails = catchAsyncErrors(function _callee10(req, res, next) {
+var addUserDetails = catchAsyncErrors(function _callee9(req, res, next) {
   var userId, image, result, user;
-  return regeneratorRuntime.async(function _callee10$(_context10) {
+  return regeneratorRuntime.async(function _callee9$(_context9) {
     while (1) {
-      switch (_context10.prev = _context10.next) {
+      switch (_context9.prev = _context9.next) {
         case 0:
           userId = req.user._id;
           image = req.file; // Changed to req.file to handle only one image
           // console.log(image, "img");
 
-          _context10.prev = 2;
+          _context9.prev = 2;
 
           if (image) {
-            _context10.next = 5;
+            _context9.next = 5;
             break;
           }
 
-          return _context10.abrupt("return", res.json({
+          return _context9.abrupt("return", res.json({
             message: "Please Select an Image"
           }));
 
         case 5:
-          _context10.next = 7;
+          _context9.next = 7;
           return regeneratorRuntime.awrap(itemImageS3.uploadFile(image));
 
         case 7:
-          result = _context10.sent;
-          _context10.next = 10;
+          result = _context9.sent;
+          _context9.next = 10;
           return regeneratorRuntime.awrap(unlinkFile(image.path));
 
         case 10:
-          _context10.next = 12;
+          _context9.next = 12;
           return regeneratorRuntime.awrap(userDetails.findOne({
             userId: userId
           }));
 
         case 12:
-          user = _context10.sent;
+          user = _context9.sent;
 
           if (user) {
             user.img = "/items/image/".concat(result.Key);
@@ -843,7 +886,7 @@ var addUserDetails = catchAsyncErrors(function _callee10(req, res, next) {
             });
           }
 
-          _context10.next = 16;
+          _context9.next = 16;
           return regeneratorRuntime.awrap(user.save());
 
         case 16:
@@ -851,20 +894,20 @@ var addUserDetails = catchAsyncErrors(function _callee10(req, res, next) {
             message: "User Details Updated successfully",
             user: user
           });
-          _context10.next = 23;
+          _context9.next = 23;
           break;
 
         case 19:
-          _context10.prev = 19;
-          _context10.t0 = _context10["catch"](2);
-          console.error(_context10.t0);
+          _context9.prev = 19;
+          _context9.t0 = _context9["catch"](2);
+          console.error(_context9.t0);
           res.status(500).json({
             message: "Internal server error"
           });
 
         case 23:
         case "end":
-          return _context10.stop();
+          return _context9.stop();
       }
     }
   }, null, null, [[2, 19]]);
@@ -875,7 +918,6 @@ module.exports = {
   myProfile: myProfile,
   logout: logout,
   resend: resend,
-  setProfile: setProfile,
   setProfileImage: setProfileImage,
   userDetailUpdate: userDetailUpdate,
   addUserDetails: addUserDetails,

@@ -28,6 +28,8 @@ const PaymentPlan = require("../models/paymentPlan.js");
 const hotelItemPrice = require("../models/hotelItemPrice.js");
 const { generatePaymentToken } = require("../utils/jwtToken.js");
 const hotelVendorLink = require("../models/hotelVendorLink.js");
+const { isPrimitive } = require("util");
+const userDetails = require("../models/userDetails.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -297,7 +299,6 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   }
 });
 
-
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
   const today = new Date(); // Assuming you have today's date
@@ -316,9 +317,9 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "hotelId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "hotelDetails",
         },
       },
@@ -672,39 +673,21 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
 
     const orderData = await UserOrder.aggregate([
       {
-        $match: { vendorId: vendorId, hotelId: new ObjectId(HotelId) },
+        $match: {
+          vendorId: vendorId,
+          hotelId: new ObjectId(HotelId),
+        },
       },
       {
         $lookup: {
           from: "Users",
-          localField: "hotelId",
+          localField: "vendorId",
           foreignField: "_id",
-          as: "hotelDetails",
+          as: "vendorDetails",
         },
       },
       {
-        $unwind: "$hotelDetails",
-      },
-      {
-        $lookup: {
-          from: "UserDetails", // Name of the UserDetails collection
-          localField: "hotelId",
-          foreignField: "userId",
-          as: "userDetails",
-        },
-      },
-      {
-        $unwind: {
-          path: "$userDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $addFields: {
-          hotelDetails: {
-            $mergeObjects: ["$hotelDetails", "$userDetails"],
-          },
-        },
+        $unwind: "$vendorDetails",
       },
       {
         $lookup: {
@@ -718,6 +701,9 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
         $unwind: "$orderStatusDetails",
       },
       {
+        $unwind: "$orderedItems",
+      },
+      {
         $lookup: {
           from: "Items",
           localField: "orderedItems.itemId",
@@ -725,9 +711,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           as: "itemDetails",
         },
       },
-      {
-        $unwind: "$itemDetails",
-      },
+      { $unwind: "$itemDetails" },
       {
         $lookup: {
           from: "Images",
@@ -736,12 +720,10 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           as: "images",
         },
       },
-      {
-        $unwind: "$images",
-      },
+      { $unwind: "$images" },
       {
         $group: {
-          _id: { orderId: "$_id" },
+          _id: "$_id",
           orderNumber: { $first: "$orderNumber" },
           isReviewed: { $first: "$isReviewed" },
           totalPrice: { $first: "$totalPrice" },
@@ -749,14 +731,13 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
           hotelId: { $first: "$hotelId" },
-          vendorDetails: { $first: "$hotelDetails" },
+          vendorDetails: { $first: "$vendorDetails" },
           orderStatusDetails: { $first: "$orderStatusDetails" },
           orderedItems: {
             $push: {
               itemId: "$orderedItems.itemId",
               price: "$orderedItems.price",
               quantity: "$orderedItems.quantity",
-              _id: "$orderedItems._id",
               itemDetails: "$itemDetails",
               image: "$images",
             },
@@ -766,14 +747,14 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       {
         $project: {
           _id: 1,
+          hotelId: 1,
+          vendorDetails: 1,
           orderNumber: 1,
           isReviewed: 1,
           totalPrice: 1,
           address: 1,
           createdAt: 1,
           updatedAt: 1,
-          hotelId: 1,
-          vendorDetails: 1,
           orderStatusDetails: 1,
           orderedItems: 1,
         },
@@ -785,14 +766,11 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       },
     ]);
 
-    // console.log(orderData, "orderrrr");
-
     res.json({ hotelOrders: orderData });
   } catch (error) {
     next(error);
   }
 });
-
 
 const updateStock = catchAsyncError(async (req, res, next) => {
   try {
@@ -1956,6 +1934,7 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
         if (hotelLink.isPriceFixed !== true) {
           if (item.pastPercentageProfits.length > 3) {
             let newProfitPercentage;
+            console.log("here1");
 
             // Ensure newProfitPercentage is not negative
             do {
@@ -2000,10 +1979,16 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
               );
             }
           } else {
+            console.log("here2");
             const updatedCostPrice = price + item.todayPercentageProfit * price;
             item.todayCostPrice = parseFloat(updatedCostPrice).toFixed(2);
             await item.save();
           }
+        } else if (hotelLink.isPriceFixed === true) {
+          const profit = item.todayCostPrice - price;
+          const percen = (profit / item.todayCostPrice) * 100;
+          item.todayPercentageProfit = parseFloat(percen).toFixed(2);
+          await item.save();
         }
       }
     }
@@ -2244,8 +2229,8 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
     const items = await Items.findOne({ _id: itemId });
     const image = await Image.findOne({ itemId: itemId });
     const itemObj = {
-      name: items.name,
-      image: image.img,
+      name: items?.name,
+      image: image?.img,
     };
 
     return itemObj;
@@ -2528,7 +2513,7 @@ function createModel() {
 
 const updateHotelItemProfit = async (req, res, next) => {
   try {
-    const { hotelId, itemId, newPercentage ,newPrice} = req.body;
+    const { hotelId, itemId, newPercentage, newPrice } = req.body;
     const vendorId = req.user._id;
 
     const updatedDoc = await HotelItemPrice.findOne({ hotelId, itemId });
@@ -2847,7 +2832,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
     orderData.map((orders) => {
       order.orderedItems.map((item) => {
         if (item.itemId.toString() === itemId.toString()) {
-          return res.json({ data: orders });
+          return res.json({ data: item });
         }
       });
     });
@@ -2957,6 +2942,81 @@ const importAssignedItems = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const updatePrice = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { hotelId, itemId, newPrice } = req.body;
+
+    if (!hotelId || !itemId || !newPrice) {
+      return res.status(400).json({ message: "HotelId not received!" });
+    }
+
+    // Find all items assigned to hotelFrom
+    const hotelLink = await hotelVendorLink.find({
+      vendorId: vendorId,
+      hotelId: hotelId,
+    });
+
+    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
+      "items"
+    );
+
+    const vendorPrice = vendor[0]?.items?.filter(
+      (item) => item?.itemId.toString() === itemId?.toString()
+    );
+
+    // console.log(vendorPrice[0], "vp");
+
+    const item = await hotelItemPrice.findOne({
+      vendorId: vendorId,
+      hotelId: hotelId,
+      itemId: itemId,
+    });
+
+    item.todayCostPrice = newPrice;
+
+    const profit = newPrice - vendorPrice[0].todayCostPrice;
+    const percen = (profit / vendorPrice[0].todayCostPrice) * 100;
+    item.todayPercentageProfit = parseFloat(percen).toFixed(2);
+
+    await item.save();
+
+    return res.json({ message: "Price Updated successfully!" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const changeHotelType = catchAsyncError(async (req, res, next) => {
+  try {
+    console.log("abcd");
+    const vendorId = req.user._id;
+    const { hotelId, toggle } = req.body;
+
+    console.log(hotelId, toggle);
+    if (!hotelId) {
+      return res.status(400).json({ message: "HotelId not received!" });
+    }
+
+    // Find all items assigned to hotelFrom
+    const link = await hotelVendorLink.findOneAndUpdate(
+      { vendorId: vendorId, hotelId: hotelId },
+      {
+        $set: { isPriceFixed: toggle },
+      },
+      { new: true }
+    );
+
+    console.log(link, "link");
+
+    return res.json({ message: "Hotel Updated successfully!" });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -2994,4 +3054,6 @@ module.exports = {
   totalSales,
   statusUpdateToDelivered,
   importAssignedItems,
+  updatePrice,
+  changeHotelType,
 };

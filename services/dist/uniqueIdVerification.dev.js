@@ -9,6 +9,7 @@ function generateUniqueId() {
 }
 
 function verifyUniqueId(code, existingCode) {
+  console.log(code, existingCode, "match");
   return code === existingCode;
 }
 

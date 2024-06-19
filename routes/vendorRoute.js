@@ -210,6 +210,17 @@ router.post(
   vendorcontroller.importAssignedItems
 );
 
+router.post(
+  "/updatePrice",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updatePrice
+);
+router.post(
+  "/changeHotelType",
+  authMiddleware.authMiddleware,
+  vendorcontroller.changeHotelType
+);
+
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)
 

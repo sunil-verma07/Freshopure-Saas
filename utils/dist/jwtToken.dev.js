@@ -28,11 +28,11 @@ var sendToken = function sendToken(user, statusCode, res, role) {
   var token = jwt.sign({
     id: user._id
   }, process.env.JWT_SECRET, {
-    expiresIn: expireTimeSeconds
+    expiresIn: "30d"
   }); // Set cookie options
 
   var options = {
-    expires: new Date(Date.now() + expireTimeMilliseconds),
+    expiresIn: "30d",
     httpOnly: true
   };
   res.status(statusCode).cookie("token", token, options).json({

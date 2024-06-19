@@ -11,7 +11,7 @@ const util = require("util");
 const unlinkFile = util.promisify(fs.unlink);
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
-const UserDetails = require('../models/userDetails.js') 
+const UserDetails = require("../models/userDetails.js");
 const Address = require("../models/address.js");
 const { encrypt, decrypt } = require("../services/encryptionServices");
 
@@ -24,12 +24,13 @@ const {
 const { sendToken } = require("../utils/jwtToken.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 const { isAuthenticatedUser } = require("../middleware/auth.js");
-const userDetails = require("../models/userDetails.js");
+
 const { sendOtp, verifyOtp } = require("../utils/sendEmailVerification.js");
 const {
   generateUniqueId,
   verifyUniqueId,
 } = require("../services/uniqueIdVerification.js");
+const userDetails = require("../models/userDetails.js");
 
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
@@ -73,56 +74,63 @@ const logout = catchAsyncErrors(async (req, res, next) => {
 const emailVerification = catchAsyncErrors(async (req, res) => {
   try {
     const { phone, code } = req.body;
-    // console.log(phone, code);
     const uniqueCode = await generateUniqueId();
     const encryptedCode = await encrypt(uniqueCode);
-
     const { message } = await verifyOtp(phone, code);
-
     if (message !== "OTP verified success") {
       return res.json({ success: false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
+      const userDetails = await UserDetails.findOne({ userId: user._id });
 
       if (!user) {
         const newUser = await User.create({
-          uniqueId:encryptedCode,
+          uniqueId: encryptedCode,
           phone: phone,
           isProfileComplete: false,
           isReviewed: false,
           isApproved: false,
-          hasActiveSubscription: false,
+          hasActiveSubscription: true,
           dateOfActivation: null,
         });
-        res.status(200).json({ success: true, user: newUser });
-      } else {
 
+        const resUser = {
+          ...newUser,
+          ...userDetails,
+        };
+        res.status(200).json({ success: true, user: resUser });
+      } else {
         if (!user.isProfileComplete && !user.isReviewed && !user.isApproved) {
           return res.status(200).json({ success: true, user });
         } else {
-          const userDetail = await UserDetails.findOne({userId:user._id})
+          const userDetail = await UserDetails.findOne({ userId: user._id });
           const roleId = await Role.findOne({ _id: userDetail.roleId });
 
           const result = await User.aggregate([
             { $match: { _id: user._id } },
             {
               $lookup: {
-                from: 'UserDetails', // Name of the UserDetails collection
-                localField: '_id',
-                foreignField: 'userId',
-                as: 'userDetails'
-              }
+                from: "UserDetails", // Name of the UserDetails collection
+                localField: "_id",
+                foreignField: "userId",
+                as: "userDetails",
+              },
             },
-            { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } }, // Unwind the userDetails array
+            {
+              $unwind: {
+                path: "$userDetails",
+                preserveNullAndEmptyArrays: true,
+              },
+            }, // Unwind the userDetails array
             {
               $addFields: {
-                fullName: '$userDetails.fullName',
-                email: '$userDetails.email',
-                roleId: '$userDetails.roleId',
-                organization: '$userDetails.organization',
-              }
+                fullName: "$userDetails.fullName",
+                email: "$userDetails.email",
+                roleId: "$userDetails.roleId",
+                organization: "$userDetails.organization",
+              },
             },
-            { $project: { userDetails: 0 } } 
+            { $project: { userDetails: 0 } },
           ]).exec();
 
           return sendToken(result[0], 200, res, roleId.name);
@@ -137,7 +145,6 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
 
 const login = catchAsyncErrors(async (req, res, next) => {
   try {
-    // console.log(req.body, "body");
     const { phone, code } = req.body;
 
     if (!phone) {
@@ -148,20 +155,49 @@ const login = catchAsyncErrors(async (req, res, next) => {
       if (!code) {
         await sendOtp(phone);
       } else if (code.length === 8) {
-        const user = await User.findOne({ phone: phone });
-        if (!user) {
+        const userId = await User.findOne({ phone: phone });
+        const user = await UserDetails.findOne({ userId: userId._id });
+
+        if (!userId) {
           return res.status(400).json({
             success: false,
             error: "User not found!",
           });
         }
 
-        const existingCode = await decrypt(user.uniqueId);
+        const existingCode = await decrypt(userId.uniqueId);
         const isUser = await verifyUniqueId(code, existingCode);
 
         const roleId = await Role.findOne({ _id: user.roleId });
+
         if (isUser) {
-          return sendToken(user, 200, res, roleId.name);
+          const result = await User.aggregate([
+            { $match: { _id: userId._id } },
+            {
+              $lookup: {
+                from: "UserDetails", // Name of the UserDetails collection
+                localField: "_id",
+                foreignField: "userId",
+                as: "userDetails",
+              },
+            },
+            {
+              $unwind: {
+                path: "$userDetails",
+                preserveNullAndEmptyArrays: true,
+              },
+            }, // Unwind the userDetails array
+            {
+              $addFields: {
+                fullName: "$userDetails.fullName",
+                email: "$userDetails.email",
+                roleId: "$userDetails.roleId",
+                organization: "$userDetails.organization",
+              },
+            },
+            { $project: { userDetails: 0 } },
+          ]).exec();
+          return sendToken(result[0], 200, res, roleId.name);
         } else {
           return res.json({ success: false, message: "Incorrect UniqueId!" });
         }
@@ -206,52 +242,53 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         .status(400)
         .json({ success: false, error: "Please enter all fields properly!" });
     } else {
-     
       const roleId = await Role.findOne({ name: role });
       const user = await User.findOne({ phone: phone });
-      const userDetails = await UserDetails.findOne({userId:user._id})
+      const userDetails = await UserDetails.findOne({ userId: user._id });
 
-      if(userDetails){
+      if (userDetails) {
         return res
-        .status(400)
-        .json({ success: false, error: "Profile Already Completed" });     
-      }else{
+          .status(400)
+          .json({ success: false, error: "Profile Already Completed" });
+      } else {
         const newProfile = new UserDetails({
           userId: user._id,
-          fullName:fullName,
+          fullName: fullName,
           email: email,
           organization: organization,
-          roleId:roleId,
-          }) 
+          roleId: roleId,
+        });
 
-          await newProfile.save();
+        await newProfile.save();
 
-          await User.findOneAndUpdate({ phone: phone },{ isProfileComplete: true,
-            isReviewed:true,
-            isApproved: true})
+        await User.findOneAndUpdate(
+          { phone: phone },
+          { isProfileComplete: true, isReviewed: true, isApproved: true }
+        );
 
-
-            const result = await User.aggregate([
-              { $match: { _id: user._id } },
-              {
-                $lookup: {
-                  from: 'UserDetails', // Name of the UserDetails collection
-                  localField: '_id',
-                  foreignField: 'userId',
-                  as: 'userDetails'
-                }
-              },
-              { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } }, // Unwind the userDetails array
-              {
-                $addFields: {
-                  fullName: '$userDetails.fullName',
-                  email: '$userDetails.email',
-                  roleId: '$userDetails.roleId',
-                  organization: '$userDetails.organization',
-                }
-              },
-              { $project: { userDetails: 0 } } 
-            ]).exec();
+        const result = await User.aggregate([
+          { $match: { _id: user._id } },
+          {
+            $lookup: {
+              from: "UserDetails", // Name of the UserDetails collection
+              localField: "_id",
+              foreignField: "userId",
+              as: "userDetails",
+            },
+          },
+          {
+            $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true },
+          }, // Unwind the userDetails array
+          {
+            $addFields: {
+              fullName: "$userDetails.fullName",
+              email: "$userDetails.email",
+              roleId: "$userDetails.roleId",
+              organization: "$userDetails.organization",
+            },
+          },
+          { $project: { userDetails: 0 } },
+        ]).exec();
 
         return sendToken(result[0], 200, res, role);
       }
