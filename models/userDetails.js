@@ -33,6 +33,12 @@ const UserDetailsSchema = new mongoose.Schema({
   img: {
     type: String,
   },
+  GSTnumber: {
+    type: Number,
+  },
+  FSSAInumber: {
+    type: Number,
+  },
 });
 
 module.exports = mongoose.model(

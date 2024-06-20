@@ -305,6 +305,7 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
           },
         },
       },
+
       {
         $project: {
           hotelId: 1,
@@ -313,6 +314,8 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
           mostRecentOrder: 1,
           orderPlacedToday: 1,
           isPriceFixed: 1,
+          debugOrderCreatedAt: 1,
+          debugToday: 1,
         },
       },
       {
@@ -1835,7 +1838,7 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
     const vendorId = req.user._id;
     const pageSize = 7;
     const offset = parseInt(req.query.offset);
-    // console.log(offset, "offset");
+
     const vendorItems = await VendorItems.aggregate([
       {
         $match: { vendorId: vendorId },
@@ -2810,8 +2813,41 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
       return res.json({ message: "Item not found in order!" });
     }
 
+    let oldPrice = 0;
+    let newPrice = 0;
+
+    if (order.orderedItems[orderedItemIndex].unit === "kg") {
+      const totalGrams =
+        order.orderedItems[orderedItemIndex].quantity.kg * 1000 +
+        order.orderedItems[orderedItemIndex].quantity.gram; // Convert kg to grams and add the gram value
+      oldPrice =
+        (totalGrams * order.orderedItems[orderedItemIndex].price) / 1000; // Multiply total grams with price and store in totalPrice field
+    } else if (order.orderedItems[orderedItemIndex].unit === "packet") {
+      oldPrice =
+        order.orderedItems[orderedItemIndex].price *
+        order.orderedItems[orderedItemIndex].quantity.packet; // Multiply total grams with price and store in totalPrice field
+    } else if (order.orderedItems[orderedItemIndex].unit === "piece") {
+      oldPrice =
+        order.orderedItems[orderedItemIndex].price *
+        order.orderedItems[orderedItemIndex].quantity.piece;
+    }
+
+    if (quantity.kg !== 0 || quantity.gram !== 0) {
+      const totalGrams = quantity.kg * 1000 + quantity.gram;
+      newPrice =
+        (totalGrams * order.orderedItems[orderedItemIndex].price) / 1000;
+    } else if (quantity.piece !== 0) {
+      newPrice = order.orderedItems[orderedItemIndex].price * quantity.packet;
+    } else if (quantity.packet !== 0) {
+      newPrice = order.orderedItems[orderedItemIndex].price * quantity.piece;
+    }
+
+    const update = newPrice - oldPrice;
+
+    console.log(order, "orderr");
     // Update the quantity of the ordered item
     order.orderedItems[orderedItemIndex].quantity = quantity;
+    order.totalPrice = order.totalPrice + update;
 
     // Save the updated order back to the database
     await order.save();
@@ -3093,6 +3129,90 @@ const changeHotelType = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const searchQueryForVendorItems = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const searchText = req.query.searchText || "";
+
+    console.log(searchText, "here");
+    // Return an empty array if searchText is empty or not provided
+    if (!searchText || searchText.trim() === "") {
+      return res.status(200).json({
+        message: "Vendor items not found",
+        data: [],
+      });
+    }
+
+    // Match stage to filter items by vendor ID
+    const matchStage = { $match: { vendorId: vendorId } };
+
+    // Initial pipeline
+    const pipeline = [
+      matchStage,
+      {
+        $unwind: "$items",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "items.itemDetails",
+        },
+      },
+      {
+        $unwind: "$items.itemDetails",
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "items.itemId",
+          foreignField: "itemId",
+          as: "items.images",
+        },
+      },
+      {
+        $unwind: "$items.images",
+      },
+    ];
+
+    // Add search filter
+    pipeline.push({
+      $match: {
+        "items.itemDetails.name": { $regex: searchText, $options: "i" },
+      },
+    });
+
+    // Add pagination and grouping stages
+    pipeline.push({
+      $group: {
+        _id: "$_id",
+        items: { $push: "$items" },
+      },
+    });
+
+    // Execute aggregation pipeline
+    const vendorItems = await VendorItems.aggregate(pipeline);
+
+    // Check if no items were found
+    if (!vendorItems.length || !vendorItems[0]?.items.length) {
+      return res.status(200).json({
+        message: "Vendor items not found",
+        data: [],
+      });
+    }
+
+    // Send success response with vendor items
+    res.status(200).json({
+      message: "Vendor items retrieved successfully",
+      data: vendorItems[0].items,
+    });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -3132,4 +3252,5 @@ module.exports = {
   importAssignedItems,
   updatePrice,
   changeHotelType,
+  searchQueryForVendorItems,
 };

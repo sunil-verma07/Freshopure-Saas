@@ -133,7 +133,7 @@ var logout = catchAsyncErrors(function _callee2(req, res, next) {
   });
 });
 var emailVerification = catchAsyncErrors(function _callee3(req, res) {
-  var _req$body, phone, code, uniqueCode, encryptedCode, _ref, message, user, _userDetails, newUser, resUser, userDetail, roleId, result;
+  var _req$body, phone, code, uniqueCode, encryptedCode, _ref, message, user, newUser, _userDetails, resUser, userDetail, roleId, result;
 
   return regeneratorRuntime.async(function _callee3$(_context3) {
     while (1) {
@@ -176,20 +176,13 @@ var emailVerification = catchAsyncErrors(function _callee3(req, res) {
 
         case 18:
           user = _context3.sent;
-          _context3.next = 21;
-          return regeneratorRuntime.awrap(UserDetails.findOne({
-            userId: user._id
-          }));
-
-        case 21:
-          _userDetails = _context3.sent;
 
           if (user) {
             _context3.next = 30;
             break;
           }
 
-          _context3.next = 25;
+          _context3.next = 22;
           return regeneratorRuntime.awrap(User.create({
             uniqueId: encryptedCode,
             phone: phone,
@@ -200,8 +193,15 @@ var emailVerification = catchAsyncErrors(function _callee3(req, res) {
             dateOfActivation: null
           }));
 
-        case 25:
+        case 22:
           newUser = _context3.sent;
+          _context3.next = 25;
+          return regeneratorRuntime.awrap(UserDetails.findOne({
+            userId: newUser._id
+          }));
+
+        case 25:
+          _userDetails = _context3.sent;
           resUser = _objectSpread({}, newUser, {}, _userDetails);
           res.status(200).json({
             success: true,
@@ -501,16 +501,16 @@ var resend = catchAsyncErrors(function _callee5(req, res, next) {
   }, null, null, [[0, 11]]);
 });
 var profileComplete = catchAsyncErrors(function _callee6(req, res, next) {
-  var _req$body3, fullName, organization, role, email, phone, roleId, user, _userDetails2, newProfile, result;
+  var _req$body3, fullName, organization, role, email, phone, gst, fssai, roleId, user, _userDetails2, newProfile, result;
 
   return regeneratorRuntime.async(function _callee6$(_context6) {
     while (1) {
       switch (_context6.prev = _context6.next) {
         case 0:
           _context6.prev = 0;
-          _req$body3 = req.body, fullName = _req$body3.fullName, organization = _req$body3.organization, role = _req$body3.role, email = _req$body3.email, phone = _req$body3.phone;
+          _req$body3 = req.body, fullName = _req$body3.fullName, organization = _req$body3.organization, role = _req$body3.role, email = _req$body3.email, phone = _req$body3.phone, gst = _req$body3.gst, fssai = _req$body3.fssai;
 
-          if (!(!fullName || !organization || !role || !email || !phone)) {
+          if (!(!fullName || !organization || !role || !email || !phone || !gst || !fssai)) {
             _context6.next = 6;
             break;
           }
@@ -559,7 +559,9 @@ var profileComplete = catchAsyncErrors(function _callee6(req, res, next) {
             fullName: fullName,
             email: email,
             organization: organization,
-            roleId: roleId
+            roleId: roleId,
+            GSTnumber: gst,
+            FSSAInumber: fssai
           });
           _context6.next = 22;
           return regeneratorRuntime.awrap(newProfile.save());
