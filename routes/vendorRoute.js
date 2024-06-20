@@ -220,6 +220,11 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.changeHotelType
 );
+router.get(
+  "/searchQueryForVendoritems",
+  authMiddleware.authMiddleware,
+  vendorcontroller.searchQueryForVendorItems
+);
 
 // // router.get("/getcartitems", authMiddleware.authMiddleware,authMiddleware.profileComplete , cartcontroller.getCartItems)
 // router.post("/addnewitem", authMiddleware.authMiddleware, vendorcontroller.addNewItem)

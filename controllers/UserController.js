@@ -81,7 +81,6 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
       return res.json({ success: false, message: message });
     } else {
       const user = await User.findOne({ phone: phone });
-      const userDetails = await UserDetails.findOne({ userId: user._id });
 
       if (!user) {
         const newUser = await User.create({
@@ -93,6 +92,8 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
           hasActiveSubscription: true,
           dateOfActivation: null,
         });
+
+        const userDetails = await UserDetails.findOne({ userId: newUser._id });
 
         const resUser = {
           ...newUser,
@@ -235,9 +236,17 @@ const resend = catchAsyncErrors(async (req, res, next) => {
 
 const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
-    const { fullName, organization, role, email, phone } = req.body;
+    const { fullName, organization, role, email, phone, gst, fssai } = req.body;
 
-    if (!fullName || !organization || !role || !email || !phone) {
+    if (
+      !fullName ||
+      !organization ||
+      !role ||
+      !email ||
+      !phone ||
+      !gst ||
+      !fssai
+    ) {
       return res
         .status(400)
         .json({ success: false, error: "Please enter all fields properly!" });
@@ -257,6 +266,8 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
           email: email,
           organization: organization,
           roleId: roleId,
+          GSTnumber: gst,
+          FSSAInumber: fssai,
         });
 
         await newProfile.save();
