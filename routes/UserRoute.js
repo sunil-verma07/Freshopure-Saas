@@ -37,8 +37,7 @@ router.post(
 router.post("/verifyToken", authMiddleware, async (req, res) => {
   try {
     const user = req.user;
-     console.log(user,'setuser')
-    res.status(200).json({ user:user[0] });
+    res.status(200).json({ user:user });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }

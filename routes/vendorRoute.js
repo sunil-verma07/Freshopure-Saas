@@ -70,7 +70,7 @@ router.post(
 
 router.post(
   "/generatePdf",
-  authMiddleware.authMiddleware,
+  // authMiddleware.authMiddleware,
   vendorcontroller.generateInvoice
 );
 router.post(

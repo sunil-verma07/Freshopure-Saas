@@ -18,7 +18,7 @@ exports.authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
 
-      req.user = await User.aggregate([
+      let data = await User.aggregate([
       { $match: { _id: new ObjectId(decoded.id) } },
       {
         $lookup: {
@@ -39,6 +39,8 @@ exports.authMiddleware = async (req, res, next) => {
       },
       { $project: { userDetails: 0 } } 
     ]).exec();
+
+    req.user = data[0]
 
     next();
   } catch (error) {
