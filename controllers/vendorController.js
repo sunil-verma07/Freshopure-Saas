@@ -90,10 +90,11 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.query;
+    const { offset, status, date } = req.query;
 
     const statusId = await OrderStatus.findOne({ status: status });
-    const orderData = await UserOrder.aggregate([
+
+    const pipeline = [
       {
         $match: {
           vendorId: vendorId,
@@ -181,19 +182,64 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
+      // {
+      //   $sort: {
+      //     createdAt: -1,
+      //   },
+      // },
+      // {
+      //   $skip: parseInt(offset),
+      // },
+      // {
+      //   $limit: pageSize,
+      // },
+    ];
+
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(filterDate, currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+      // console log: Fri Jun 21 2024 13:08:56 GMT 0530 2024-06-21T07:38:56.603Z date read
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push(
       {
         $sort: {
           createdAt: -1,
         },
       },
-      {
-        $skip: parseInt(offset),
-      },
-      {
-        $limit: pageSize,
-      },
-    ]);
+      { $skip: parseInt(offset) },
+      { $limit: pageSize }
+    );
 
+    const orderData = await UserOrder.aggregate(pipeline);
     // console.log(
     //   "data:" + orderData.length,
     //   "offset:" + offset,
@@ -686,8 +732,9 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
     const { HotelId } = req.body;
+    const { date } = req.query.date;
 
-    const orderData = await UserOrder.aggregate([
+    const pipeline = [
       {
         $match: {
           vendorId: vendorId,
@@ -775,12 +822,49 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
-      {
-        $sort: {
-          createdAt: -1,
+    ];
+
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(typeof filterDate, typeof currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          },
         },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push({
+      $sort: {
+        createdAt: -1,
       },
-    ]);
+    });
+
+    const orderData = await UserOrder.aggregate(pipeline);
 
     res.json({ hotelOrders: orderData });
   } catch (error) {

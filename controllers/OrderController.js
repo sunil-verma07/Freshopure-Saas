@@ -124,15 +124,18 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.query; // Read from query parameters
+    const { offset, status, date } = req.query; // Read from query parameters
 
-    console.log(offset, status, "offset");
+    console.log(typeof date, typeof status);
+
+    console.log(offset, status, date, "offset");
 
     const statusId = await OrderStatus.findOne({ status: status });
-    const orderData = await UserOrder.aggregate([
+
+    const pipeline = [
       {
         $match: {
-          vendorId: hotelId,
+          hotelId: new ObjectId(hotelId),
           orderStatus: new ObjectId(statusId._id),
         },
       },
@@ -228,13 +231,58 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       {
         $limit: pageSize,
       },
-    ]);
+    ];
 
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(typeof filterDate, typeof currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          },
+        },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push(
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+      { $skip: parseInt(offset) },
+      { $limit: pageSize }
+    );
+
+    const orderData = await UserOrder.aggregate(pipeline);
     orderData.map((order) => {
       // console.log(order.orderNumber, "orderNumber");
     });
 
-    // console.log(orderData, "order");
+    console.log(orderData, "order");
     res.status(200).json({
       status: "success",
       data: orderData,
