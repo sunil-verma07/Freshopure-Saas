@@ -44,7 +44,7 @@ const myProfile = catchAsyncErrors(async (req, res, next) => {
         foreignField: "userId",
         as: "imageDetails",
       },
-    },
+    }, 
     {
       $unwind: "$imageDetails",
     },

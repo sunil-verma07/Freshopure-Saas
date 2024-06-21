@@ -2,13 +2,14 @@ const catchAsyncErrors = require("./catchAsyncErrors.js");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
+const { ObjectId } = require("mongodb");
 
 require("dotenv").config();
 const cookieParser = require("cookie-parser");
 
 exports.authMiddleware = async (req, res, next) => {
   const token = req.headers.token;
-  console.log(token, "token");
+  // console.log(token, "token");
   if (!token) {
     return res.status(401).json({ error: "No token provided" });
   }
@@ -16,7 +17,30 @@ exports.authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = await User.findById(decoded.id);
+
+      let data = await User.aggregate([
+      { $match: { _id: new ObjectId(decoded.id) } },
+      {
+        $lookup: {
+          from: 'UserDetails', // Name of the UserDetails collection
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'userDetails'
+        }
+      },
+      { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } }, // Unwind the userDetails array
+      {
+        $addFields: {
+          fullName: '$userDetails.fullName',
+          email: '$userDetails.email',
+          roleId: '$userDetails.roleId',
+          organization: '$userDetails.organization',
+        }
+      },
+      { $project: { userDetails: 0 } } 
+    ]).exec();
+
+    req.user = data[0]
 
     next();
   } catch (error) {

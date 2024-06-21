@@ -261,12 +261,14 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
 const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
+    console.log(vendorId)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+   
     const orderData = await HotelVendorLink.aggregate([
       {
-        $match: { vendorId: vendorId },
+        $match: { vendorId: new ObjectId(vendorId) },
       },
       {
         $lookup: {
@@ -302,33 +304,50 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Orders",
+          from: "orders", // Assuming Orders is the collection that stores order data
           localField: "hotelId",
           foreignField: "hotelId",
           as: "orderData",
         },
       },
       {
-        $unwind: {
-          path: "$orderData",
-          preserveNullAndEmptyArrays: true,
+        $addFields: {
+          // Ensure sorting by order creation date to get the most recent order
+          mostRecentOrder: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: {
+                    $map: {
+                      input: "$orderData",
+                      as: "order",
+                      in: {
+                        createdAt: "$$order.createdAt",
+                      },
+                    },
+                  },
+                  as: "order",
+                  cond: { $ne: ["$$order.createdAt", null] },
+                },
+              },
+              -1,
+            ],
+          },
         },
       },
       {
         $addFields: {
           orderPlacedToday: {
-            $cond: [
-              {
+            $cond: {
+              if: {
                 $and: [
-                  { $ne: ["$orderData", null] },
-                  {
-                    $gte: ["$orderData.createdAt", today],
-                  },
+                  { $ne: ["$mostRecentOrder", null] },
+                  { $gte: ["$mostRecentOrder.createdAt", today] },
                 ],
               },
-              true,
-              false,
-            ],
+              then: true,
+              else: false,
+            },
           },
         },
       },
@@ -338,20 +357,18 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
           hotelId: 1,
           hotelDetails: 1,
           orderData: 1,
-          orderedItems: 1,
-          isPriceFixed: 1,
+          mostRecentOrder: 1,
           orderPlacedToday: 1,
+          isPriceFixed: 1,
           debugOrderCreatedAt: 1,
           debugToday: 1,
         },
       },
       {
-        $sort: { "orderData.createdAt": -1 },
+        $sort: { orderPlacedToday: -1, "mostRecentOrder.createdAt": -1 },
       },
     ]);
-
-    // Print intermediate results for debugging
-
+    
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -940,91 +957,135 @@ const updateStock = catchAsyncError(async (req, res, next) => {
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
 
-  // console.log(orderId, "orderId");
-  try {
+  try{
     const orderData = await UserOrder.aggregate([
       {
-        $match: { _id: new ObjectId(orderId) },
+          $match: { _id: new ObjectId(orderId) },
       },
       {
-        $lookup: {
-          from: "orderstatuses",
-          localField: "orderStatus",
-          foreignField: "_id",
-          as: "orderStatus",
-          pipeline: [{ $limit: 1 }], // Limit to ensure only one document is returned
-        },
-      },
-      {
-        $unwind: {
-          path: "$orderStatus",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "Users",
-          localField: "hotelId",
-          foreignField: "_id",
-          as: "hotelDetails",
-          pipeline: [{ $limit: 1 }],
-        },
-      },
-      {
-        $unwind: {
-          path: "$hotelDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "Users",
-          localField: "vendorId",
-          foreignField: "_id",
-          as: "vendorDetails",
-          pipeline: [{ $limit: 1 }],
-        },
-      },
-      {
-        $unwind: {
-          path: "$vendorDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "orderedItems.itemId",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      {
-        $addFields: {
-          "orderedItems.itemDetails": { $arrayElemAt: ["$itemDetails", 0] },
-        },
-      },
-      {
-        $lookup: {
-          from: "Category",
-          localField: "orderedItems.itemDetails.categoryId",
-          foreignField: "_id",
-          as: "categoryDetails",
-        },
-      },
-      {
-        $addFields: {
-          "orderedItems.itemDetails.category": {
-            $arrayElemAt: ["$categoryDetails", 0],
+          $lookup: {
+              from: "orderstatuses",
+              localField: "orderStatus",
+              foreignField: "_id",
+              as: "orderStatus",
+              pipeline: [{ $limit: 1 }],
           },
-        },
       },
       {
-        $unset: ["itemDetails", "categoryDetails"], // Remove temporary fields
+          $unwind: {
+              path: "$orderStatus",
+              preserveNullAndEmptyArrays: true,
+          },
       },
-    ]);
+      {
+          $lookup: {
+              from: "Users",
+              localField: "hotelId",
+              foreignField: "_id",
+              as: "hotelDetails",
+              pipeline: [{ $limit: 1 }],
+          },
+      },
+      {
+          $unwind: {
+              path: "$hotelDetails",
+              preserveNullAndEmptyArrays: true,
+          },
+      },
+      {
+          $lookup: {
+              from: "Users",
+              localField: "vendorId",
+              foreignField: "_id",
+              as: "vendorDetails",
+              pipeline: [{ $limit: 1 }],
+          },
+      },
+      {
+          $unwind: {
+              path: "$vendorDetails",
+              preserveNullAndEmptyArrays: true,
+          },
+      },
+      {
+          $unwind: {
+              path: "$orderedItems",
+              preserveNullAndEmptyArrays: true,
+          },
+      },
+      {
+          $lookup: {
+              from: "Items",
+              localField: "orderedItems.itemId",
+              foreignField: "_id",
+              as: "orderedItems.itemDetails",
+          },
+      },
+      {
+          $unwind: {
+              path: "$orderedItems.itemDetails",
+              preserveNullAndEmptyArrays: true,
+          },
+      },
+      {
+          $lookup: {
+              from: "Category",
+              localField: "orderedItems.itemDetails.categoryId",
+              foreignField: "_id",
+              as: "orderedItems.itemDetails.category",
+          },
+      },
+      {
+          $unwind: {
+              path: "$orderedItems.itemDetails.category",
+              preserveNullAndEmptyArrays: true,
+          },
+      },
+      {
+          $group: {
+              _id: "$_id",
+              orderStatus: { $first: "$orderStatus" },
+              hotelDetails: { $first: "$hotelDetails" },
+              vendorDetails: { $first: "$vendorDetails" },
+              orderedItems: { $push: "$orderedItems" },
+              address:{ $first: "$address" },
+              orderNumber:{ $first: "$orderNumber" },
+
+          },
+      },
+      {
+          $lookup: {
+              from: "UserDetails",
+              localField: "hotelDetails._id",
+              foreignField: "userId",
+              as: "hotelDetails.userDetails",
+              pipeline: [{ $limit: 1 }],
+          },
+      },
+      {
+          $addFields: {
+              "hotelDetails.userDetails": { $arrayElemAt: ["$hotelDetails.userDetails", 0] },
+          },
+      },
+      {
+          $lookup: {
+              from: "UserDetails",
+              localField: "vendorDetails._id",
+              foreignField: "userId",
+              as: "vendorDetails.userDetails",
+              pipeline: [{ $limit: 1 }],
+          },
+      },
+      {
+          $addFields: {
+              "vendorDetails.userDetails": { $arrayElemAt: ["$vendorDetails.userDetails", 0] },
+          },
+      },
+  ]).allowDiskUse(true);
+ 
 
     const data = orderData[0];
+
 
     const styles = {
       container: {
@@ -1055,12 +1116,12 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         padding: "4px",
         textAlign: "left",
         background: "#f2f2f2",
-        fontSize: "10px",
+        fontSize: "6px",
       },
       td: {
         border: "1px solid #ddd",
         padding: "4px",
-        fontSize: "8px",
+        fontSize: "6px",
       },
       total: {
         textAlign: "right",
@@ -1116,9 +1177,9 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         </div>
         <div style="display:flex;justify-content:space-between">
           <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
-            data?.hotelDetails?.fullName
+            data?.hotelDetails?.userDetails?.fullName
           }.<br/>Thank you for shopping from ${
-      data?.vendorDetails?.fullName
+      data?.vendorDetails?.userDetails?.fullName
     }.</p>
           <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
             data?.orderNumber
@@ -1127,7 +1188,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         <div style="display:flex;margin-bottom:10px">
           <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
             <p style="font-weight:600;font-size:12px;">${
-              data?.vendorDetails?.fullName
+              data?.vendorDetails?.userDetails?.fullName
             }</p>
             <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
             Rajasthan
@@ -1144,12 +1205,12 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           </div>
           <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
             <p style="font-weight:600;font-size:12px;">${
-              data?.hotelDetails?.fullName
+              data?.hotelDetails?.userDetails?.fullName
             }</p>
             <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
             ${data?.address?.addressLine1},${data?.address?.addressLine2},${
-      data?.address?.city
-    }
+              data?.address?.city
+            }
             ,${data?.address?.pinCode} 
             </p>
             
@@ -1162,11 +1223,11 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         <table style="${generateInlineStyles(styles.table)}">
           <thead>
             <tr>
-              <th style="${generateInlineStyles(styles.th)}">Item Name</th>
-              <th style="${generateInlineStyles(styles.th)}">Category</th>
-              <th style="${generateInlineStyles(styles.th)}">Quantity</th>
-              <th style="${generateInlineStyles(styles.th)}">Unit Price</th>
-              <th style="${generateInlineStyles(styles.th)}">Price</th>
+              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
+              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
+              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
+              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
+              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
             </tr>
           </thead>
           <tbody>
@@ -1174,22 +1235,26 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
               ?.map(
                 (item, index) => `
               <tr key=${index}>
-                <td style="${generateInlineStyles(styles.td)}">${
+                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
                   item?.itemDetails?.name
                 }</td>
-                <td style="${generateInlineStyles(styles.td)}">${
+                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
                   item?.itemDetails?.category?.name
                 }</td>
-                <td style="${generateInlineStyles(styles.td)}">${
-                  item.quantity?.kg
-                } Kg   ${item?.quantity?.gram} Grams</td>
-                <td style="${generateInlineStyles(styles.td)}">${
-                  item.price
+
+                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                ${item?.unit === 'kg' ? item?.quantity?.kg+ ' kg   ' + item?.quantity?.gram + ' grams' : item?.unit === 'piece' ? item?.quantity?.piece +' Pieces' : item?.quantity?.packet+ ' Packets'}
+                </td>
+
+                
+                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                  item.price.toFixed(2)
                 }</td>
-                <td style="${generateInlineStyles(styles.td)}">${
-                  item.price * item.quantity?.kg +
-                  item.price * (item.quantity?.gram / 1000)
-                }</td>
+                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                  
+
+                  ${item?.unit === 'kg' ? (item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000)).toFixed(2) : item?.unit === 'piece' ? (item?.quantity?.piece*item.price).toFixed(2)  : (item?.quantity?.packet*item.price).toFixed(2) }
+                </td>
               </tr>
             `
               )
@@ -1197,7 +1262,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           </tbody>
         </table>
         <div style="${generateInlineStyles(styles.total)}">
-          <p>Total:₹${totalPrice(data?.orderedItems)}</p>
+          <p>Total:₹${totalPrice(data?.orderedItems).toFixed(2)}</p>
         </div>
         <div style="display:flex;margin-bottom:10px;margin-top:20px">
           <div style="flex:1;margin-right:5px">
@@ -1220,7 +1285,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       </div>
     `;
 
-    // const browser = await puppeteer.launch();
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
@@ -1239,14 +1303,13 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     );
     res.setHeader("Content-Type", "application/pdf");
 
-    // Send the PDF as a stream in the response
-    res.status(200).send(data);
-
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
     // Close the Puppeteer browser
     await browser.close();
   } catch (error) {
     // console.error("Error creating PDF:", error);
-    res.status(500).send("Error creating PDF");
+    res.status(500).send("Error creating PDF:");
   }
 });
 
