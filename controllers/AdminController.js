@@ -262,6 +262,7 @@ const getAllOrders = catchAsyncError(async (req, res, next) => {
 
 const getAllHotels = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("i m here");
     const hotelRoleId = await Role.findOne({ name: "Hotel" });
 
     if (!hotelRoleId) {
