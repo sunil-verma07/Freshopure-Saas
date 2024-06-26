@@ -21,7 +21,7 @@ router.post(
 
 router.post(
   "/vendorhotellink",
-  // authMiddleware.authMiddleware, 
+  // authMiddleware.authMiddleware,
   admincontroller.linkHoteltoVendor
 );
 router.post(
@@ -60,7 +60,18 @@ router.post(
   authMiddleware.authMiddleware,
   admincontroller.getHotelOrdersById
 );
-router.post("/addUser", authMiddleware.authMiddleware, admincontroller.addUser);
+router.post(
+  "/addHotel",
+  authMiddleware.authMiddleware,
+  admincontroller.addHotel
+);
+
+router.post(
+  "/addVendor",
+  authMiddleware.authMiddleware,
+  admincontroller.addVendor
+);
+
 router.post(
   "/reviewUser",
   authMiddleware.authMiddleware,
@@ -106,5 +117,9 @@ router.get(
   authMiddleware.authMiddleware,
   admincontroller.getVendorItems
 );
-
+router.get(
+  "/getAssignableHotels/:vendorId",
+  authMiddleware.authMiddleware,
+  admincontroller.getAssignableHotels
+);
 module.exports = router;

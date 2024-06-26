@@ -44,7 +44,7 @@ const myProfile = catchAsyncErrors(async (req, res, next) => {
         foreignField: "userId",
         as: "imageDetails",
       },
-    }, 
+    },
     {
       $unwind: "$imageDetails",
     },
@@ -238,71 +238,64 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
     const { fullName, organization, role, email, phone, gst, fssai } = req.body;
 
-    if (
-      !fullName ||
-      !organization ||
-      !role ||
-      !email ||
-      !phone ||
-      !gst ||
-      !fssai
-    ) {
+    if (!fullName || !organization || !role || !email || !phone) {
+      return res.status(400).json({
+        success: false,
+        error: "Please enter all mandatory fields properly!",
+      });
+    }
+
+    const roleId = await Role.findOne({ name: role });
+    const user = await User.findOne({ phone: phone });
+    const userDetails = await UserDetails.findOne({ userId: user._id });
+
+    if (userDetails) {
       return res
         .status(400)
-        .json({ success: false, error: "Please enter all fields properly!" });
+        .json({ success: false, error: "Profile Already Completed" });
     } else {
-      const roleId = await Role.findOne({ name: role });
-      const user = await User.findOne({ phone: phone });
-      const userDetails = await UserDetails.findOne({ userId: user._id });
+      const newProfile = new UserDetails({
+        userId: user._id,
+        fullName: fullName,
+        email: email,
+        organization: organization,
+        roleId: roleId,
+        GSTnumber: gst || null, // Assign gst or null if not provided
+        FSSAInumber: fssai || null, // Assign fssai or null if not provided
+      });
 
-      if (userDetails) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Profile Already Completed" });
-      } else {
-        const newProfile = new UserDetails({
-          userId: user._id,
-          fullName: fullName,
-          email: email,
-          organization: organization,
-          roleId: roleId,
-          GSTnumber: gst,
-          FSSAInumber: fssai,
-        });
+      await newProfile.save();
 
-        await newProfile.save();
+      await User.findOneAndUpdate(
+        { phone: phone },
+        { isProfileComplete: true, isReviewed: true, isApproved: true }
+      );
 
-        await User.findOneAndUpdate(
-          { phone: phone },
-          { isProfileComplete: true, isReviewed: true, isApproved: true }
-        );
-
-        const result = await User.aggregate([
-          { $match: { _id: user._id } },
-          {
-            $lookup: {
-              from: "UserDetails", // Name of the UserDetails collection
-              localField: "_id",
-              foreignField: "userId",
-              as: "userDetails",
-            },
+      const result = await User.aggregate([
+        { $match: { _id: user._id } },
+        {
+          $lookup: {
+            from: "UserDetails", // Name of the UserDetails collection
+            localField: "_id",
+            foreignField: "userId",
+            as: "userDetails",
           },
-          {
-            $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true },
-          }, // Unwind the userDetails array
-          {
-            $addFields: {
-              fullName: "$userDetails.fullName",
-              email: "$userDetails.email",
-              roleId: "$userDetails.roleId",
-              organization: "$userDetails.organization",
-            },
+        },
+        {
+          $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true },
+        }, // Unwind the userDetails array
+        {
+          $addFields: {
+            fullName: "$userDetails.fullName",
+            email: "$userDetails.email",
+            roleId: "$userDetails.roleId",
+            organization: "$userDetails.organization",
           },
-          { $project: { userDetails: 0 } },
-        ]).exec();
+        },
+        { $project: { userDetails: 0 } },
+      ]).exec();
 
-        return sendToken(result[0], 200, res, role);
-      }
+      return sendToken(result[0], 200, res, role);
     }
   } catch (err) {
     console.error(err);

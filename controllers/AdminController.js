@@ -19,6 +19,8 @@ const Cart = require("../models/cart.js");
 const User = require("../models/user.js");
 const Role = require("../models/role.js");
 const hotelItemPrice = require("../models/hotelItemPrice.js");
+const UserDetails = require("../models/userDetails.js");
+const { generateUniqueId } = require("../services/uniqueIdVerification.js");
 
 const addNewCategory = catchAsyncError(async (req, res, next) => {
   try {
@@ -97,6 +99,7 @@ const linkHoteltoVendor = catchAsyncError(async (req, res, next) => {
 });
 
 const addNewItem = catchAsyncError(async function (req, res, next) {
+  console.log("reached");
   const images = req.files;
 
   try {
@@ -233,9 +236,9 @@ const getAllOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "hotelId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "hotelDetails",
         },
       },
@@ -244,9 +247,9 @@ const getAllOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "vendorId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "vendorDetails",
         },
       },
@@ -262,16 +265,26 @@ const getAllOrders = catchAsyncError(async (req, res, next) => {
 
 const getAllHotels = catchAsyncError(async (req, res, next) => {
   try {
-    console.log("i m here");
     const hotelRoleId = await Role.findOne({ name: "Hotel" });
 
     if (!hotelRoleId) {
       return res.status(404).json({ error: "Role does not exist" });
     }
 
-    const hotelData = await User.aggregate([
+    const hotelData = await UserDetails.aggregate([
       {
         $match: { roleId: new ObjectId(hotelRoleId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          foreignField: "_id",
+          localField: "userId",
+          as: "userFlags",
+        },
+      },
+      {
+        $unwind: "$userFlags",
       },
     ]);
     res.status(200).json({ hotelData });
@@ -288,9 +301,20 @@ const getAllVendors = catchAsyncError(async (req, res, next) => {
       return res.status(404).json({ error: "Role does not exist" });
     }
 
-    const vendorData = await User.aggregate([
+    const vendorData = await UserDetails.aggregate([
       {
         $match: { roleId: new ObjectId(vendorRoleId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          foreignField: "_id",
+          localField: "userId",
+          as: "userFlags",
+        },
+      },
+      {
+        $unwind: "$userFlags",
       },
     ]);
     res.status(200).json({ vendorData });
@@ -359,39 +383,104 @@ const getHotelOrdersById = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const addUser = catchAsyncError(async (req, res, next) => {
+const addHotel = catchAsyncError(async (req, res, next) => {
   try {
-    const { organization, fullName, email, phone, role } = req.body;
+    const { organization, fullName, email, phone, gst, fssai } = req.body;
 
-    if (!organization || !fullName || !email || !phone || !role) {
+    if (!organization || !fullName || !email || !phone || !gst || !fssai) {
       return res.status(404).json({ error: "All the Fields are Required" });
     }
 
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ phone: phone });
 
     if (user) {
       return res
         .status(400)
         .json({ success: false, error: "User already exists!" });
     } else {
-      const hashedPassword = encrypt("Freshopure123@");
+      const roleId = await Role.findOne({ name: "Hotel" });
+      const uniqueCode = await generateUniqueId();
+      const encryptedCode = await encrypt(uniqueCode);
 
-      const userRole = await Role.findOne({ name: role });
-
-      const newUser = new User({
-        organization: organization,
-        email: email,
+      const newUser = await User.create({
+        uniqueId: encryptedCode,
         phone: phone,
-        password: hashedPassword,
-        fullName: fullName,
-        roleId: userRole._id,
+        isProfileComplete: true,
         isReviewed: true,
-        reviewStatus: "approved",
+        isApproved: true,
+        hasActiveSubscription: true,
+        dateOfActivation: null,
       });
 
       await newUser.save();
 
-      res.status(200).json({ success: true, user: newUser });
+      const newUserDetails = new UserDetails({
+        userId: newUser._id,
+        fullName: fullName,
+        email: email,
+        organization: organization,
+        roleId: roleId._id,
+        GSTnumber: gst,
+        FSSAInumber: fssai,
+      });
+
+      await newUserDetails.save();
+
+      res
+        .status(200)
+        .json({ success: true, user: newUser, details: newUserDetails });
+    }
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+const addVendor = catchAsyncError(async (req, res, next) => {
+  try {
+    console.log("heyyy add vendor contr");
+    const { organization, fullName, email, phone, gst } = req.body;
+
+    if (!organization || !fullName || !email || !phone || !gst) {
+      return res.status(404).json({ error: "All the Fields are Required" });
+    }
+
+    const user = await User.findOne({ phone: phone });
+
+    if (user) {
+      return res
+        .status(400)
+        .json({ success: false, error: "User already exists!" });
+    } else {
+      const roleId = await Role.findOne({ name: "Vendor" });
+      const uniqueCode = await generateUniqueId();
+      const encryptedCode = await encrypt(uniqueCode);
+
+      const newUser = await User.create({
+        uniqueId: encryptedCode,
+        phone: phone,
+        isProfileComplete: true,
+        isReviewed: true,
+        isApproved: true,
+        hasActiveSubscription: true,
+        dateOfActivation: null,
+      });
+
+      await newUser.save();
+
+      const newUserDetails = new UserDetails({
+        userId: newUser._id,
+        fullName: fullName,
+        email: email,
+        organization: organization,
+        roleId: roleId._id,
+        GSTnumber: gst,
+      });
+
+      await newUserDetails.save();
+
+      res
+        .status(200)
+        .json({ success: true, user: newUser, details: newUserDetails });
     }
   } catch (error) {
     res.send(error);
@@ -485,6 +574,7 @@ const getAllCategories = catchAsyncError(async (req, res, next) => {
 const getHotelVendors = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.params.hotelId;
+    console.log(hotelId, "absghd");
 
     const vendors = await HotelVendorLink.aggregate([
       {
@@ -492,14 +582,25 @@ const getHotelVendors = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "vendorId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "vendorDetails",
         },
       },
       {
         $unwind: "$vendorDetails",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorContact",
+        },
+      },
+      {
+        $unwind: "$vendorContact",
       },
     ]);
 
@@ -519,9 +620,9 @@ const getHotelOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "vendorId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "vendorDetails",
         },
       },
@@ -530,9 +631,9 @@ const getHotelOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "hotelId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "hotelDetails",
         },
       },
@@ -606,14 +707,25 @@ const getVendorHotels = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "hotelId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "hotelDetails",
         },
       },
       {
         $unwind: "$hotelDetails",
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelContact",
+        },
+      },
+      {
+        $unwind: "$hotelContact",
       },
     ]);
 
@@ -634,9 +746,9 @@ const getVendorOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "vendorId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "vendorDetails",
         },
       },
@@ -645,9 +757,9 @@ const getVendorOrders = catchAsyncError(async (req, res, next) => {
       },
       {
         $lookup: {
-          from: "Users",
+          from: "UserDetails",
           localField: "hotelId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "hotelDetails",
         },
       },
@@ -734,6 +846,68 @@ const addNewPaymentPlan = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const getAssignableHotels = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.params.vendorId;
+
+    const hotelRoleId = await Role.findOne({ name: "Hotel" });
+
+    if (!hotelRoleId) {
+      return res.status(404).json({ error: "Role does not exist" });
+    }
+
+    // Get all hotels
+    const allHotels = await UserDetails.aggregate([
+      {
+        $match: { roleId: new ObjectId(hotelRoleId._id) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          foreignField: "_id",
+          localField: "userId",
+          as: "userFlags",
+        },
+      },
+      {
+        $unwind: "$userFlags",
+      },
+    ]);
+
+    // Get linked hotels
+    const linkedHotels = await HotelVendorLink.aggregate([
+      {
+        $match: { vendorId: new ObjectId(vendorId) },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails",
+      },
+    ]);
+
+    // Create a set of linked hotel IDs
+    const linkedHotelIds = new Set(
+      linkedHotels.map((hotel) => hotel.hotelId.toString())
+    );
+
+    // Filter out linked hotels from allHotels
+    const unlinkedHotels = allHotels.filter(
+      (hotel) => !linkedHotelIds.has(hotel.userId.toString())
+    );
+
+    res.json({ hotels: unlinkedHotels });
+  } catch (error) {
+    res.json({ error });
+  }
+});
+
 module.exports = {
   linkHoteltoVendor,
   addNewCategory,
@@ -744,7 +918,8 @@ module.exports = {
   getAllVendors,
   getAllItems,
   getHotelOrdersById,
-  addUser,
+  addHotel,
+  addVendor,
   reviewUser,
   placeOrderByAdmin,
   getAllCategories,
@@ -755,4 +930,5 @@ module.exports = {
   getVendorOrders,
   getVendorItems,
   addNewPaymentPlan,
+  getAssignableHotels,
 };

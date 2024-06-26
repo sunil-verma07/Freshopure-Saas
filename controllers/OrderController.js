@@ -122,13 +122,12 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("i m reaching");
     const hotelId = req.user._id;
     const pageSize = 7;
     const { offset, status, date } = req.query; // Read from query parameters
 
-    console.log(typeof date, typeof status);
-
-    console.log(offset, status, date, "offset");
+    console.log(date, "date");
 
     const statusId = await OrderStatus.findOne({ status: status });
 
