@@ -65,11 +65,28 @@ router.post(
   authMiddleware.authMiddleware,
   admincontroller.addHotel
 );
+router.post(
+  "/removeHotel",
+  authMiddleware.authMiddleware,
+  admincontroller.removeHotel
+);
 
 router.post(
   "/addVendor",
   authMiddleware.authMiddleware,
   admincontroller.addVendor
+);
+
+router.post(
+  "/removeVendor",
+  authMiddleware.authMiddleware,
+  admincontroller.removeVendor
+);
+
+router.post(
+  "/removeItem",
+  authMiddleware.authMiddleware,
+  admincontroller.removeItem
 );
 
 router.post(

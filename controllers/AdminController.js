@@ -67,8 +67,10 @@ const addNewCategory = catchAsyncError(async (req, res, next) => {
 
 const linkHoteltoVendor = catchAsyncError(async (req, res, next) => {
   try {
-    const { vendorId, hotelId } = req.body;
+    const { vendorId, hotelId, fixed } = req.body;
     const isActive = true;
+
+    console.log(vendorId, hotelId, fixed, "controller");
 
     if (!vendorId || !hotelId) {
       throw new Error("HotelId and VendorId required.");
@@ -79,27 +81,63 @@ const linkHoteltoVendor = catchAsyncError(async (req, res, next) => {
       hotelId: new Object(hotelId),
     });
 
+    console.log(linkPresent);
     if (linkPresent) {
       return res
         .status(500)
         .json({ message: "Hotel already linked to vendor" });
     } else {
+      console.log("here");
       const newLink = new HotelVendorLink({
         vendorId: vendorId,
         hotelId: hotelId,
         isActive: isActive,
+        isPriceFixed: fixed,
       });
+
       await newLink.save();
 
-      res.status(200).json({ message: "Hotel linked to vendor successfully." });
+      const hotels = await HotelVendorLink.aggregate([
+        {
+          $match: { vendorId: new ObjectId(vendorId), _id: newLink._id },
+        },
+        {
+          $lookup: {
+            from: "UserDetails",
+            localField: "hotelId",
+            foreignField: "userId",
+            as: "hotelDetails",
+          },
+        },
+        {
+          $unwind: "$hotelDetails",
+        },
+        {
+          $lookup: {
+            from: "Users",
+            localField: "hotelId",
+            foreignField: "_id",
+            as: "hotelContact",
+          },
+        },
+        {
+          $unwind: "$hotelContact",
+        },
+      ]);
+
+      console.log(hotels, "newLink");
+      res.status(200).json({
+        message: "Hotel linked to vendor successfully.",
+        hotel: hotels,
+      });
     }
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
+    console.log(error);
   }
 });
 
 const addNewItem = catchAsyncError(async function (req, res, next) {
-  console.log("reached");
   const images = req.files;
 
   try {
@@ -136,9 +174,37 @@ const addNewItem = catchAsyncError(async function (req, res, next) {
     const newImage = new Image(itemImageReqBody);
     await newImage.save();
 
+    const itemData = await Item.aggregate([
+      {
+        $match: { _id: newItem._id },
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "_id",
+          foreignField: "itemId",
+          as: "images",
+        },
+      },
+      {
+        $unwind: "$images",
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: "$category",
+      },
+    ]);
+
     res
       .status(201)
-      .json({ message: "Item created successfully", item: newItem });
+      .json({ message: "Item created successfully", item: itemData });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
@@ -426,9 +492,55 @@ const addHotel = catchAsyncError(async (req, res, next) => {
 
       await newUserDetails.save();
 
-      res
-        .status(200)
-        .json({ success: true, user: newUser, details: newUserDetails });
+      const hotelData = await UserDetails.aggregate([
+        {
+          $match: { userId: newUserDetails.userId },
+        },
+        {
+          $lookup: {
+            from: "Users",
+            foreignField: "_id",
+            localField: "userId",
+            as: "userFlags",
+          },
+        },
+        {
+          $unwind: "$userFlags",
+        },
+      ]);
+
+      res.status(200).json({ success: true, user: hotelData });
+    }
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+const removeHotel = catchAsyncError(async (req, res, next) => {
+  try {
+    const { hotelId } = req.body;
+    // console.log(hotelId, "hotelId contr heree");
+
+    if (!hotelId) {
+      return res.status(404).json({ error: "HotelId is Required" });
+    }
+
+    const user = await User.findOne({ _id: hotelId });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Hotel Not Found in Database!" });
+    } else {
+      const deletedUser = await User.findOneAndDelete({
+        _id: new ObjectId(hotelId),
+      });
+      const deleteDetails = await UserDetails.findOneAndDelete({
+        userId: new ObjectId(hotelId),
+      });
+
+      // console.log(deletedUser, "Deleted");
+      res.status(200).json({ success: true, user: deletedUser });
     }
   } catch (error) {
     res.send(error);
@@ -478,9 +590,81 @@ const addVendor = catchAsyncError(async (req, res, next) => {
 
       await newUserDetails.save();
 
-      res
-        .status(200)
-        .json({ success: true, user: newUser, details: newUserDetails });
+      const vendorData = await UserDetails.aggregate([
+        {
+          $match: { userId: newUserDetails.userId },
+        },
+        {
+          $lookup: {
+            from: "Users",
+            foreignField: "_id",
+            localField: "userId",
+            as: "userFlags",
+          },
+        },
+        {
+          $unwind: "$userFlags",
+        },
+      ]);
+
+      res.status(200).json({ success: true, user: vendorData });
+    }
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+const removeVendor = catchAsyncError(async (req, res, next) => {
+  try {
+    const { vendorId } = req.body;
+
+    if (!vendorId) {
+      return res.status(404).json({ error: "VendorId is Required" });
+    }
+
+    const user = await User.findOne({ _id: vendorId });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Hotel Not Found in Database!" });
+    } else {
+      const deletedUser = await User.findOneAndDelete({
+        _id: new ObjectId(vendorId),
+      });
+      const deleteDetails = await UserDetails.findOneAndDelete({
+        userId: new ObjectId(vendorId),
+      });
+
+      // console.log(deletedUser, "Deleted");
+      res.status(200).json({ success: true, user: deletedUser });
+    }
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+const removeItem = catchAsyncError(async (req, res, next) => {
+  try {
+    const { itemId } = req.body;
+
+    if (!itemId) {
+      return res.status(404).json({ error: "ItemId is Required" });
+    }
+
+    const item = await Item.findOne({ _id: itemId });
+
+    if (!item) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Item Not Found in Database!" });
+    } else {
+      const deletedItem = await Item.findOneAndDelete({
+        _id: new ObjectId(itemId),
+      });
+
+      // console.log(deletedUser, "Deleted");
+      res.status(200).json({ success: true, item: deletedItem });
     }
   } catch (error) {
     res.send(error);
@@ -919,7 +1103,9 @@ module.exports = {
   getAllItems,
   getHotelOrdersById,
   addHotel,
+  removeHotel,
   addVendor,
+  removeVendor,
   reviewUser,
   placeOrderByAdmin,
   getAllCategories,
@@ -931,4 +1117,5 @@ module.exports = {
   getVendorItems,
   addNewPaymentPlan,
   getAssignableHotels,
+  removeItem,
 };

@@ -70,6 +70,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     // console.log(totalOrderPrice, "cost");
 
+    let newOrder;
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
         const items = orders[vendorId];
@@ -106,15 +107,16 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
+        newOrder = order;
         // console.log(order.orderedItems[0].quantity, "order");
 
-        await order.save();
+        // await order.save();
       }
     }
 
     await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
 
-    res.status(200).json({ message: "Order Placed", orders });
+    res.status(200).json({ message: "Order Placed", success: true, newOrder });
   } catch (error) {
     next(error);
   }

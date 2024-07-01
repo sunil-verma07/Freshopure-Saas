@@ -378,6 +378,7 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
 });
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
+  console.log("i mcausing it compiled");
   const vendorId = req.user._id;
   const today = new Date(); // Assuming you have today's date
   today.setHours(0, 0, 0, 0); // Set time to the start of the day

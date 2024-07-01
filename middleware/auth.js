@@ -15,8 +15,10 @@ exports.authMiddleware = async (req, res, next) => {
   }
 
   try {
+    console.log(token, "token");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    console.log(decoded, "decoded");
     let data = await User.aggregate([
       { $match: { _id: new ObjectId(decoded.id) } },
       {
@@ -39,6 +41,7 @@ exports.authMiddleware = async (req, res, next) => {
       { $project: { userDetails: 0 } },
     ]).exec();
 
+    console.log(data[0], "data user");
     req.user = data[0];
 
     next();

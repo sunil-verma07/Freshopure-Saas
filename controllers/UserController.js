@@ -93,15 +93,18 @@ const emailVerification = catchAsyncErrors(async (req, res) => {
           dateOfActivation: null,
         });
 
-        const userDetails = await UserDetails.findOne({ userId: newUser._id });
+        // const userDetails = await UserDetails.findOne({ userId: newUser._id });
 
-        const resUser = {
-          ...newUser,
-          ...userDetails,
-        };
-        res.status(200).json({ success: true, user: resUser });
+        // const resUser = {
+        //   ...newUser,
+        //   ...userDetails,
+        // };
+
+        console.log(newUser, "contr1");
+        return res.status(200).json({ success: true, user: newUser });
       } else {
         if (!user.isProfileComplete && !user.isReviewed && !user.isApproved) {
+          console.log(user, "contr2");
           return res.status(200).json({ success: true, user });
         } else {
           const userDetail = await UserDetails.findOne({ userId: user._id });
