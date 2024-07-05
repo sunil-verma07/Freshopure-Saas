@@ -30,7 +30,6 @@ const {
   generateUniqueId,
   verifyUniqueId,
 } = require("../services/uniqueIdVerification.js");
-const userDetails = require("../models/userDetails.js");
 
 const myProfile = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
@@ -365,16 +364,43 @@ const userDetailUpdate = catchAsyncErrors(async (req, res, next) => {
         .json({ success: false, error: "Please enter all fields properly!" });
     } else {
       const user = await User.findOne({ _id: userId });
+      const userDetails = await UserDetails.findOne({ userId: userId });
 
-      if (user) {
-        user.fullName = fullName;
-        user.organization = organization;
+      if (user && userDetails) {
         user.phone = phone;
-        user.email = email;
-
         await user.save();
 
-        return res.json({ message: "User Details Updated", user: user });
+        userDetails.fullName = fullName;
+        userDetails.organization = organization;
+        userDetails.email = email;
+
+        await userDetails.save();
+
+        const result = await User.aggregate([
+          { $match: { _id: userId } },
+          {
+            $lookup: {
+              from: "UserDetails", // Name of the UserDetails collection
+              localField: "_id",
+              foreignField: "userId",
+              as: "userDetails",
+            },
+          },
+          {
+            $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true },
+          }, // Unwind the userDetails array
+          {
+            $addFields: {
+              fullName: "$userDetails.fullName",
+              email: "$userDetails.email",
+              roleId: "$userDetails.roleId",
+              organization: "$userDetails.organization",
+            },
+          },
+          { $project: { userDetails: 0 } },
+        ]).exec();
+
+        return res.json({ message: "User Details Updated", user: result[0] });
       } else {
         return res
           .status(400)

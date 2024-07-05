@@ -38,11 +38,11 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
     // console.log(cart_doc, hotelId, "abcd");
     const orders = {};
-    console.log(cart_doc, "cartdoc");
+    // console.log(cart_doc, "cartdoc");
     let totalOrderPrice = 0;
 
     for (let item of cart_doc?.cartItems) {
-      console.log(item, "mainItem");
+      // console.log(item, "mainItem");
       const itemPrice = await HotelItemPrice.findOne({
         vendorId: item.vendorId,
         itemId: item.itemId,
@@ -110,7 +110,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         newOrder = order;
         // console.log(order.orderedItems[0].quantity, "order");
 
-        // await order.save();
+        await order.save();
       }
     }
 
@@ -283,7 +283,7 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       // console.log(order.orderNumber, "orderNumber");
     });
 
-    console.log(orderData, "order");
+    // console.log(orderData, "order");
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -399,6 +399,7 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
+    console.log(orderId, "orderIddd");
 
     const orderData = await UserOrder.aggregate([
       {

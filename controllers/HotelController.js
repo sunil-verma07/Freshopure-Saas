@@ -77,9 +77,10 @@ const myHotelProfile = catchAsyncError(async (req, res, next) => {
 
 const getAllCategories = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("reached");
     const categories = await category.find();
 
-    // console.log(categories);
+    console.log(categories, "categories");
 
     return res.json({ categories });
   } catch (error) {

@@ -479,6 +479,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       data: orderData,
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 });
@@ -2908,13 +2909,13 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
   try {
     const vendor = req.user._id;
 
-    const { quantity, itemId, orderNumber } = req.body;
+    const { quantity, itemId, orderId } = req.body;
 
-    if (!quantity || !itemId || !orderNumber) {
+    if (!quantity || !itemId || !orderHistoryForVendors) {
       return res.json({ message: "All Fields are required!" });
     }
 
-    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+    const order = await UserOrder.findOne({ _id: orderId });
 
     if (!order) {
       return res.json({ message: "Order not found!" });
@@ -2978,7 +2979,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const orderData = await UserOrder.aggregate([
       {
-        $match: { orderNumber: orderNumber },
+        $match: { _id: orderId },
       },
       {
         $lookup: {
@@ -3105,14 +3106,15 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
 const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
   try {
     const { vendorId } = req.user._id;
-    const { orderNumber } = req.body;
+    const { orderNumber, status } = req.body;
+    console.log(orderNumber, status, "this");
 
     const order = await UserOrder.findOne({ orderNumber: orderNumber });
 
-    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const statusId = await OrderStatus.findOne({ status: status });
     const updatedOrder = await UserOrder.findOneAndUpdate(
       { orderNumber: orderNumber },
-      { $set: { orderStatus: status._id } },
+      { $set: { orderStatus: statusId?._id } },
       { new: true } // Return the updated document
     );
 

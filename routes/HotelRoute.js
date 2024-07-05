@@ -36,7 +36,7 @@ router.post(
 
 router.get(
   "/getAllCategories",
-  authMiddleware.authMiddleware,
+
   hotelcontroller.getAllCategories
 );
 router.get(
