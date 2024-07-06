@@ -90,10 +90,11 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.query;
+    const { offset, status, date } = req.query;
 
     const statusId = await OrderStatus.findOne({ status: status });
-    const orderData = await UserOrder.aggregate([
+
+    const pipeline = [
       {
         $match: {
           vendorId: vendorId,
@@ -181,19 +182,64 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
+      // {
+      //   $sort: {
+      //     createdAt: -1,
+      //   },
+      // },
+      // {
+      //   $skip: parseInt(offset),
+      // },
+      // {
+      //   $limit: pageSize,
+      // },
+    ];
+
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(filterDate, currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+      // console log: Fri Jun 21 2024 13:08:56 GMT 0530 2024-06-21T07:38:56.603Z date read
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push(
       {
         $sort: {
           createdAt: -1,
         },
       },
-      {
-        $skip: parseInt(offset),
-      },
-      {
-        $limit: pageSize,
-      },
-    ]);
+      { $skip: parseInt(offset) },
+      { $limit: pageSize }
+    );
 
+    const orderData = await UserOrder.aggregate(pipeline);
     // console.log(
     //   "data:" + orderData.length,
     //   "offset:" + offset,
@@ -215,11 +261,10 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
 const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
-    console.log(vendorId)
+    console.log(vendorId);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-   
     const orderData = await HotelVendorLink.aggregate([
       {
         $match: { vendorId: new ObjectId(vendorId) },
@@ -322,7 +367,7 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
         $sort: { orderPlacedToday: -1, "mostRecentOrder.createdAt": -1 },
       },
     ]);
-    
+
     res.status(200).json({
       status: "success",
       data: orderData,
@@ -333,6 +378,7 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
 });
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
+  console.log("i mcausing it compiled");
   const vendorId = req.user._id;
   const today = new Date(); // Assuming you have today's date
   today.setHours(0, 0, 0, 0); // Set time to the start of the day
@@ -433,6 +479,7 @@ const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
       data: orderData,
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 });
@@ -701,10 +748,12 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
 
 const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("hey");
     const vendorId = req.user._id;
-    const { HotelId } = req.body;
+    const { date, HotelId } = req.query;
 
-    const orderData = await UserOrder.aggregate([
+    console.log(HotelId, date, "query");
+    const pipeline = [
       {
         $match: {
           vendorId: vendorId,
@@ -792,12 +841,49 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
-      {
-        $sort: {
-          createdAt: -1,
+    ];
+
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(typeof filterDate, typeof currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          },
         },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push({
+      $sort: {
+        createdAt: -1,
       },
-    ]);
+    });
+
+    const orderData = await UserOrder.aggregate(pipeline);
 
     res.json({ hotelOrders: orderData });
   } catch (error) {
@@ -873,135 +959,136 @@ const updateStock = catchAsyncError(async (req, res, next) => {
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
 
-  try{
+  try {
     const orderData = await UserOrder.aggregate([
       {
-          $match: { _id: new ObjectId(orderId) },
+        $match: { _id: new ObjectId(orderId) },
       },
       {
-          $lookup: {
-              from: "orderstatuses",
-              localField: "orderStatus",
-              foreignField: "_id",
-              as: "orderStatus",
-              pipeline: [{ $limit: 1 }],
-          },
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+          pipeline: [{ $limit: 1 }],
+        },
       },
       {
-          $unwind: {
-              path: "$orderStatus",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$orderStatus",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $lookup: {
-              from: "Users",
-              localField: "hotelId",
-              foreignField: "_id",
-              as: "hotelDetails",
-              pipeline: [{ $limit: 1 }],
-          },
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+          pipeline: [{ $limit: 1 }],
+        },
       },
       {
-          $unwind: {
-              path: "$hotelDetails",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$hotelDetails",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $lookup: {
-              from: "Users",
-              localField: "vendorId",
-              foreignField: "_id",
-              as: "vendorDetails",
-              pipeline: [{ $limit: 1 }],
-          },
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+          pipeline: [{ $limit: 1 }],
+        },
       },
       {
-          $unwind: {
-              path: "$vendorDetails",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$vendorDetails",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $unwind: {
-              path: "$orderedItems",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$orderedItems",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $lookup: {
-              from: "Items",
-              localField: "orderedItems.itemId",
-              foreignField: "_id",
-              as: "orderedItems.itemDetails",
-          },
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails",
+        },
       },
       {
-          $unwind: {
-              path: "$orderedItems.itemDetails",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$orderedItems.itemDetails",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $lookup: {
-              from: "Category",
-              localField: "orderedItems.itemDetails.categoryId",
-              foreignField: "_id",
-              as: "orderedItems.itemDetails.category",
-          },
+        $lookup: {
+          from: "Category",
+          localField: "orderedItems.itemDetails.categoryId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails.category",
+        },
       },
       {
-          $unwind: {
-              path: "$orderedItems.itemDetails.category",
-              preserveNullAndEmptyArrays: true,
-          },
+        $unwind: {
+          path: "$orderedItems.itemDetails.category",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
-          $group: {
-              _id: "$_id",
-              orderStatus: { $first: "$orderStatus" },
-              hotelDetails: { $first: "$hotelDetails" },
-              vendorDetails: { $first: "$vendorDetails" },
-              orderedItems: { $push: "$orderedItems" },
-              address:{ $first: "$address" },
-              orderNumber:{ $first: "$orderNumber" },
-
-          },
+        $group: {
+          _id: "$_id",
+          orderStatus: { $first: "$orderStatus" },
+          hotelDetails: { $first: "$hotelDetails" },
+          vendorDetails: { $first: "$vendorDetails" },
+          orderedItems: { $push: "$orderedItems" },
+          address: { $first: "$address" },
+          orderNumber: { $first: "$orderNumber" },
+        },
       },
       {
-          $lookup: {
-              from: "UserDetails",
-              localField: "hotelDetails._id",
-              foreignField: "userId",
-              as: "hotelDetails.userDetails",
-              pipeline: [{ $limit: 1 }],
-          },
+        $lookup: {
+          from: "UserDetails",
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
       },
       {
-          $addFields: {
-              "hotelDetails.userDetails": { $arrayElemAt: ["$hotelDetails.userDetails", 0] },
+        $addFields: {
+          "hotelDetails.userDetails": {
+            $arrayElemAt: ["$hotelDetails.userDetails", 0],
           },
+        },
       },
       {
-          $lookup: {
-              from: "UserDetails",
-              localField: "vendorDetails._id",
-              foreignField: "userId",
-              as: "vendorDetails.userDetails",
-              pipeline: [{ $limit: 1 }],
-          },
+        $lookup: {
+          from: "UserDetails",
+          localField: "vendorDetails._id",
+          foreignField: "userId",
+          as: "vendorDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
       },
       {
-          $addFields: {
-              "vendorDetails.userDetails": { $arrayElemAt: ["$vendorDetails.userDetails", 0] },
+        $addFields: {
+          "vendorDetails.userDetails": {
+            $arrayElemAt: ["$vendorDetails.userDetails", 0],
           },
+        },
       },
-  ]).allowDiskUse(true);
- 
+    ]).allowDiskUse(true);
 
     const data = orderData[0];
-
 
     const styles = {
       container: {
@@ -1125,8 +1212,8 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             }</p>
             <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
             ${data?.address?.addressLine1},${data?.address?.addressLine2},${
-              data?.address?.city
-            }
+      data?.address?.city
+    }
             ,${data?.address?.pinCode} 
             </p>
             
@@ -1139,11 +1226,21 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         <table style="${generateInlineStyles(styles.table)}">
           <thead>
             <tr>
-              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
-              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
-              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
-              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
-              <th style="${generateInlineStyles(styles.th)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
+              <th style="${generateInlineStyles(
+                styles.th
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
+              <th style="${generateInlineStyles(
+                styles.th
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
+              <th style="${generateInlineStyles(
+                styles.th
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
+              <th style="${generateInlineStyles(
+                styles.th
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
+              <th style="${generateInlineStyles(
+                styles.th
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
             </tr>
           </thead>
           <tbody>
@@ -1151,25 +1248,53 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
               ?.map(
                 (item, index) => `
               <tr key=${index}>
-                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                <td style="${generateInlineStyles(
+                  styles.td
+                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
                   item?.itemDetails?.name
                 }</td>
-                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                <td style="${generateInlineStyles(
+                  styles.td
+                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
                   item?.itemDetails?.category?.name
                 }</td>
 
-                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-                ${item?.unit === 'kg' ? item?.quantity?.kg+ ' kg   ' + item?.quantity?.gram + ' grams' : item?.unit === 'piece' ? item?.quantity?.piece +' Pieces' : item?.quantity?.packet+ ' Packets'}
+                <td style="${generateInlineStyles(
+                  styles.td
+                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                ${
+                  item?.unit === "kg"
+                    ? item?.quantity?.kg +
+                      " kg   " +
+                      item?.quantity?.gram +
+                      " grams"
+                    : item?.unit === "piece"
+                    ? item?.quantity?.piece + " Pieces"
+                    : item?.quantity?.packet + " Packets"
+                }
                 </td>
 
                 
-                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                  item.price.toFixed(2)
-                }</td>
-                <td style="${generateInlineStyles(styles.td)} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                <td style="${generateInlineStyles(
+                  styles.td
+                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
+                  2
+                )}</td>
+                <td style="${generateInlineStyles(
+                  styles.td
+                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
                   
 
-                  ${item?.unit === 'kg' ? (item.price * item.quantity?.kg + item.price * (item.quantity?.gram / 1000)).toFixed(2) : item?.unit === 'piece' ? (item?.quantity?.piece*item.price).toFixed(2)  : (item?.quantity?.packet*item.price).toFixed(2) }
+                  ${
+                    item?.unit === "kg"
+                      ? (
+                          item.price * item.quantity?.kg +
+                          item.price * (item.quantity?.gram / 1000)
+                        ).toFixed(2)
+                      : item?.unit === "piece"
+                      ? (item?.quantity?.piece * item.price).toFixed(2)
+                      : (item?.quantity?.packet * item.price).toFixed(2)
+                  }
                 </td>
               </tr>
             `
@@ -2785,13 +2910,13 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
   try {
     const vendor = req.user._id;
 
-    const { quantity, itemId, orderNumber } = req.body;
+    const { quantity, itemId, orderId } = req.body;
 
-    if (!quantity || !itemId || !orderNumber) {
+    if (!quantity || !itemId || !orderHistoryForVendors) {
       return res.json({ message: "All Fields are required!" });
     }
 
-    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+    const order = await UserOrder.findOne({ _id: orderId });
 
     if (!order) {
       return res.json({ message: "Order not found!" });
@@ -2855,7 +2980,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const orderData = await UserOrder.aggregate([
       {
-        $match: { orderNumber: orderNumber },
+        $match: { _id: orderId },
       },
       {
         $lookup: {
@@ -2982,14 +3107,15 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
 const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
   try {
     const { vendorId } = req.user._id;
-    const { orderNumber } = req.body;
+    const { orderNumber, status } = req.body;
+    console.log(orderNumber, status, "this");
 
     const order = await UserOrder.findOne({ orderNumber: orderNumber });
 
-    const status = await OrderStatus.findOne({ status: "Delivered" });
+    const statusId = await OrderStatus.findOne({ status: status });
     const updatedOrder = await UserOrder.findOneAndUpdate(
       { orderNumber: orderNumber },
-      { $set: { orderStatus: status._id } },
+      { $set: { orderStatus: statusId?._id } },
       { new: true } // Return the updated document
     );
 

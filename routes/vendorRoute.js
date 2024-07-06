@@ -62,7 +62,7 @@ router.post(
   authMiddleware.authMiddleware,
   vendorcontroller.getHotelItemList
 );
-router.post(
+router.get(
   "/getallordersbyhotel",
   authMiddleware.authMiddleware,
   vendorcontroller.getAllOrdersbyHotel

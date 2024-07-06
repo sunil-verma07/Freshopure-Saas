@@ -9,7 +9,7 @@ const cookieParser = require("cookie-parser");
 
 exports.authMiddleware = async (req, res, next) => {
   const token = req.headers.token;
-  // console.log(token, "token");
+
   if (!token) {
     return res.status(401).json({ error: "No token provided" });
   }
@@ -17,30 +17,29 @@ exports.authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-
-      let data = await User.aggregate([
+    let data = await User.aggregate([
       { $match: { _id: new ObjectId(decoded.id) } },
       {
         $lookup: {
-          from: 'UserDetails', // Name of the UserDetails collection
-          localField: '_id',
-          foreignField: 'userId',
-          as: 'userDetails'
-        }
+          from: "UserDetails", // Name of the UserDetails collection
+          localField: "_id",
+          foreignField: "userId",
+          as: "userDetails",
+        },
       },
-      { $unwind: { path: '$userDetails', preserveNullAndEmptyArrays: true } }, // Unwind the userDetails array
+      { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } }, // Unwind the userDetails array
       {
         $addFields: {
-          fullName: '$userDetails.fullName',
-          email: '$userDetails.email',
-          roleId: '$userDetails.roleId',
-          organization: '$userDetails.organization',
-        }
+          fullName: "$userDetails.fullName",
+          email: "$userDetails.email",
+          roleId: "$userDetails.roleId",
+          organization: "$userDetails.organization",
+        },
       },
-      { $project: { userDetails: 0 } } 
+      { $project: { userDetails: 0 } },
     ]).exec();
 
-    req.user = data[0]
+    req.user = data[0];
 
     next();
   } catch (error) {

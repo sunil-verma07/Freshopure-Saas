@@ -38,11 +38,11 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
     // console.log(cart_doc, hotelId, "abcd");
     const orders = {};
-    console.log(cart_doc, "cartdoc");
+    // console.log(cart_doc, "cartdoc");
     let totalOrderPrice = 0;
 
     for (let item of cart_doc?.cartItems) {
-      console.log(item, "mainItem");
+      // console.log(item, "mainItem");
       const itemPrice = await HotelItemPrice.findOne({
         vendorId: item.vendorId,
         itemId: item.itemId,
@@ -70,6 +70,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     // console.log(totalOrderPrice, "cost");
 
+    let newOrder;
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
         const items = orders[vendorId];
@@ -106,6 +107,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: items,
         });
 
+        newOrder = order;
         // console.log(order.orderedItems[0].quantity, "order");
 
         await order.save();
@@ -114,7 +116,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     await Cart.deleteOne({ hotelId: new ObjectId(hotelId) });
 
-    res.status(200).json({ message: "Order Placed", orders });
+    res.status(200).json({ message: "Order Placed", success: true, newOrder });
   } catch (error) {
     next(error);
   }
@@ -122,17 +124,19 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("i m reaching");
     const hotelId = req.user._id;
     const pageSize = 7;
-    const { offset, status } = req.query; // Read from query parameters
+    const { offset, status, date } = req.query; // Read from query parameters
 
-    console.log(offset, status, "offset");
+    console.log(date, "date");
 
     const statusId = await OrderStatus.findOne({ status: status });
-    const orderData = await UserOrder.aggregate([
+
+    const pipeline = [
       {
         $match: {
-          vendorId: hotelId,
+          hotelId: new ObjectId(hotelId),
           orderStatus: new ObjectId(statusId._id),
         },
       },
@@ -228,8 +232,53 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       {
         $limit: pageSize,
       },
-    ]);
+    ];
 
+    let filterDate = `${
+      new Date(date).getFullYear() +
+      "-" +
+      new Date(date).getMonth() +
+      "-" +
+      new Date(date).getDate()
+    }`;
+
+    let currentDate = `${
+      new Date().getFullYear() +
+      "-" +
+      new Date().getMonth() +
+      "-" +
+      new Date().getDate()
+    }`;
+
+    console.log(typeof filterDate, typeof currentDate, "date read outside");
+    if (filterDate !== currentDate) {
+      console.log(filterDate, currentDate, "date read");
+
+      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+      pipeline.push({
+        $match: {
+          createdAt: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          },
+        },
+      });
+    }
+
+    // Add sorting, skipping, and limiting after potential date filtering
+    pipeline.push(
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+      { $skip: parseInt(offset) },
+      { $limit: pageSize }
+    );
+
+    const orderData = await UserOrder.aggregate(pipeline);
     orderData.map((order) => {
       // console.log(order.orderNumber, "orderNumber");
     });
@@ -350,6 +399,7 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
+    console.log(orderId, "orderIddd");
 
     const orderData = await UserOrder.aggregate([
       {

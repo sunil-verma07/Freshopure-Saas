@@ -10,11 +10,9 @@ const Images = require("../models/image.js");
 
 const addItemToCart = catchAsyncError(async (req, res, next) => {
   try {
-    console.log("fhgfh");
     const { orderedItem } = req.body;
     const UserId = req.user._id;
 
-    console.log(orderedItem, "ordereditem");
     // const hotelPresent = await Cart.findOne({ UserId });
 
     const itemIdString = orderedItem[0]?.itemId;
@@ -24,8 +22,6 @@ const addItemToCart = catchAsyncError(async (req, res, next) => {
       hotelId: new ObjectId(UserId),
       "cartItems.itemId": itemIdObjectId,
     });
-
-    console.log(orderedItem[0].quantity, "addcart");
 
     if (existingItem) {
       // Item already exists, update the quantity

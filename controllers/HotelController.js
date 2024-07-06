@@ -77,9 +77,10 @@ const myHotelProfile = catchAsyncError(async (req, res, next) => {
 
 const getAllCategories = catchAsyncError(async (req, res, next) => {
   try {
+    console.log("reached");
     const categories = await category.find();
 
-    // console.log(categories);
+    console.log(categories, "categories");
 
     return res.json({ categories });
   } catch (error) {
@@ -278,8 +279,8 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
     const image = await Image.findOne({ itemId: itemId });
     // console.log(items, image);
     const itemObj = {
-      name: items.name,
-      image: image.img,
+      name: items?.name,
+      image: image?.img,
     };
 
     return itemObj;
@@ -312,6 +313,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
         todayCostPrice: item.todayCostPrice,
         orderedItems: [],
       };
+
       return acc;
     }, {});
 
@@ -350,6 +352,7 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.image = info.image;
     }
 
+    console.log(itemDetailsArray, "itemsDetal");
     return filterZeroQuantityItems(itemDetailsArray); // Returning reversed orders as before
   }
 
@@ -486,6 +489,8 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
       item.name = info.name;
       item.image = info.image;
     }
+
+    console.log(itemDetailsArray, "itemsDetal");
 
     return filterZeroQuantityItems(itemDetailsArray);
   }
