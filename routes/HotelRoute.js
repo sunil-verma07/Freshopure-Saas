@@ -27,7 +27,7 @@ router.post(
   authMiddleware.authMiddleware,
   hotelcontroller.getHotelOrderAnalytics
 );
-
+ 
 router.post(
   "/hotelItemAnalytics",
   authMiddleware.authMiddleware,

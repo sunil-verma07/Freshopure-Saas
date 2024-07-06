@@ -2677,6 +2677,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     yesterday.setDate(today.getDate() - 1);
 
     const response = await messageToSubvendor();
+    console.log(response,'res')
 
     await sendWhatsappmessge(response);
 
@@ -2689,9 +2690,9 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
         $set: { orderStatus: statusId._id },
       }
     );
-    console.log(orders, "orders");
     res.status(200).json({ data: response });
   } catch (error) {
+    console.log(error)
     res.status(400).json({ error: error });
   }
 });
