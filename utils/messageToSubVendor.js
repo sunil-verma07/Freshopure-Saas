@@ -10,7 +10,7 @@ const HotelVendorLink = require("../models/hotelVendorLink.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 const SubVendor = require("../models/subVendor.js");
 const { sendWhatsappmessge } = require("../utils/sendWhatsappNotification.js");
-const user = require("../models/user.js");
+const user = require("../models/userDetails.js");
 const Image = require("../models/image.js");
 const Orders = require("../models/order.js");
 const vendorStock = require("../models/vendorStock.js");
@@ -29,8 +29,10 @@ const messageToSubvendor = async () => {
 
     const vendors = await user.find({ roleId: vendorRoleId });
 
-    // console.log(vendors, "vendors");
+
     const compiledOrders = await todayCompiledOrders(vendors);
+
+
 
     return compiledOrders;
   } catch (error) {
@@ -41,7 +43,7 @@ const messageToSubvendor = async () => {
 const todayCompiledOrders = async (vendors) => {
   // Get the start of today
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setHours(3, 0, 0, 0);
 
   // Get the start of yesterday
   const yesterday = new Date(today);
@@ -49,9 +51,8 @@ const todayCompiledOrders = async (vendors) => {
 
   try {
     let compiledOrders = [];
-    // console.log(vendors, "ven");
     for (let vendor of vendors) {
-      const vendorId = vendor._id;
+      const vendorId = vendor.userId;
 
       const subVendors = await SubVendor.find({ vendorId: vendorId });
 
@@ -59,7 +60,7 @@ const todayCompiledOrders = async (vendors) => {
         {
           $match: {
             vendorId: vendorId,
-            createdAt: { $gte: yesterday, $lt: today },
+            createdAt: { $gte: yesterday, $lt:today },
           },
         },
         {
@@ -155,10 +156,8 @@ const todayCompiledOrders = async (vendors) => {
         },
       ]);
       
-      console.log(orderData,'orderData');
       
 
-      console.log(orderData, "orderData");
 
       for (const order of orderData) {
         const subVendor = await SubVendor.findOne({

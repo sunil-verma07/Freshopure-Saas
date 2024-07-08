@@ -2,7 +2,7 @@ const HotelVendorLink = require("../models/hotelVendorLink.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 
 async function sendWhatsappmessge(vendorsOrders) {
-  console.log(vendorsOrders[0].items, "orders");
+  console.log(vendorsOrders, "orders");
   try {
     function formatDate(date) {
       const options = { day: "numeric", month: "long", year: "numeric" };
