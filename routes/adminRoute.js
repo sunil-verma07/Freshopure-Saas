@@ -31,7 +31,7 @@ router.post(
 );
 router.post(
   "/addnewitem",
-  authMiddleware.authMiddleware,
+  // authMiddleware.authMiddleware,
   upload.any(),
   admincontroller.addNewItem
 );

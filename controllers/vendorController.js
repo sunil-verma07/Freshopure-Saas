@@ -3109,6 +3109,11 @@ const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
     const { orderNumber, status } = req.body;
     console.log(orderNumber, status, "this");
 
+    if (orderNumber === undefined || status === "") {
+      console.log("reached here");
+      return res.status(400).json({ message: "Invalid OrderNumber" });
+    }
+
     const order = await UserOrder.findOne({ orderNumber: orderNumber });
 
     const statusId = await OrderStatus.findOne({ status: status });

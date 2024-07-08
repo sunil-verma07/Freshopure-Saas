@@ -399,7 +399,6 @@ const compiledOrderForHotel = catchAsyncError(async (req, res, next) => {
 const orderDetails = catchAsyncError(async (req, res, next) => {
   try {
     const { orderId } = req.body;
-    console.log(orderId, "orderIddd");
 
     const orderData = await UserOrder.aggregate([
       {
@@ -503,7 +502,7 @@ const cancelOrder = catchAsyncError(async (req, res, next) => {
     // const data = await orderHistoryForHotel(hotelId);
     const orderData = await UserOrder.aggregate([
       {
-        $match: { hotelId: hotelId },
+        $match: { orderNumber: orderNumber },
       },
       {
         $lookup: {
@@ -595,8 +594,6 @@ const cancelOrder = catchAsyncError(async (req, res, next) => {
         },
       },
     ]);
-
-    // console.log(orderData);
 
     return res
       .status(200)
