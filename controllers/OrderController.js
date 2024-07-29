@@ -16,12 +16,17 @@ const HotelItemPrice = require("../models/hotelItemPrice.js");
 const Addresses = require("../models/address.js");
 const category = require("../models/category.js");
 const item = require("../models/item.js");
+const CompiledOrder = require("../models/compiledOrder.js");
+const VendorItemsAndStock = require("../models/VendorItems")
+
 
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
 
-    //order address
+    const {notes} = req.body;
+
+    // Get the selected address
     const address = await Addresses.findOne({
       HotelId: hotelId,
       selected: true,
@@ -31,18 +36,13 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       throw new Error("Address not found");
     }
 
-    //order status
-    const orderStatus = "65cef0c27ebbb69ab54c55f4";
+    const orderStatus = "65cef0c27ebbb69ab54c55f4"; // Order status
 
-    //cart items
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
-    // console.log(cart_doc, hotelId, "abcd");
     const orders = {};
-    // console.log(cart_doc, "cartdoc");
     let totalOrderPrice = 0;
 
     for (let item of cart_doc?.cartItems) {
-      // console.log(item, "mainItem");
       const itemPrice = await HotelItemPrice.findOne({
         vendorId: item.vendorId,
         itemId: item.itemId,
@@ -68,48 +68,155 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       orders[item.vendorId].push(updatedItem);
     }
 
-    // console.log(totalOrderPrice, "cost");
-
     let newOrder;
     for (const vendorId in orders) {
       if (Object.hasOwnProperty.call(orders, vendorId)) {
         const items = orders[vendorId];
 
-        //order Number
         const currentDate = new Date();
-        const formattedDate = currentDate
-          .toISOString()
-          .substring(0, 10)
-          .replace(/-/g, "");
-        const randomNumber = Math.floor(Math.random() * 10000);
-        const orderNumber = `${formattedDate}-${randomNumber}`;
+        const startOfDay = new Date(currentDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
 
-        let totalPrice = 0;
-        console.log(items);
-        items.forEach((item) => {
-          if (item.unit === "kg") {
-            const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
-            totalPrice = totalPrice + (totalGrams * item.price) / 1000; // Multiply total grams with price and store in totalPrice field
-          } else if (item.unit === "packet") {
-            totalPrice = totalPrice + item.price * item.quantity.packet; // Multiply total grams with price and store in totalPrice field
-          } else if (item.unit === "piece") {
-            totalPrice = totalPrice + item.price * item.quantity.piece;
-          }
+        const generateOrderNumber = () => {
+          const currentDate = new Date();
+          const formattedDate = currentDate
+            .toISOString()
+            .substring(0, 10)
+            .replace(/-/g, ""); // YYYYMMDD format
+          const randomNumber = Math.floor(Math.random() * 10000); // 4-digit random number
+          return `${formattedDate}-${randomNumber}`;
+        };
+
+        const calculateTotalPrice = (items) => {
+          return items.reduce((totalPrice, item) => {
+            let itemTotalPrice = 0;
+
+            // Calculate total price based on the unit
+            if (item.unit === "kg") {
+              const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
+              itemTotalPrice = (totalGrams * item.price) / 1000; // Multiply total grams with price
+            } else if (item.unit === "packet") {
+              itemTotalPrice = item.price * item.quantity.packet; // Price per packet
+            } else if (item.unit === "piece") {
+              itemTotalPrice = item.price * item.quantity.piece; // Price per piece
+            }
+
+            // Accumulate the total price
+            return totalPrice + itemTotalPrice;
+          }, 0);
+        };
+
+        const existingCompiledOrder = await CompiledOrder.findOne({
+          vendorId,
+          date: { $gte: startOfDay, $lt: endOfDay },
         });
 
+        if (existingCompiledOrder) {
+          // Update existing compiled order
+          items.forEach((item) => {
+            const existingItem = existingCompiledOrder.items.find(
+              (i) => i.itemId.toString() === item.itemId.toString()
+            );
+
+            if (existingItem) {
+              const existingHotel = existingItem.hotels.find(
+                (h) => h.hotelId.toString() === hotelId.toString()
+              );
+
+              if (existingHotel) {
+                existingHotel.quantity.kg += item.quantity.kg || 0;
+                existingHotel.quantity.gram += item.quantity.gram || 0;
+
+                // Convert grams to kilograms if greater than 999 grams
+                if (existingHotel.quantity.gram >= 1000) {
+                  const additionalKg = Math.floor(
+                    existingHotel.quantity.gram / 1000
+                  );
+                  existingHotel.quantity.kg += additionalKg;
+                  existingHotel.quantity.gram %= 1000;
+                }
+
+                existingHotel.quantity.piece += item.quantity.piece || 0;
+                existingHotel.quantity.packet += item.quantity.packet || 0;
+              } else {
+                existingItem.hotels.push({
+                  hotelId,
+                  quantity: item.quantity,
+                });
+              }
+
+              // Update total quantity
+              existingItem.totalQuantity.kg = existingItem.hotels
+                .reduce((sum, h) => sum + h.quantity.kg, 0)
+                .toFixed(2);
+              existingItem.totalQuantity.gram = existingItem.hotels
+                .reduce((sum, h) => sum + h.quantity.gram, 0)
+                .toFixed(2);
+              existingItem.totalQuantity.piece = existingItem.hotels
+                .reduce((sum, h) => sum + h.quantity.piece, 0)
+                .toFixed(2);
+              existingItem.totalQuantity.packet = existingItem.hotels
+                .reduce((sum, h) => sum + h.quantity.packet, 0)
+                .toFixed(2);
+
+              // Convert total grams to kilograms if greater than 999 grams
+              if (existingItem.totalQuantity.gram >= 1000) {
+                const additionalKg = Math.floor(
+                  existingItem.totalQuantity.gram / 1000
+                );
+                existingItem.totalQuantity.kg = (
+                  parseFloat(existingItem.totalQuantity.kg) + additionalKg
+                ).toFixed(2);
+                existingItem.totalQuantity.gram = (
+                  existingItem.totalQuantity.gram % 1000
+                ).toFixed(2);
+              }
+            } else {
+              existingCompiledOrder.items.push({
+                itemId: item.itemId,
+                totalQuantity: item.quantity,
+                hotels: [
+                  {
+                    hotelId,
+                    quantity: item.quantity,
+                  },
+                ],
+              });
+            }
+          });
+          await existingCompiledOrder.save();
+        } else {
+          // Create a new compiled order
+          const newCompiledOrder = new CompiledOrder({
+            vendorId,
+            date: startOfDay,
+            items: items.map((item) => ({
+              itemId: item.itemId,
+              totalQuantity: item.quantity,
+              hotels: [
+                {
+                  hotelId,
+                  quantity: item.quantity,
+                },
+              ],
+            })),
+          });
+          await newCompiledOrder.save();
+        }
+
+        // Save the new user order
         const order = new UserOrder({
           vendorId,
           hotelId,
-          orderNumber,
+          orderNumber: generateOrderNumber(), // Assume this function generates a unique order number
           orderStatus,
-          totalPrice,
+          totalPrice: calculateTotalPrice(items), // Assume this function calculates the total price
           address,
+          notes:notes,
           orderedItems: items,
         });
 
         newOrder = order;
-        // console.log(order.orderedItems[0].quantity, "order");
-
         await order.save();
       }
     }

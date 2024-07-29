@@ -16,6 +16,7 @@ const HotelOrdersSchema = new mongoose.Schema(
       required: true, // Corrected typo here
     },
     orderNumber: String,
+    notes:String,
     isReviewed: { type: Boolean, default: false },
     orderStatus: { type: mongoose.Schema.Types.ObjectId, ref: "OrderStatus" },
     totalPrice: Number,
@@ -26,6 +27,7 @@ const HotelOrdersSchema = new mongoose.Schema(
       city: String,
       pinCode: Number,
     },
+    
     orderedItems: [
       {
         itemId: { type: mongoose.Schema.Types.ObjectId, ref: "Items" },

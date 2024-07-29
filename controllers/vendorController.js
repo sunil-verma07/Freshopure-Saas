@@ -30,6 +30,7 @@ const { generatePaymentToken } = require("../utils/jwtToken.js");
 const hotelVendorLink = require("../models/hotelVendorLink.js");
 const { isPrimitive } = require("util");
 const userDetails = require("../models/userDetails.js");
+const CompiledOrder = require("../models/compiledOrder.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
   try {
@@ -378,105 +379,143 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
 });
 
 const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
-  console.log("i mcausing it compiled");
   const vendorId = req.user._id;
-  const today = new Date(); // Assuming you have today's date
+  const today = new Date(); // Get today's date
   today.setHours(0, 0, 0, 0); // Set time to the start of the day
 
   try {
-    const status = await OrderStatus.findOne({ status: "Cancelled" });
+    // Calculate the start and end date for the 3 AM time range
+    const startDate = new Date(today);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 1);
+    endDate.setHours(3, 0, 0, 0);
 
-    const orderData = await UserOrder.aggregate([
+    // Fetch compiled orders within the specified time range
+    const compiledOrders = await CompiledOrder.aggregate([
       {
         $match: {
-          vendorId: vendorId,
-          createdAt: { $gte: today }, // Filter orders for today
-          orderStatus: { $ne: status._id },
+          vendorId: new ObjectId(vendorId),
+          date: { $gte: startDate, $lt: endDate },
         },
       },
       {
-        $lookup: {
-          from: "UserDetails",
-          localField: "hotelId",
-          foreignField: "userId",
-          as: "hotelDetails",
-        },
-      },
-      {
-        $unwind: "$hotelDetails",
-      },
-      {
-        $unwind: "$orderedItems", // Unwind orderedItems array
-      },
-      {
-        $group: {
-          _id: "$orderedItems.itemId",
-          totalQuantityOrderedGrams: {
-            $sum: {
-              $add: [
-                { $multiply: ["$orderedItems.quantity.kg", 1000] }, // Convert kg to grams
-                "$orderedItems.quantity.gram", // Add grams
-              ],
-            },
-          }, // Total quantity ordered in grams
-          itemDetails: { $first: "$orderedItems" }, // Take item details from the first document
-          hotelOrders: { $push: "$$ROOT" },
-        },
+        $unwind: "$items",
       },
       {
         $lookup: {
           from: "Items",
-          localField: "_id",
+          localField: "items.itemId",
           foreignField: "_id",
           as: "itemDetails",
         },
       },
       {
-        $unwind: "$itemDetails",
+        $unwind: {
+          path: "$itemDetails",
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
         $lookup: {
           from: "Images",
-          localField: "_id",
+          localField: "items.itemId",
           foreignField: "itemId",
           as: "itemImages",
         },
       },
       {
-        $unwind: "$itemImages",
+        $unwind: {
+          path: "$itemImages",
+          preserveNullAndEmptyArrays: true,
+        },
       },
-      // {
-      //   $project: {
-      //     _id: 0,
-      //     totalQuantityOrdered: {
-      //       kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
-      //       gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
-      //     }, // Total quantity ordered in kg and grams
-      //     itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
-      //     itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
-      //     hotelDetails: { $arrayElemAt: ["$hotelDetails", 0] },
-      //   },
-      // },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+
+      {
+        $group: {
+          _id: "$_id",
+          vendorId: { $first: "$vendorId" },
+          date: { $first: "$date" },
+          items: {
+            $push: {
+              itemId: "$items.itemId",
+              totalQuantity: "$items.totalQuantity",
+              quantityToBeOrder: "$items.quantityToBeOrder",
+              hotels: {
+                $map: {
+                  input: "$items.hotels",
+                  as: "hotel",
+                  in: {
+                    hotelId: "$$hotel.hotelId",
+                    quantity: "$$hotel.quantity",
+                    hotelDetails: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$hotelDetails",
+                            as: "detail",
+                            cond: { $eq: ["$$detail._id", "$$hotel.hotelId"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+              itemDetails: "$itemDetails",
+              itemImages: "$itemImages",
+            },
+          },
+        },
+      },
     ]);
 
-    for (const order of orderData) {
-      const subVendor = await SubVendor.findOne({
-        vendorId: vendorId, // Match the vendorId
-        assignedItems: { $elemMatch: { itemId: order.itemDetails._id } }, // Match the itemId within assignedItems array
-      });
+    // Populate subVendorCode for each item
+    for (const order of compiledOrders) {
+      for (const item of order.items) {
+        const subVendor = await SubVendor.findOne({
+          vendorId: vendorId,
+          assignedItems: { $elemMatch: { itemId: item.itemId } },
+        });
 
-      if (subVendor) {
-        const subVendorCode = subVendor.subVendorCode;
-        order.itemDetails["subVendorCode"] = subVendorCode;
-      } else {
-        order.itemDetails["subVendorCode"] = "Not Assigned.";
+        item.subVendorCode = subVendor
+          ? subVendor.subVendorCode
+          : "Not Assigned";
       }
     }
 
-    // console.log(orderData, "od");
+    for (const order of compiledOrders) {
+      for (const item of order.items) {
+        const vendorItem = await VendorItems.findOne({
+          vendorId: vendorId,
+          items: { $elemMatch: { itemId: item.itemId } },
+        });
+
+        if (vendorItem) {
+          const matchedItem = vendorItem.items.find(
+            (i) => i.itemId.toString() === item.itemId.toString()
+          );
+          item.stockQuantity = matchedItem
+            ? matchedItem.totalQuantity
+            : "Not found in stock";
+        } else {
+          item.stockQuantity = "Not found in stock";
+        }
+      }
+    }
+
+    // Send the response with compiled orders
     res.status(200).json({
       status: "success",
-      data: orderData,
+      data: compiledOrders[0] || {},
     });
   } catch (error) {
     console.log(error);
@@ -740,7 +779,7 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
     // Fetch items associated with the vendor and hotelId, populating the associated item's fields
     const itemList = await HotelItemPrice.aggregate(pipeline);
 
-    return res.json({ data: itemList });
+    return res.json({ data: itemList});
   } catch (error) {
     throw error;
   }
@@ -748,7 +787,6 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
 
 const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
   try {
-    console.log("hey");
     const vendorId = req.user._id;
     const { date, HotelId } = req.query;
 
@@ -809,6 +847,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           orderNumber: { $first: "$orderNumber" },
           isReviewed: { $first: "$isReviewed" },
           totalPrice: { $first: "$totalPrice" },
+          notes:{ $first: "$notes"},
           address: { $first: "$address" },
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
@@ -835,6 +874,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           isReviewed: 1,
           totalPrice: 1,
           address: 1,
+          notes:1,
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
@@ -1127,10 +1167,12 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         fontSize: "6px",
       },
       total: {
-        textAlign: "right",
-        fontSize: "12px",
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "6px",
         fontWeight: "600",
       },
+
     };
 
     const date = (createdOnString) => {
@@ -1168,163 +1210,237 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     };
 
     let html = `
-      <div style="${generateInlineStyles(styles.container)}">
-        <div style="${generateInlineStyles(styles.header)}">
-          
-          <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
-            styles.logo
-          )} /> -->
-          <div>
-            <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:space-between">
-          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
-            data?.hotelDetails?.userDetails?.fullName
-          }.<br/>Thank you for shopping from ${
-      data?.vendorDetails?.userDetails?.fullName
-    }.</p>
-          <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
-            data?.orderNumber
-          } <br/> </p>
-        </div>
-        <div style="display:flex;margin-bottom:10px">
-          <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
-            <p style="font-weight:600;font-size:12px;">${
-              data?.vendorDetails?.userDetails?.fullName
-            }</p>
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            Rajasthan
-            302017
-            </p>
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            GSTIN/UIN: 08ABFCS1307P1Z2
-            </p> 
-            
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            State Name : Rajasthan, Code : 08
-            
-            </p>
-          </div>
-          <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
-            <p style="font-weight:600;font-size:12px;">${
-              data?.hotelDetails?.userDetails?.fullName
-            }</p>
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            ${data?.address?.addressLine1},${data?.address?.addressLine2},${
-      data?.address?.city
-    }
-            ,${data?.address?.pinCode} 
-            </p>
-            
-            
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-            State Name : ${data?.address?.state}, Code : 08
-            </p>
-          </div>
-        </div>
-        <table style="${generateInlineStyles(styles.table)}">
-          <thead>
-            <tr>
-              <th style="${generateInlineStyles(
-                styles.th
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
-              <th style="${generateInlineStyles(
-                styles.th
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
-              <th style="${generateInlineStyles(
-                styles.th
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
-              <th style="${generateInlineStyles(
-                styles.th
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
-              <th style="${generateInlineStyles(
-                styles.th
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data?.orderedItems
-              ?.map(
-                (item, index) => `
-              <tr key=${index}>
-                <td style="${generateInlineStyles(
-                  styles.td
-                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                  item?.itemDetails?.name
-                }</td>
-                <td style="${generateInlineStyles(
-                  styles.td
-                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                  item?.itemDetails?.category?.name
-                }</td>
-
-                <td style="${generateInlineStyles(
-                  styles.td
-                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-                ${
-                  item?.unit === "kg"
-                    ? item?.quantity?.kg +
-                      " kg   " +
-                      item?.quantity?.gram +
-                      " grams"
-                    : item?.unit === "piece"
-                    ? item?.quantity?.piece + " Pieces"
-                    : item?.quantity?.packet + " Packets"
-                }
-                </td>
-
-                
-                <td style="${generateInlineStyles(
-                  styles.td
-                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
-                  2
-                )}</td>
-                <td style="${generateInlineStyles(
-                  styles.td
-                )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-                  
-
-                  ${
-                    item?.unit === "kg"
-                      ? (
-                          item.price * item.quantity?.kg +
-                          item.price * (item.quantity?.gram / 1000)
-                        ).toFixed(2)
-                      : item?.unit === "piece"
-                      ? (item?.quantity?.piece * item.price).toFixed(2)
-                      : (item?.quantity?.packet * item.price).toFixed(2)
-                  }
-                </td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-        <div style="${generateInlineStyles(styles.total)}">
-          <p>Total:₹${totalPrice(data?.orderedItems).toFixed(2)}</p>
-        </div>
-        <div style="display:flex;margin-bottom:10px;margin-top:20px">
-          <div style="flex:1;margin-right:5px">
-            <p style="font-weight:600;font-size:10px;">Declaration</p>
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:10px">
-            We declare that this invoice shows the actual price of the 
-            goods described and that all particulars are true and 
-            correct
-            </p>
-           
-          </div>
-          <div style="flex:1;margin-right:5px;text-align:right">
-            <p style="font-weight:600;font-size:10px;">for Shvaas Sustainable Solutions Private Limited</p>
-            
-            <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:30px;text-align:right">
-            Authorised Signatory
-            </p>
-          </div>
+    <div style="${generateInlineStyles(styles.container)}">
+      <div style="${generateInlineStyles(styles.header)}">
+        
+        <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
+          styles.logo
+        )} /> -->
+        <div>
+          <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
         </div>
       </div>
-    `;
+      <div style="display:flex;justify-content:space-between">
+        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
+          data?.hotelDetails?.userDetails?.fullName
+        }.<br/>Thank you for shopping from ${
+      data?.vendorDetails?.userDetails?.organization
+    }.</p>
+        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
+          data?.orderNumber
+        } <br/> </p>
+      </div>
+      <div style="display:flex;margin-bottom:10px">
+        <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
+          <p style="font-weight:600;font-size:12px;">${
+            data?.vendorDetails?.userDetails?.organization
+          }</p>
+
+           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;">
+           ${data?.vendorDetails?.userDetails?.fullName}
+          </p>
+
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          Rajasthan
+          302017
+          </p>
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          GSTIN/UIN: ${data?.vendorDetails?.userDetails?.GSTnumber}
+          </p> 
+          
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          State Name : Rajasthan, Code : 08
+          
+          </p>
+        </div>
+        <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
+          <p style="font-weight:600;font-size:12px;">${
+            data?.hotelDetails?.userDetails?.organization
+          }</p>
+
+           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;">
+           ${data?.hotelDetails?.userDetails?.fullName}
+          </p>
+
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          ${data?.address?.addressLine1},${data?.address?.addressLine2},${
+      data?.address?.city
+    }
+          ,${data?.address?.pinCode} 
+          </p>
+
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          GSTIN/UIN: ${data?.hotelDetails?.userDetails?.GSTnumber}
+          </p> 
+          
+          
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          State Name : ${data?.address?.state}, Code : 08
+          </p>
+        </div>
+      </div>
+      <table style="${generateInlineStyles(styles.table)}">
+        <thead>
+          <tr>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">HSN Code</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">GST</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data?.orderedItems
+            ?.map(
+              (item, index) => `
+            <tr key=${index}>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.name
+              }</td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.category?.name
+              }</td>
+
+               <td style="${generateInlineStyles(
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.HSNcode
+              }</td>
+
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+              ${
+                item?.unit === "kg"
+                  ? item?.quantity?.kg +
+                    " kg   " +
+                    item?.quantity?.gram +
+                    " grams"
+                  : item?.unit === "piece"
+                  ? item?.quantity?.piece + " Pieces"
+                  : item?.quantity?.packet + " Packets"
+              }
+              </td>
+
+              
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
+                2
+              )}</td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                
+
+                ${
+                  item?.unit === "kg"
+                    ? (
+                        item.price * item.quantity?.kg +
+                        item.price * (item.quantity?.gram / 1000)
+                      ).toFixed(2)
+                    : item?.unit === "piece"
+                    ? (item?.quantity?.piece * item.price).toFixed(2)
+                    : (item?.quantity?.packet * item.price).toFixed(2)
+                }
+              </td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.GST
+              }%</td>
+            </tr>
+          `
+            )
+
+            .join("")}
+        </tbody>
+        <tfoot>
+           <tr>
+             <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+              
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+             
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+             
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+              ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
+
+             
+              
+              <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">₹ 0</td>
+    </tr>
+    <tr>
+     <td colspan="7" style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
+              Total : ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
+              </tr>
+  </tfoot>
+      </table>
+     
+      <div style="display:flex;margin-bottom:10px;margin-top:20px">
+        <div style="flex:1;margin-right:5px">
+          <p style="font-weight:600;font-size:10px;">Declaration</p>
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:10px">
+          We declare that this invoice shows the actual price of the 
+          goods described and that all particulars are true and 
+          correct
+          </p>
+         
+        </div>
+        <div style="flex:1;margin-right:5px;text-align:right">
+          <p style="font-weight:600;font-size:10px;">for ${
+            data?.vendorDetails?.userDetails?.organization
+          }</p>
+          
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:30px;text-align:right">
+          Authorised Signatory
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -1928,6 +2044,7 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
         vendor.items.push({
           itemId: itemId,
           todayCostPrice: 0,
+          history: [],
         });
       });
     } else {
@@ -1937,6 +2054,7 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
         items: itemIds.map((itemId) => ({
           itemId: itemId,
           todayCostPrice: 0,
+          history: [],
         })),
       });
     }
@@ -2802,7 +2920,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     yesterday.setDate(today.getDate() - 1);
 
     const response = await messageToSubvendor();
-    console.log(response,'res')
+    console.log(response, "res");
 
     await sendWhatsappmessge(response);
 
@@ -2817,7 +2935,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     );
     res.status(200).json({ data: response });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(400).json({ error: error });
   }
 });
@@ -3345,6 +3463,279 @@ const searchQueryForVendorItems = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
+  try {
+    const { price, quantity, historyId, itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Validate required fields
+    if (!price || !quantity || !itemId) {
+      return res.status(400).json({
+        message: "Please provide all fields",
+      });
+    }
+
+    // Normalize quantity to ensure grams do not exceed 999
+    if (quantity.gram >= 1000) {
+      const extraKg = Math.floor(quantity.gram / 1000);
+      quantity.kg += extraKg;
+      quantity.gram %= 1000;
+    }
+
+    // Find the vendor item
+    let vendorItem = await VendorItems.findOne({ vendorId: vendorId });
+
+    // Check if vendor item exists
+    if (!vendorItem) {
+      return res.status(404).json({
+        message: "Vendor not found",
+      });
+    }
+
+    // Find the specific item
+    let itemToBeUpdated = vendorItem.items.find(
+      (item) => item.itemId.toString() === itemId
+    );
+
+    // Check if item exists
+    if (!itemToBeUpdated) {
+      return res.status(404).json({
+        message: "Item not found",
+      });
+    }
+
+    if (historyId) {
+      // Find the specific history entry
+      let stockToBeUpdated = itemToBeUpdated.history.find(
+        (stock) => stock.historyId.toString() === historyId
+      );
+
+      if (!stockToBeUpdated) {
+        return res.status(404).json({
+          message: "History entry not found",
+        });
+      }
+
+      // Update the history entry
+      stockToBeUpdated.price = price;
+      stockToBeUpdated.quantity = quantity;
+    } else {
+      // Add new history entry
+      itemToBeUpdated.history.push({
+        historyId: new ObjectId(),
+        date: Date.now(),
+        price: price,
+        quantity: quantity,
+      });
+    }
+
+    // Calculate the total quantity for the specific item
+    let totalItemQuantity = {
+      kg: 0,
+      gram: 0,
+      piece: 0,
+      packet: 0,
+    };
+    let totalItemPrice = 0;
+
+    itemToBeUpdated.history.forEach((entry) => {
+      totalItemQuantity.kg += entry.quantity.kg || 0;
+      totalItemQuantity.gram += entry.quantity.gram || 0;
+      totalItemQuantity.piece += entry.quantity.piece || 0;
+      totalItemQuantity.packet += entry.quantity.packet || 0;
+      // Calculate total price as price * total quantity
+      totalItemPrice +=
+        entry.price *
+        (entry.quantity.kg +
+          entry.quantity.gram / 1000 +
+          entry.quantity.piece +
+          entry.quantity.packet);
+    });
+
+    // Normalize total item quantity to ensure grams do not exceed 999
+    if (totalItemQuantity.gram >= 1000) {
+      const extraKg = Math.floor(totalItemQuantity.gram / 1000);
+      totalItemQuantity.kg += extraKg;
+      totalItemQuantity.gram %= 1000;
+    }
+
+    itemToBeUpdated.totalQuantity = totalItemQuantity;
+    itemToBeUpdated.totalPrice = totalItemPrice;
+
+    // Calculate the total quantity and price for the vendor
+    let totalVendorQuantity = {
+      kg: 0,
+      gram: 0,
+      piece: 0,
+      packet: 0,
+    };
+    let totalVendorPrice = 0;
+
+    vendorItem.items.forEach((item) => {
+      totalVendorQuantity.kg += item.totalQuantity.kg || 0;
+      totalVendorQuantity.gram += item.totalQuantity.gram || 0;
+      totalVendorQuantity.piece += item.totalQuantity.piece || 0;
+      totalVendorQuantity.packet += item.totalQuantity.packet || 0;
+      totalVendorPrice += item.totalPrice;
+    });
+
+    // Normalize total vendor quantity to ensure grams do not exceed 999
+    if (totalVendorQuantity.gram >= 1000) {
+      const extraKg = Math.floor(totalVendorQuantity.gram / 1000);
+      totalVendorQuantity.kg += extraKg;
+      totalVendorQuantity.gram %= 1000;
+    }
+
+    // Save the changes
+    await vendorItem.save();
+
+    // Send success response
+    res.json({ message: "Items updated successfully", data: vendorItem });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const updateVendorItemWaste = catchAsyncError(async (req, res, next) => {
+  try {
+    const { quantity, reason, wasteId, itemId } = req.body;
+    const vendorId = req.user._id;
+
+    // Validate required fields
+    if (!quantity || !reason || !itemId) {
+      return res.status(400).json({
+        message: "Please provide all fields",
+      });
+    }
+
+    let vendorItem = await VendorItems.findOne({ vendorId: vendorId });
+
+    // Check if vendor item exists
+    if (!vendorItem) {
+      return res.status(404).json({
+        message: "Vendor not found",
+      });
+    }
+
+    // Find the specific item
+    let itemToBeUpdated = vendorItem.items.find(
+      (item) => item.itemId.toString() === itemId
+    );
+
+    // Check if item exists
+    if (!itemToBeUpdated) {
+      return res.status(404).json({
+        message: "Item not found",
+      });
+    }
+
+    if (wasteId) {
+      // Find the specific waste entry
+      let wasteToBeUpdated = itemToBeUpdated.waste.find(
+        (waste) => waste.wasteId.toString() === wasteId
+      );
+
+      if (!wasteToBeUpdated) {
+        return res.status(404).json({
+          message: "Waste entry not found",
+        });
+      }
+
+      // Update the waste entry
+      wasteToBeUpdated.quantity = quantity; // Assuming quantity is an object with kg, gram, piece, and packet
+      wasteToBeUpdated.reason = reason;
+    } else {
+      // Add new waste entry
+      itemToBeUpdated.waste.push({
+        wasteId: new mongoose.Types.ObjectId(),
+        date: Date.now(),
+        quantity: quantity, // Assuming quantity is an object with kg, gram, piece, and packet
+        reason: reason,
+      });
+    }
+
+    // Calculate the total quantity for the specific item (deducting waste quantities)
+    let totalItemQuantity = 0;
+
+    itemToBeUpdated.history.forEach((entry) => {
+      totalItemQuantity += entry.quantity.kg || 0;
+      totalItemQuantity += (entry.quantity.gram || 0) / 1000;
+      totalItemQuantity += entry.quantity.piece || 0;
+      totalItemQuantity += entry.quantity.packet || 0;
+    });
+
+    itemToBeUpdated.waste.forEach((entry) => {
+      totalItemQuantity -= entry.quantity.kg || 0;
+      totalItemQuantity -= (entry.quantity.gram || 0) / 1000;
+      totalItemQuantity -= entry.quantity.piece || 0;
+      totalItemQuantity -= entry.quantity.packet || 0;
+    });
+
+    itemToBeUpdated.totalQuantity = totalItemQuantity;
+
+    // Calculate the total quantity for the vendor
+    let totalVendorQuantity = 0;
+
+    vendorItem.items.forEach((item) => {
+      totalVendorQuantity += item.totalQuantity;
+    });
+
+    vendorItem.totalQuantity = totalVendorQuantity;
+
+    // Save the changes
+    await vendorItem.save();
+
+    // Send success response
+    res.json({ message: "Waste entry updated successfully", data: vendorItem });
+  } catch (error) {
+    // Pass any errors to the error handling middleware
+    next(error);
+  }
+});
+
+const updateCompiledItemQuantity = catchAsyncError(async (req, res, next) => {
+  try {
+    const vendorId = req.user._id;
+    const { itemId, quantity } = req.body;
+
+    const currentDate = new Date();
+    const startOfDay = new Date(currentDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
+
+    if (!itemId || !quantity) {
+      return res.status(400).json({ message: "ItemId and quantity required" });
+    }
+
+    const order_doc = await CompiledOrder.findOne({
+      vendorId: vendorId,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    });
+
+
+    const quantityToBeUpdate = order_doc?.items?.find(
+      (item) => item?.itemId.toString() === itemId?.toString()
+    );
+    console.log(quantityToBeUpdate)
+
+
+    quantityToBeUpdate.quantityToBeOrder = quantity;
+
+    await order_doc.save();
+
+    const updated_doc = await CompiledOrder.findOne({
+      vendorId: vendorId,
+      date: { $gte: startOfDay, $lt: endOfDay },
+    });
+
+
+    return res.json({data:updated_doc, message: "Quantity Updated successfully!" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -3385,4 +3776,7 @@ module.exports = {
   updatePrice,
   changeHotelType,
   searchQueryForVendorItems,
+  updateVendorItemStock,
+  updateVendorItemWaste,
+  updateCompiledItemQuantity,
 };

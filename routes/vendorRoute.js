@@ -80,6 +80,25 @@ router.post(
 );
 
 router.post(
+  "/updateVendorItemStock",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateVendorItemStock
+);
+
+router.post(
+  "/updateCompiledItemQuantity",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateCompiledItemQuantity
+);
+
+
+router.post(
+  "/updateVendorItemWaste",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateVendorItemWaste
+);
+
+router.post(
   "/addStock",
   authMiddleware.authMiddleware,
   vendorcontroller.addItemToStock
