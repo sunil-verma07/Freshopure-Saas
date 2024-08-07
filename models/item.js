@@ -15,6 +15,12 @@ const ItemSchema = new mongoose.Schema({
     unit: {
         type: String,
     },
+    HSNcode:{
+        type: Number,
+    },
+    GST:{
+        type: Number,
+    },
     isActive:{
         type: Boolean,
         required: 'Item activity is required',

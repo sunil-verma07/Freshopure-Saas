@@ -3346,7 +3346,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   try {
     // Get the start of today
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(3, 0, 0, 0);
 
     // Get the start of yesterday
     const yesterday = new Date(today);
@@ -3355,7 +3355,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     const response = await messageToSubvendor();
     console.log(response, "res");
 
-    await sendWhatsappmessge(response);
+    // await sendWhatsappmessge(response);
 
     const statusId = await OrderStatus.findOne({ status: "In Process" });
     const orders = await UserOrder.updateMany(
