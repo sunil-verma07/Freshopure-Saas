@@ -14,6 +14,11 @@ router.get(
   authMiddleware.authMiddleware,
   ordercontroller.orderHistory
 );
+router.get(
+  "/getAllCompiledOrders",
+  authMiddleware.authMiddleware,
+  ordercontroller.getAllCompiledOrders
+);
 router.post(
   "/orderagain",
   authMiddleware.authMiddleware,

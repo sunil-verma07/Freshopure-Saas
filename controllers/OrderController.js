@@ -815,12 +815,136 @@ async function orderHistoryForHotel(hotelId) {
   }
 }
 
+
+const updatePurchasePriceOfCompiledOrder = catchAsyncError(async (req, res, next) => {
+  const { items, date } = req.body;
+  const vendorId = req.user._id;
+
+  try {
+    const compiledOrderPresent = await CompiledOrder.findOne({
+      vendorId: new ObjectId(vendorId),
+      date: date,
+    });
+
+    if (!compiledOrderPresent) {
+      return res.status(400).json({ error: "Compiled Order not present." });
+    }
+
+    compiledOrderPresent.items = items;
+    await compiledOrderPresent.save();
+
+    res.status(200).json({
+      message: "Items updated",
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+  const getAllCompiledOrders = catchAsyncError(async (req, res, next) => {
+    const vendorId = req.user._id;
+    try {
+    const compiledOrders = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: new ObjectId(vendorId),
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$itemDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Images",
+          localField: "items.itemId",
+          foreignField: "itemId",
+          as: "itemImages",
+        },
+      },
+      {
+        $unwind: {
+          path: "$itemImages",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+
+      {
+        $group: {
+          _id: "$_id",
+          vendorId: { $first: "$vendorId" },
+          date: { $first: "$date" },
+          items: {
+            $push: {
+              itemId: "$items.itemId",
+              totalQuantity: "$items.totalQuantity",
+              quantityToBeOrder: "$items.quantityToBeOrder",
+              hotels: {
+                $map: {
+                  input: "$items.hotels",
+                  as: "hotel",
+                  in: {
+                    hotelId: "$$hotel.hotelId",
+                    quantity: "$$hotel.quantity",
+                    hotelDetails: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$hotelDetails",
+                            as: "detail",
+                            cond: { $eq: ["$$detail._id", "$$hotel.hotelId"] },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+              itemDetails: "$itemDetails",
+              itemImages: "$itemImages",
+            },
+          },
+        },
+      },
+    ]);
+
+    res.status(200).json({data:compiledOrders})
+  } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+  }
+  })
+
+
 module.exports = {
   placeOrder,
   orderHistory,
   orderAgain,
+  getAllCompiledOrders,
   compiledOrderForHotel,
   orderDetails,
   allHotelOrders,
   cancelOrder,
+  updatePurchasePriceOfCompiledOrder,
 };

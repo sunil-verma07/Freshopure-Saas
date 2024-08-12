@@ -147,6 +147,8 @@ const addNewItem = catchAsyncError(async function (req, res, next) {
       description: req.body.description,
       unit: req.body.unit,
       categoryId: req.body.categoryId,
+      HSNcode: req.body.HSNcode,
+      GST: req.body.GST,
     });
     await newItem.save();
 

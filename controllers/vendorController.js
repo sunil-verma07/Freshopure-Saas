@@ -1,3 +1,5 @@
+const mongoose = require('mongoose'); // Add this line at the top of your file
+
 const ErrorHandler = require("../utils/errorhander.js");
 const catchAsyncError = require("../middleware/catchAsyncErrors.js");
 const { getDatabase } = require("../dbClient.js");
@@ -29,6 +31,7 @@ const { generatePaymentToken } = require("../utils/jwtToken.js");
 const hotelVendorLink = require("../models/hotelVendorLink.js");
 const { isPrimitive } = require("util");
 const userDetails = require("../models/userDetails.js");
+const UserDetails = require("../models/userDetails.js");
 const CompiledOrder = require("../models/compiledOrder.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
@@ -1343,6 +1346,685 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     res.status(500).send("Error creating PDF:");
   }
 });
+
+const shareOrder = catchAsyncError(async (req, res, next) => {
+  const { orderId } = req.body;
+
+  try {
+    const orderData = await UserOrder.aggregate([
+      {
+        $match: { _id: new ObjectId(orderId) },
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderStatus",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendorDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$vendorDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderedItems",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Items",
+          localField: "orderedItems.itemId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderedItems.itemDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Category",
+          localField: "orderedItems.itemDetails.categoryId",
+          foreignField: "_id",
+          as: "orderedItems.itemDetails.category",
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderedItems.itemDetails.category",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$_id",
+          orderStatus: { $first: "$orderStatus" },
+          hotelDetails: { $first: "$hotelDetails" },
+          vendorDetails: { $first: "$vendorDetails" },
+          orderedItems: { $push: "$orderedItems" },
+          address: { $first: "$address" },
+          orderNumber: { $first: "$orderNumber" },
+          createdAt: {$first: "$createdAt"}
+        },
+      },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $addFields: {
+          "hotelDetails.userDetails": {
+            $arrayElemAt: ["$hotelDetails.userDetails", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "vendorDetails._id",
+          foreignField: "userId",
+          as: "vendorDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $addFields: {
+          "vendorDetails.userDetails": {
+            $arrayElemAt: ["$vendorDetails.userDetails", 0],
+          },
+        },
+      },
+    ]).allowDiskUse(true);
+
+    const data = orderData[0];
+    // console.log(JSON.stringify(data, null, 2))
+
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "520px",
+        margin: "auto",
+        paddingRight: "10px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "100%",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        textAlign: "left",
+        background: "#f2f2f2",
+        fontSize: "6px",
+      },
+      td: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "6px",
+      },
+      total: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "6px",
+        fontWeight: "600",
+      },
+
+    };
+
+    
+    const date = (createdOnString) => {
+      const createdOn = new Date(createdOnString);
+
+      const options = {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      };
+
+      const formattedDateTime = new Intl.DateTimeFormat(
+        "en-US",
+        options
+      ).format(createdOn);
+
+      return `${formattedDateTime}`;
+    };
+
+    const totalPrice = (items) => {
+      let totalPrice = 0;
+      for (let item of items) {
+        totalPrice +=
+          item.price * item.quantity?.kg +
+          item.price * (item.quantity?.gram / 1000);
+      }
+
+      return totalPrice;
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    let html = `
+    <div style="${generateInlineStyles(styles.container)}">
+      <div style="${generateInlineStyles(styles.header)}">
+        
+        <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
+          styles.logo
+        )} /> -->
+        <div>
+          <h1 style="font-weight:600;font-size:24px;">ORDER</h1>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+      <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Date: ${
+          date(data?.createdAt)
+        } <br/> </p>
+        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
+          data?.orderNumber
+        } <br/> </p>
+      </div>
+      <div style="display:flex;margin-bottom:10px">
+        <div style="border:1px solid #ddd ;flex:1;margin-left:5px;padding:10px">
+          <p style="font-weight:600;font-size:12px;">${
+            data?.hotelDetails?.userDetails?.organization
+          }</p>
+
+           <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;">
+           ${data?.hotelDetails?.userDetails?.fullName}
+          </p>
+
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          ${data?.address?.addressLine1},${data?.address?.addressLine2},${
+      data?.address?.city
+    }
+          ,${data?.address?.pinCode} 
+          </p>
+
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          GSTIN/UIN: ${data?.hotelDetails?.userDetails?.GSTnumber}
+          </p> 
+          
+          
+          <p style="line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+          State Name : ${data?.address?.state}, Code : 08
+          </p>
+        </div>
+      </div>
+      <table style="${generateInlineStyles(styles.table)}">
+        <thead>
+          <tr>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Category</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">HSN Code</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
+            <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">GST</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data?.orderedItems
+            ?.map(
+              (item, index) => `
+            <tr key=${index}>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.name
+              }</td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.category?.name
+              }</td>
+
+               <td style="${generateInlineStyles(
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.HSNcode
+              }</td>
+
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+              ${
+                item?.unit === "kg"
+                  ? item?.quantity?.kg +
+                    " kg   " +
+                    item?.quantity?.gram +
+                    " grams"
+                  : item?.unit === "piece"
+                  ? item?.quantity?.piece + " Pieces"
+                  : item?.quantity?.packet + " Packets"
+              }
+              </td>
+
+              
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
+                2
+              )}</td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                
+
+                ${
+                  item?.unit === "kg"
+                    ? (
+                        item.price * item.quantity?.kg +
+                        item.price * (item.quantity?.gram / 1000)
+                      ).toFixed(2)
+                    : item?.unit === "piece"
+                    ? (item?.quantity?.piece * item.price).toFixed(2)
+                    : (item?.quantity?.packet * item.price).toFixed(2)
+                }
+              </td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.GST
+              }%</td>
+            </tr>
+          `
+            )
+
+            .join("")}
+        </tbody>
+        <tfoot>
+           <tr>
+             <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+              
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+             
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+             
+               <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+              ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
+
+             
+              
+              <td  style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">₹ 0</td>
+    </tr>
+    <tr>
+     <td colspan="7" style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
+              Total : ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
+              </tr>
+  </tfoot>
+      </table>
+      </div>
+    </div>
+  `;
+
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+
+    // Set the content of the page to the provided HTML
+    await page.setContent(html);
+
+    // Generate the PDF stream
+    const pdfBuffer = await page.pdf({ format: "A4" });
+
+    // Set response headers for PDF download
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="generated.pdf"'
+    );
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
+    // Close the Puppeteer browser
+    await browser.close();
+  } catch (error) {
+    console.error("Error creating PDF:", error);
+    res.status(500).send("Error creating PDF:");
+  }
+});
+
+const salesReport = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+  const { startDate, endDate } = req.body;
+  console.log(vendorId);
+
+
+
+
+  try {
+    // Step 1: Fetch sales data grouped by date and organization
+    const salesData = await UserOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) },
+        },
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderStatus",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails.userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            organization: "$hotelDetails.userDetails.organization",
+          },
+          totalSales: { $sum: "$totalPrice" },
+        },
+      },
+      {
+        $sort: { "_id.date": 1, "_id.organization": 1 },
+      },
+    ]).allowDiskUse(true);
+
+    // Step 2: Extract unique organization names and format them
+    const formatOrganizationName = (name) => {
+      return name
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + '.')
+        .join(' ');
+    };
+
+    const organizations = [
+      ...new Set(salesData.map((data) => data._id.organization)),
+    ].map(formatOrganizationName);
+
+    // Step 3: Group sales data by date
+    const groupedSalesData = salesData.reduce((acc, curr) => {
+      const date = curr._id.date;
+      if (!acc[date]) acc[date] = {};
+      acc[date][formatOrganizationName(curr._id.organization)] = curr.totalSales;
+      return acc;
+    }, {});
+
+    // Step 4: Calculate the grand total for each date
+    let overallGrandTotal = 0;
+
+    const totalSalesPerDate = Object.keys(groupedSalesData).map((date) => {
+      let totalSalesForDate = 0;
+      organizations.forEach((org) => {
+        const sales = groupedSalesData[date][org] || 0;
+        totalSalesForDate += sales;
+      });
+      overallGrandTotal += totalSalesForDate;
+      return totalSalesForDate;
+    });
+
+    // Step 5: Construct HTML with dynamic columns, "Total" column, and "Grand Total" row
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "95%",
+        margin: "auto",
+        paddingRight: "20px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "calc(100% - 60px)",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+        marginLeft: "20px",
+        marginRight: "20px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "2px",
+        textAlign: "center",
+        background: "#f2f2f2",
+        fontSize: "10px",
+      },
+      td: {
+        textAlign: "center",
+        border: "1px solid #ddd",
+        padding: "2px",
+        fontSize: "10px",
+      },
+      total: {
+        border: "1px solid #ddd",
+        padding: "2px",
+        fontSize: "10px",
+        fontWeight: "600",
+      },
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    let html = `
+      <div style="${generateInlineStyles(styles.container)}">
+        <div style="${generateInlineStyles(styles.header)}">
+          <div>
+            <h1 style="font-weight:600;font-size:24px;">Sales Report</h1>
+          </div>
+        </div>
+        <table style="${generateInlineStyles(styles.table)}">
+          <thead>
+            <tr>
+              <th style="${generateInlineStyles(styles.th)}">Date</th>
+              ${organizations
+                .map(
+                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                )
+                .join('')}
+              <th style="${generateInlineStyles(styles.th)}">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(groupedSalesData)
+              .map((date, index) => {
+                let totalSalesForDate = 0;
+                const salesRow = organizations
+                  .map((org) => {
+                    const sales = groupedSalesData[date][org] || 0;
+                    totalSalesForDate += sales;
+                    return `<td style="${generateInlineStyles(styles.td)}">${sales.toFixed(2)}</td>`;
+                  })
+                  .join('');
+
+                return `
+                  <tr>
+                    <td style="${generateInlineStyles(styles.td)}">${date}</td>
+                    ${salesRow}
+                    <td style="${generateInlineStyles(styles.td)}">${totalSalesPerDate[index].toFixed(2)}</td>
+                  </tr>`;
+              })
+              .join('')}
+            <tr>
+              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">Grand Total</td>
+              ${organizations
+                .map(() => `<td style="${generateInlineStyles(styles.td)} font-weight: bold;"></td>`)
+                .join('')}
+              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">${overallGrandTotal.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+
+    // Set the content of the page to the provided HTML
+    await page.setContent(html);
+
+    // Generate the PDF stream
+    const pdfBuffer = await page.pdf({ format: "A4",
+      landscape: true,
+     });
+
+    // Set response headers for PDF download
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="generated.pdf"'
+    );
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
+    // Close the Puppeteer browser
+    await browser.close();
+  } catch (error) {
+    console.error("Error creating sales report:", error);
+    res.status(500).send("Error creating sales report");
+  }
+});
+
+
 
 const addItemToStock = catchAsyncError(async (req, res, next) => {
   try {
@@ -2926,7 +3608,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const { quantity, itemId, orderId } = req.body;
 
-    if (!quantity || !itemId || !orderHistoryForVendors) {
+    if (!quantity || !itemId) {
       return res.json({ message: "All Fields are required!" });
     }
 
@@ -4178,6 +4860,10 @@ module.exports = {
   getHotelItemList,
   getAllOrdersbyHotel,
   generateInvoice,
+  shareOrder,
+  salesReport,
+  compiledOrderHotelDetails,
+  compiledOrderHotelDetailsPdf,
   updateStock,
   addItemToStock,
   getVendorStocks,
@@ -4210,6 +4896,5 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
-  compiledOrderHotelDetailsPdf,
-  compiledOrderHotelDetails
+  
 };

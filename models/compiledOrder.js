@@ -30,6 +30,10 @@ const CompiledOrderSchema = new mongoose.Schema({
         piece: Number,
         packet: Number,
       },
+      purchasePrice:{
+        type: Number,
+        default: 0,
+      },
       hotels: [
         {
           hotelId: {

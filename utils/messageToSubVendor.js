@@ -59,6 +59,7 @@ const todayCompiledOrders = async (vendors) => {
         model: 'User'
       }).populate('vendorId');
 
+      // console.log(JSON.stringify(orderData, null, 2));
 
       for (const order of orderData) {
         for (const item of order.items) {

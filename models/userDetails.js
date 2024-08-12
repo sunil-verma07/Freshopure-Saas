@@ -34,11 +34,17 @@ const UserDetailsSchema = new mongoose.Schema({
     type: String,
   },
   GSTnumber: {
-    type: Number,
+    type: String,
   },
   FSSAInumber: {
     type: Number,
   },
+  Category: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    }
+  ],
 });
 
 module.exports = mongoose.model(

@@ -73,11 +73,40 @@ router.post(
   // authMiddleware.authMiddleware,
   vendorcontroller.generateInvoice
 );
+
+router.post(
+  "/shareOrder",
+  // authMiddleware.authMiddleware,
+  vendorcontroller.shareOrder
+);
+
+router.post(
+  "/salesreport",
+  authMiddleware.authMiddleware,
+  vendorcontroller.salesReport
+);
+
+
+router.get(
+  "/compiledorderhoteldetails",
+  authMiddleware.authMiddleware,
+  vendorcontroller.compiledOrderHotelDetails
+);
+
+router.get(
+  "/compiledorderhoteldetailspdf",
+  authMiddleware.authMiddleware,
+  vendorcontroller.compiledOrderHotelDetailsPdf
+);
+
+
+
 router.post(
   "/updateStock",
   authMiddleware.authMiddleware,
   vendorcontroller.updateStock
 );
+
 
 router.post(
   "/updateVendorItemStock",

@@ -236,9 +236,10 @@ const resend = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+
 const profileComplete = catchAsyncErrors(async (req, res, next) => {
   try {
-    const { fullName, organization, role, email, phone, gst, fssai } = req.body;
+    const { fullName, organization, role, email, phone, gst, fssai, addressline1, addressline2, state, city, pincode, category } = req.body;
 
     if (!fullName || !organization || !role || !email || !phone) {
       return res.status(400).json({
@@ -262,22 +263,37 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         email: email,
         organization: organization,
         roleId: roleId,
-        GSTnumber: gst || null, // Assign gst or null if not provided
-        FSSAInumber: fssai || null, // Assign fssai or null if not provided
+        GSTnumber: gst || null,
+        FSSAInumber: fssai || null,
+        Category: category || [],
       });
 
       await newProfile.save();
 
+      // Save the address if provided
+      if (addressline1 || addressline2 || state || city || pincode) {
+        const newAddress = new Address({
+          UserId: user._id,
+          addressLine1: addressline1 || "",
+          addressLine2: addressline2 || "",
+          state: state || "",
+          city: city || "",
+          pinCode: pincode || null, // Assuming pinCode is a number, use null if not provided
+        });
+
+        await newAddress.save();
+      }
+
       await User.findOneAndUpdate(
         { phone: phone },
-        { isProfileComplete: true, isReviewed: true, isApproved: true }
+        { isProfileComplete: true, isReviewed: false, isApproved: true }
       );
 
       const result = await User.aggregate([
         { $match: { _id: user._id } },
         {
           $lookup: {
-            from: "UserDetails", // Name of the UserDetails collection
+            from: "UserDetails",
             localField: "_id",
             foreignField: "userId",
             as: "userDetails",
@@ -285,7 +301,7 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
         },
         {
           $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true },
-        }, // Unwind the userDetails array
+        },
         {
           $addFields: {
             fullName: "$userDetails.fullName",
