@@ -257,8 +257,8 @@ const getSubVendorAssignableItems = catchAsyncErrors(async (req, res, next) => {
       const itemsWithImages = itemsDetails.map(item => {
         const itemImage = images.find(image => image.itemId.toString() === item._id.toString());
         return {
-          itemDetails:item.toObject(), // Convert mongoose document to plain JavaScript object
-          itemImage: itemImage.toObject(), // Add image URL if it exists
+          itemDetails:item, // Convert mongoose document to plain JavaScript object
+          itemImage: itemImage, // Add image URL if it exists
         };
       });
 

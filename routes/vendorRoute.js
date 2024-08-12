@@ -52,11 +52,11 @@ router.get(
   authMiddleware.authMiddleware,
   vendorcontroller.getAllSubVendors
 );
-router.post(
-  "/sendcompiledorders",
-  authMiddleware.authMiddleware,
-  vendorcontroller.sendCompiledOrders
-);
+// router.post(
+//   "/sendcompiledorders",
+//   authMiddleware.authMiddleware,
+//   vendorcontroller.sendCompiledOrders
+// );
 router.post(
   "/gethotelitemlist",
   authMiddleware.authMiddleware,

@@ -74,7 +74,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
         const items = orders[vendorId];
 
         const currentDate = new Date();
-        const startOfDay = new Date(currentDate.setHours(0, 0, 0, 0));
+        const startOfDay = new Date(currentDate.setHours(3, 0, 0, 0));
         const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
 
         const generateOrderNumber = () => {

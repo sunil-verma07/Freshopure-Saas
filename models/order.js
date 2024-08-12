@@ -57,6 +57,5 @@ const HotelOrdersSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Order = mongoose.model("Orders", HotelOrdersSchema);
 
-module.exports = Order;
+module.exports = mongoose.model("Orders", HotelOrdersSchema);

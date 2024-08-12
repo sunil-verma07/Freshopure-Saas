@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
 const ItemSchema = new mongoose.Schema({
     name: {
@@ -15,12 +15,11 @@ const ItemSchema = new mongoose.Schema({
     unit: {
         type: String,
     },
-    isActive:{
+    isActive: {
         type: Boolean,
         required: 'Item activity is required',
-        default:true
-        }
-   
-})
+        default: true,
+    }
+});
 
-module.exports = mongoose.model("Item", ItemSchema, "Items");
+module.exports = mongoose.model("Items", ItemSchema, "Items");

@@ -2,20 +2,43 @@ const HotelVendorLink = require("../models/hotelVendorLink.js");
 const catchAsyncErrors = require("../middleware/catchAsyncErrors.js");
 
 async function sendWhatsappmessge(vendorsOrders) {
-  console.log(vendorsOrders, "orders");
   try {
     function formatDate(date) {
       const options = { day: "numeric", month: "long", year: "numeric" };
       return new Date(date).toLocaleDateString("en-US", options);
     }
 
+    const transformItems = (items) => {
+      return items.map(item => {
+          const { itemName, quantity } = item;
+          const totalKg = quantity.kg + (quantity.gram / 1000);
+  
+          let formattedQuantity;
+          if (totalKg > 0) {
+              formattedQuantity = `${quantity.kg} kg  ${quantity.gram}grams`;
+          } else if (quantity.piece > 0) {
+              formattedQuantity = `${quantity?.piece} piece/pieces`;
+          } else if (quantity.packet > 0) {
+              formattedQuantity = `${quantity.packet} packet/packets`;
+          } else {
+              formattedQuantity = 0; // Handle the case where quantity is zero or none of the conditions are met
+          }
+  
+          return { itemName, quantity: formattedQuantity };
+      });
+  };
+
     function itemDistribution(items) {
+
+      let newItems = transformItems(items)
+
       let str = ``;
-      for (let item of items) {
+      for (let item of newItems) {
         str =
           str +
-          `\\n${item?.itemName} - ${item?.quantity?.kg}Kg ${item?.quantity?.gram}grams \\n`;
+          `\\n${item?.itemName} - ${item?.quantity} \\n`;
       }
+      console.log(str)
       return str;
     }
 

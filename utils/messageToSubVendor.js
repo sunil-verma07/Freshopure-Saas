@@ -16,23 +16,18 @@ const Orders = require("../models/order.js");
 const vendorStock = require("../models/vendorStock.js");
 const puppeteer = require("puppeteer");
 const UserOrder = require("../models/order.js");
-const Items = require("../models/item");
 const { isObjectIdOrHexString, trusted } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
-const item = require("../models/item");
 const role = require("../models/role.js");
+const CompiledOrder = require("../models/compiledOrder");
 
 const messageToSubvendor = async () => {
   try {
     const vendorRoleId = await role.findOne({ name: "Vendor" });
-
     const vendors = await user.find({ roleId: vendorRoleId });
 
-
     const compiledOrders = await todayCompiledOrders(vendors);
-
-
 
     return compiledOrders;
   } catch (error) {
@@ -41,192 +36,133 @@ const messageToSubvendor = async () => {
 };
 
 const todayCompiledOrders = async (vendors) => {
-  // Get the start of today
   const today = new Date();
   today.setHours(3, 0, 0, 0);
 
-  // Get the start of yesterday
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
 
   try {
     let compiledOrders = [];
+
     for (let vendor of vendors) {
       const vendorId = vendor.userId;
 
-      const subVendors = await SubVendor.find({ vendorId: vendorId });
-
-      const orderData = await UserOrder.aggregate([
-        {
-          $match: {
-            vendorId: vendorId,
-            createdAt: { $gte: yesterday, $lt:today },
-          },
-        },
-        {
-          $lookup: {
-            from: "Users",
-            localField: "vendorId",
-            foreignField: "_id",
-            as: "vendorDetails",
-          },
-        },
-        {
-          $unwind: "$vendorDetails",
-        },
-        {
-          $unwind: "$orderedItems", // Unwind orderedItems array
-        },
-        {
-          $lookup: {
-            from: "Items",
-            localField: "orderedItems.itemId",
-            foreignField: "_id",
-            as: "itemDetails",
-          },
-        },
-        {
-          $unwind: "$itemDetails",
-        },
-        {
-          $group: {
-            _id: "$orderedItems.itemId",
-            totalQuantityOrderedGrams: {
-              $sum: {
-                $cond: [
-                  { $eq: ["$itemDetails.unit", "kg"] },
-                  {
-                    $add: [
-                      { $multiply: ["$orderedItems.quantity.kg", 1000] },
-                      "$orderedItems.quantity.gram",
-                    ],
-                  },
-                  0,
-                ],
-              },
-            },
-            totalQuantityOrderedPieces: {
-              $sum: {
-                $cond: [
-                  { $eq: ["$itemDetails.unit", "piece"] },
-                  "$orderedItems.quantity.piece",
-                  0,
-                ],
-              },
-            },
-            totalQuantityOrderedPackets: {
-              $sum: {
-                $cond: [
-                  { $eq: ["$itemDetails.unit", "packet"] },
-                  "$orderedItems.quantity.packet",
-                  0,
-                ],
-              },
-            },
-            itemDetails: { $first: "$itemDetails" },
-            vendorDetails: { $first: "$vendorDetails" },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            totalQuantityOrdered: {
-              $cond: [
-                { $eq: ["$itemDetails.unit", "kg"] },
-                {
-                  kg: {
-                    $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] },
-                  }, // Convert total grams to kg
-                  gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
-                },
-                {
-                  $cond: [
-                    { $eq: ["$itemDetails.unit", "piece"] },
-                    { piece: "$totalQuantityOrderedPieces" },
-                    { packet: "$totalQuantityOrderedPackets" },
-                  ],
-                },
-              ],
-            },
-            itemName: "$itemDetails.name",
-            vendorName: "$vendorDetails.fullName",
-            itemDetails: "$itemDetails",
-            vendorDetails: "$vendorDetails",
-          },
-        },
-      ]);
-      
-      
+      const orderData = await CompiledOrder.find({
+        vendorId: vendorId,
+        date: { $gte: yesterday, $lt: today }
+      }).populate({
+        path: 'items.itemId',
+        model: 'Items'
+      }).populate({
+        path: 'items.hotels.hotelId',
+        model: 'User'
+      }).populate('vendorId');
 
 
       for (const order of orderData) {
-        const subVendor = await SubVendor.findOne({
-          vendorId: vendorId, // Match the vendorId
-          assignedItems: {
-            $elemMatch: { itemId: order?.itemDetails?._id },
-          }, // Match the itemId within assignedItems array
-        });
+        for (const item of order.items) {
+          const subVendor = await SubVendor.findOne({
+            vendorId: vendorId,
+            assignedItems: {
+              $elemMatch: { itemId: item.itemId._id },
+            },
+          });
 
-        if (subVendor) {
-          const subVendorCode = subVendor.subVendorCode;
-          order["subVendorCode"] = subVendorCode;
-          order["subVendorName"] = subVendor.fullName;
-          order["subVendorPhone"] = subVendor.phone;
-        } else {
-          order["subVendorCode"] = "Not Assigned.";
+          if (subVendor) {
+            const subVendorCode = subVendor.subVendorCode;
+            item["subVendorCode"] = subVendorCode;
+            item["subVendorName"] = subVendor.fullName;
+            item["subVendorPhone"] = subVendor.phone;
+          } else {
+            item["subVendorCode"] = "Not Assigned.";
+          }
+
+          if (item.quantityToBeOrdered) {
+            const stock = await vendorStock.findOne({  vendorId: vendorId,
+              items: { $elemMatch: { itemId: item.itemId._id } } });
+            if (stock) {
+              if (item.totalQuantity) {
+                const newQuantity = stock.quantity - Math.min(item.totalQuantity, item.quantityToBeOrdered);
+                stock.quantity = newQuantity;
+                await stock.save();
+              } else {
+                stock.quantity = item.quantityToBeOrdered;
+                await stock.save();
+              }
+            }
+          }
+
+          if (item.totalQuantity) {
+            const vendorItem = await VendorItems.findOne({
+              vendorId: vendorId,
+              items: { $elemMatch: { itemId: item.itemId._id } }
+            });
+            if (vendorItem) {
+              // Update the quantity for the specific item in the array
+              for (let itemEntry of vendorItem.items) {
+                if (itemEntry.itemId.equals(item.itemId._id)) {
+                  itemEntry.quantity = item.totalQuantity;
+                  break;
+                }
+              }
+              await vendorItem.save();
+            }
+          }
         }
       }
-      //   console.log(orderData, "orders");
 
       let vendorArr = [];
-      let obj = {};
-      for (let subVendor of subVendors) {
-        let subVendorArr = orderData.filter(
-          (order) => order.subVendorCode === subVendor.subVendorCode
+      for (let subVendor of await SubVendor.find({ vendorId: vendorId })) {
+        let subVendorArr = orderData.flatMap(order =>
+          order.items.filter(item => item.subVendorCode === subVendor.subVendorCode)
         );
-        // console.log(subVendorArr.length, "subVe");
+        // console.log(JSON.stringify(subVendorArr, null,2))
+
         if (subVendorArr.length === 1) {
-          // vendorArr.push(subVendorArr[0]);
+          let hotelsQuantity = subVendorArr[0].hotels.map(hotel => hotel.quantity);
           let object = {
+            vendorId: vendor.userId,
             vendorName: vendor.fullName,
-            items: [
-              {
-                itemName: subVendorArr[0].itemName,
-                quantity: subVendorArr[0].totalQuantityOrdered,
-              },
-            ],
             subVendorCode: subVendorArr[0].subVendorCode,
             subVendorName: subVendorArr[0].subVendorName,
             subVendorPhone: subVendorArr[0].subVendorPhone,
+            items: [
+              {
+                itemName: subVendorArr[0].itemId.name,
+                quantity: subVendorArr[0].quantityToBeOrdered || subVendorArr[0].totalQuantity,
+                hotelQuantity: hotelsQuantity,
+              }
+            ],
           };
           vendorArr.push(object);
         } else if (subVendorArr.length > 1) {
+          let items = subVendorArr.map(subItem => {
+            let hotelsQuantity = subItem.hotels.map(hotel => hotel.quantity);
+            return {
+              itemName: subItem.itemId.name,
+              quantity: subItem.quantityToBeOrdered || subItem.totalQuantity,
+              hotelQuantity: hotelsQuantity,
+            };
+          });
+
           let object = {
+            vendorId: vendor.userId,
             vendorName: vendor.fullName,
-            items: [],
             subVendorCode: subVendorArr[0].subVendorCode,
             subVendorName: subVendorArr[0].subVendorName,
             subVendorPhone: subVendorArr[0].subVendorPhone,
+            items: items,
           };
-          for (let i = 0; i < subVendorArr.length; i++) {
-            let obj = {
-              itemName: subVendorArr[i].itemName,
-              quantity: subVendorArr[i].totalQuantityOrdered,
-            };
-            // console.log(object, "object");
-            object.items.push(obj);
-          }
-          //   console.log(object, "object");
           vendorArr.push(object);
         }
       }
 
-      //   console.log(vendorArr, "arr");
       compiledOrders.push(...vendorArr);
     }
 
-    // console.log(compiledOrders);
     return compiledOrders;
+
   } catch (error) {
     console.log(error);
     throw error;

@@ -20,7 +20,6 @@ const Items = require("../models/item");
 const { isObjectIdOrHexString, trusted } = require("mongoose");
 const vendorCategories = require("../models/vendorCategories.js");
 const tf = require("@tensorflow/tfjs");
-const item = require("../models/item");
 const { messageToSubvendor } = require("../utils/messageToSubVendor.js");
 const image = require("../models/image.js");
 const OrderStatus = require("../models/orderStatus.js");
@@ -378,19 +377,17 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
+const todayCompiledOrders = catchAsyncError(async (req, res, next) => { 
   const vendorId = req.user._id;
-  const today = new Date(); // Get today's date
-  today.setHours(0, 0, 0, 0); // Set time to the start of the day
+  const today = new Date(); 
+  today.setHours(3, 0, 0, 0); 
 
   try {
-    // Calculate the start and end date for the 3 AM time range
     const startDate = new Date(today);
     const endDate = new Date(today);
     endDate.setDate(endDate.getDate() + 1);
     endDate.setHours(3, 0, 0, 0);
 
-    // Fetch compiled orders within the specified time range
     const compiledOrders = await CompiledOrder.aggregate([
       {
         $match: {
@@ -564,170 +561,6 @@ const getAllSubVendors = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-const sendCompiledOrders = catchAsyncErrors(async (req, res, next) => {
-  try {
-    const vendorId = req.user._id; // Destructure the user object directly
-
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const orderData = await HotelVendorLink.aggregate([
-      {
-        $match: { vendorId: new ObjectId(vendorId) }, // Convert vendorId to ObjectId
-      },
-      {
-        $lookup: {
-          from: "Users",
-          localField: "hotelId",
-          foreignField: "_id",
-          as: "hotelDetails",
-        },
-      },
-      {
-        $unwind: "$hotelDetails",
-      },
-      {
-        $lookup: {
-          from: "orders",
-          let: { hotelId: "$hotelId" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$hotelId", "$$hotelId"] },
-                    { $gte: ["$createdAt", today] }, // Filter orders for today
-                  ],
-                },
-              },
-            },
-          ],
-          as: "hotelOrders",
-        },
-      },
-      {
-        $unwind: "$hotelOrders",
-      },
-      {
-        $unwind: "$hotelOrders.orderedItems", // Unwind orderedItems array
-      },
-      {
-        $group: {
-          _id: "$hotelOrders.orderedItems.itemId",
-          totalQuantityOrderedGrams: {
-            $sum: {
-              $add: [
-                { $multiply: ["$hotelOrders.orderedItems.quantity.kg", 1000] }, // Convert kg to grams
-                "$hotelOrders.orderedItems.quantity.gram", // Add grams
-              ],
-            },
-          }, // Total quantity ordered in grams
-          itemDetails: { $first: "$hotelOrders.orderedItems" }, // Take item details from the first document
-        },
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "_id",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      {
-        $lookup: {
-          from: "Images",
-          localField: "_id",
-          foreignField: "itemId",
-          as: "itemImages",
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          totalQuantityOrdered: {
-            kg: { $floor: { $divide: ["$totalQuantityOrderedGrams", 1000] } }, // Convert total grams to kg
-            gram: { $mod: ["$totalQuantityOrderedGrams", 1000] }, // Calculate remaining grams
-          }, // Total quantity ordered in kg and grams
-          itemDetails: { $arrayElemAt: ["$itemDetails", 0] }, // Get the item details
-          itemImages: { $arrayElemAt: ["$itemImages", 0] }, // Get the item images
-        },
-      },
-    ]);
-
-    const SubVendorsArray = await SubVendor.aggregate([
-      {
-        $match: {
-          vendorId: vendorId,
-          "assignedItems.itemId": {
-            $in: orderData.map((order) => order.itemDetails._id),
-          },
-        }, // Match documents with the specified vendorId and matching assigned itemIds
-      },
-      {
-        $unwind: "$assignedItems", // Deconstruct the assignedItems array
-      },
-      {
-        $match: {
-          "assignedItems.itemId": {
-            $in: orderData.map((order) => order.itemDetails._id),
-          },
-        }, // Match assignedItems with the itemIds from orderData
-      },
-      {
-        $lookup: {
-          from: "Items",
-          localField: "assignedItems.itemId",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      {
-        $unwind: "$itemDetails", // Deconstruct the itemDetails array
-      },
-      {
-        $lookup: {
-          from: "Category",
-          localField: "itemDetails.categoryId",
-          foreignField: "_id",
-          as: "categoryInfo",
-        },
-      },
-      {
-        $unwind: "$categoryInfo", // Deconstruct the categoryInfo array
-      },
-      {
-        $lookup: {
-          from: "Images",
-          localField: "itemDetails._id",
-          foreignField: "itemId",
-          as: "itemImages",
-        },
-      },
-      {
-        $project: {
-          _id: "$_id",
-          vendorId: 1,
-          subVendorPhone: "$phone", // Include the phone number of the subvendor
-          itemId: "$assignedItems.itemId",
-          itemName: "$itemDetails.name",
-          itemDescription: "$itemDetails.description",
-          category: "$categoryInfo.name",
-          itemImages: "$itemImages.img",
-        },
-      },
-    ]);
-
-    //   sendWhatsappmessge();
-    res.json({
-      success: true,
-      SubVendorsArray,
-    });
-    // Handle the fetched data as needed
-  } catch (error) {
-    next(error);
-  }
-});
 
 const getHotelItemList = catchAsyncError(async (req, res, next) => {
   try {
@@ -790,7 +623,6 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
     const vendorId = req.user._id;
     const { date, HotelId } = req.query;
 
-    console.log(HotelId, date, "query");
     const pipeline = [
       {
         $match: {
@@ -1092,6 +924,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           orderedItems: { $push: "$orderedItems" },
           address: { $first: "$address" },
           orderNumber: { $first: "$orderNumber" },
+          createdAt:{ $first: "$createdAt" },
         },
       },
       {
@@ -1130,6 +963,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const data = orderData[0];
 
+
     const styles = {
       container: {
         fontFamily: "Arial, sans-serif",
@@ -1139,6 +973,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         paddingRight: "10px",
         borderRadius: "8px",
         background: "#fff",
+        position:"relative",
       },
       header: {
         display: "flex",
@@ -1197,11 +1032,26 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       for (let item of items) {
         totalPrice +=
           item.price * item.quantity?.kg +
-          item.price * (item.quantity?.gram / 1000);
+          item.price * (item.quantity?.gram / 1000)+
+          item.price * item.quantity?.piece +
+          item.price * item.quantity?.packet;
+
       }
 
       return totalPrice;
     };
+
+
+    function extractDate(dateString) {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+      const day = String(date.getDate()).padStart(2, '0');
+    
+      return `${year}-${month}-${day}`;
+    }
+
+    const currentDate = Date.now()
 
     const generateInlineStyles = (styles) => {
       return Object.keys(styles)
@@ -1216,9 +1066,21 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         <!-- <img src={Logo} alt="Logo" style=${generateInlineStyles(
           styles.logo
         )} /> -->
-        <div>
+        <div style="display:flex;justify-content:"space-between"">
           <h1 style="font-weight:600;font-size:24px;">INVOICE</h1>
         </div>
+
+         <div style="margin-left:auto">
+          <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Order: ${
+          extractDate(data?.createdAt)
+        } <br/> </p>
+
+        <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Billing: ${
+          extractDate(currentDate)
+        } <br/> </p>
+         </div>
+
+
       </div>
       <div style="display:flex;justify-content:space-between">
         <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;">Hello, ${
@@ -1226,9 +1088,12 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         }.<br/>Thank you for shopping from ${
       data?.vendorDetails?.userDetails?.organization
     }.</p>
-        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
+        <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order Number #${
           data?.orderNumber
         } <br/> </p>
+
+         
+
       </div>
       <div style="display:flex;margin-bottom:10px">
         <div style="border:1px solid #ddd ;flex:1;margin-right:5px;padding:10px">
@@ -1282,6 +1147,9 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       <table style="${generateInlineStyles(styles.table)}">
         <thead>
           <tr>
+          <th style="${generateInlineStyles(
+              styles.th
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">S. No.</th>
             <th style="${generateInlineStyles(
               styles.th
             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
@@ -1310,6 +1178,11 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             ?.map(
               (item, index) => `
             <tr key=${index}>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                index
+              }</td>
               <td style="${generateInlineStyles(
                 styles.td
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
@@ -1444,6 +1317,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -1465,7 +1339,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     // Close the Puppeteer browser
     await browser.close();
   } catch (error) {
-    // console.error("Error creating PDF:", error);
+    console.error("Error creating PDF:", error);
     res.status(500).send("Error creating PDF:");
   }
 });
@@ -1693,6 +1567,13 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
         continue; // Skip if item not found
       }
 
+      console.log(item,'item')
+
+      let vendorAvgPrice = item.totalPrice/(item.totalQuantity.kg + (item.totalQuantity.gram/1000) + item.totalQuantity.piece + item.totalQuantity.packet)
+
+      console.log(vendorAvgPrice,'avg price')
+
+
       const category = await Items.findOne({ _id: itemId });
       // console.log(category, "category");
       // Create new HotelItemPrice document
@@ -1701,7 +1582,7 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
         hotelId,
         itemId,
         categoryId: category.categoryId,
-        todayCostPrice: item.todayCostPrice,
+        todayCostPrice: (vendorAvgPrice ? vendorAvgPrice : 0),
         todayPercentageProfit: 0,
         showPrice: true, // Default to true if not provided
       });
@@ -1746,15 +1627,15 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
 
     let allItemsIds = [];
 
-    const items = await VendorItems.findOne({ vendorId: vendorId }).select(
-      "items"
-    );
+    const items = await VendorItems.findOne({ vendorId: vendorId })
 
-    items.items.map((item) => {
-      if (item.todayCostPrice !== 0) {
+
+    items?.items?.map((item) => {
         allItemsIds.push(item.itemId);
-      }
     });
+
+    // console.log(allItemsIds)
+
 
     // console.log(allItemsIds, "all");
 
@@ -1765,12 +1646,11 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
 
     const assignedItemIds = hotelItems.map((item) => item.itemId.toString());
 
+
     // Filter out items from allItemsIds that are not present in assignedItemIds
     const notAssignedItemIds = allItemsIds.filter(
-      (item) => item._id && !assignedItemIds.includes(item._id.toString())
+      (item) => item && !assignedItemIds.includes(item.toString())
     );
-
-    // console.log(hotelItems);
 
     let assignItems = [];
 
@@ -1780,9 +1660,9 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
         itemDetails: null,
       };
 
-      const itemDetails = await Items.findOne({
-        _id: new ObjectId(item._id),
-      });
+
+      const itemDetails = await Items.findOne({_id:item});
+
 
       newItem.itemDetails = itemDetails;
 
@@ -2256,7 +2136,6 @@ const setVendorItemPrice = catchAsyncError(async (req, res, next) => {
         if (hotelLink.isPriceFixed !== true) {
           if (item.pastPercentageProfits.length > 3) {
             let newProfitPercentage;
-            console.log("here1");
 
             // Ensure newProfitPercentage is not negative
             do {
@@ -2784,6 +2663,14 @@ const getItemAnalytics = catchAsyncError(async (req, res, next) => {
   }
 });
 
+let model; // Define the model variable globally
+
+function normalizeData(data) {
+  const mean = data.reduce((acc, val) => acc + val, 0) / data.length;
+  const std = Math.sqrt(data.map(x => Math.pow(x - mean, 2)).reduce((acc, val) => acc + val, 0) / data.length);
+  return data.map(x => (x - mean) / std);
+}
+
 async function freshoCalculator(lastTenDaysProfitPercentage) {
   try {
     if (!Array.isArray(lastTenDaysProfitPercentage)) {
@@ -2792,18 +2679,23 @@ async function freshoCalculator(lastTenDaysProfitPercentage) {
       );
     }
 
-    // Pad the input array with zeros if it has less than 10 elements
+    // Pad and normalize the input array
     const paddedInput = lastTenDaysProfitPercentage.concat(
       Array(10 - lastTenDaysProfitPercentage.length).fill(0)
     );
+    const normalizedInput = normalizeData(paddedInput);
 
-    const model = await initModel(); // Initialize model
-    const prediction = await model.predict(tf.tensor2d([paddedInput])); // Predict using padded input
+    // Initialize model if it hasn't been initialized yet
+    if (!model) {
+      model = await initModel();
+    }
+
+    const prediction = await model.predict(tf.tensor2d([normalizedInput]));
     const predictionValue = (await prediction.array())[0][0];
     return predictionValue;
   } catch (error) {
     console.error("Error:", error.message);
-    return null; // Return null if prediction fails
+    return null;
   }
 }
 
@@ -2827,11 +2719,13 @@ async function initModel() {
 
 function createModel() {
   const model = tf.sequential();
-  model.add(tf.layers.dense({ units: 50, inputShape: [10] }));
+  model.add(tf.layers.dense({ units: 64, inputShape: [10], activation: 'relu' }));
+  model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
   model.add(tf.layers.dense({ units: 1 }));
   model.compile({ optimizer: "adam", loss: "meanSquaredError" });
   return model;
 }
+
 
 const updateHotelItemProfit = async (req, res, next) => {
   try {
@@ -2913,14 +2807,16 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
   try {
     // Get the start of today
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(3, 0, 0, 0);
 
     // Get the start of yesterday
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
 
+    
+
     const response = await messageToSubvendor();
-    console.log(response, "res");
+
 
     await sendWhatsappmessge(response);
 
@@ -2933,7 +2829,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
         $set: { orderStatus: statusId._id },
       }
     );
-    res.status(200).json({ data: response });
+    res.status(200).json({ response });
   } catch (error) {
     console.log(error);
     res.status(400).json({ error: error });
@@ -3042,12 +2938,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const orderStatus = await OrderStatus.findOne({ _id: order.orderStatus });
 
-    if (orderStatus.status !== "Order Placed") {
-      return res.json({
-        message: "Not Authorized to change Quantity of orders in process!",
-      });
-    }
-
+  
     // Find the index of the ordered item in the orderedItems array
     const orderedItemIndex = order.orderedItems.findIndex(
       (item) => item.itemId.toString() === itemId
@@ -3088,7 +2979,6 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const update = newPrice - oldPrice;
 
-    console.log(order, "orderr");
     // Update the quantity of the ordered item
     order.orderedItems[orderedItemIndex].quantity = quantity;
     order.totalPrice = order.totalPrice + update;
@@ -3224,18 +3114,112 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
 
 const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
   try {
-    const { vendorId } = req.user._id;
+    const  vendorId = req.user._id;
+
     const { orderNumber, status } = req.body;
-    console.log(orderNumber, status, "this");
+
 
     if (orderNumber === undefined || status === "") {
-      console.log("reached here");
       return res.status(400).json({ message: "Invalid OrderNumber" });
     }
 
-    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+    const order = await UserOrder.findOne({ orderNumber: orderNumber }).populate('orderedItems');
 
     const statusId = await OrderStatus.findOne({ status: status });
+   
+
+    if(status === "Cancelled"){
+
+
+      const { hotelId, orderedItems } = order;
+
+
+       // Get the current date
+    const currentDate = new Date();
+    
+    // Set the start time to 3 AM of the current day
+    const startTime = new Date(currentDate);
+    startTime.setHours(3, 0, 0, 0);
+
+    // Set the end time to 2:59:59 AM of the following day
+    const endTime = new Date(currentDate);
+    endTime.setHours(26, 59, 59, 999);
+
+
+    // Find the compiled order for the vendor and the specific time range
+    const compiledOrder = await CompiledOrder.findOne({
+      vendorId: vendorId,
+      date: { $gte: startTime, $lt: endTime },
+    });
+
+
+    if (!compiledOrder) {
+      throw new Error('Compiled order not found');
+    }
+
+    // Iterate over each item in the canceled order
+    orderedItems.forEach((orderedItem) => {
+      const compiledItem = compiledOrder.items.find(item => item.itemId.toString() === orderedItem.itemId.toString());
+    
+      if (compiledItem) {
+        // Find the hotel entry in the compiled item's hotels array
+        const hotelEntry = compiledItem.hotels.find(hotel => hotel.hotelId.toString() === hotelId.toString());
+    
+        if (hotelEntry) {
+          // Deduct the quantity
+          hotelEntry.quantity.kg -= orderedItem.quantity.kg || 0;
+          hotelEntry.quantity.gram -= orderedItem.quantity.gram || 0;
+          hotelEntry.quantity.piece -= orderedItem.quantity.piece || 0;
+          hotelEntry.quantity.packet -= orderedItem.quantity.packet || 0;
+    
+          // Adjust kg and gram if grams become negative
+          if (hotelEntry.quantity.gram < 0) {
+            hotelEntry.quantity.kg -= 1;
+            hotelEntry.quantity.gram += 1000;  // Adjust grams to a positive value by adding 1000
+          }
+    
+          // If the hotel's quantity is zero, remove the hotel entry from the array
+          if (hotelEntry.quantity.kg <= 0 && hotelEntry.quantity.gram <= 0 &&
+              hotelEntry.quantity.piece <= 0 && hotelEntry.quantity.packet <= 0) {
+            compiledItem.hotels = compiledItem.hotels.filter(hotel => hotel.hotelId.toString() !== hotelId.toString());
+          }
+        }
+    
+        // Deduct the quantity from the compiled item's totalQuantity
+        compiledItem.totalQuantity.kg -= orderedItem.quantity.kg || 0;
+        compiledItem.totalQuantity.gram -= orderedItem.quantity.gram || 0;
+        compiledItem.totalQuantity.piece -= orderedItem.quantity.piece || 0;
+        compiledItem.totalQuantity.packet -= orderedItem.quantity.packet || 0;
+    
+        // Adjust kg and gram if grams become negative for the total quantity
+        if (compiledItem.totalQuantity.gram < 0) {
+          compiledItem.totalQuantity.kg -= 1;
+          compiledItem.totalQuantity.gram += 1000;  // Adjust grams to a positive value by adding 1000
+        }
+    
+        // Check if totalQuantity is zero
+        const isTotalQuantityZero = compiledItem.totalQuantity.kg <= 0 &&
+                                    compiledItem.totalQuantity.gram <= 0 &&
+                                    compiledItem.totalQuantity.piece <= 0 &&
+                                    compiledItem.totalQuantity.packet <= 0;
+    
+        // Check if hotels array is empty
+        const isHotelsArrayEmpty = compiledItem.hotels.length === 0;
+    
+        // If totalQuantity is zero or hotels array is empty, remove the item
+        if (isTotalQuantityZero || isHotelsArrayEmpty) {
+          compiledOrder.items = compiledOrder.items.filter(item => item.itemId.toString() !== compiledItem.itemId.toString());
+        }
+      }
+    });
+    
+
+    // Save the updated compiled order
+    await compiledOrder.save();
+
+
+    }
+
     const updatedOrder = await UserOrder.findOneAndUpdate(
       { orderNumber: orderNumber },
       { $set: { orderStatus: statusId?._id } },
@@ -3310,25 +3294,20 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
     const { hotelId, itemId, newPrice } = req.body;
 
     if (!hotelId || !itemId || !newPrice) {
-      return res.status(400).json({ message: "HotelId not received!" });
+      return res.status(400).json({ message: "Required fields are missing!" });
     }
 
-    // Find all items assigned to hotelFrom
-    const hotelLink = await hotelVendorLink.find({
-      vendorId: vendorId,
-      hotelId: hotelId,
-    });
-
-    const vendor = await VendorItems.find({ vendorId: vendorId }).select(
-      "items"
-    );
-
-    const vendorPrice = vendor[0]?.items?.filter(
+    // Find the vendor's item details
+    const vendor = await VendorItems.findOne({ vendorId: vendorId }).select("items");
+    const vendorPrice = vendor?.items?.find(
       (item) => item?.itemId.toString() === itemId?.toString()
     );
 
-    // console.log(vendorPrice[0], "vp");
+    let vendorAvgPrice = vendorPrice ? vendorPrice.totalPrice / 
+      (vendorPrice.totalQuantity.kg + (vendorPrice.totalQuantity.gram / 1000) + 
+      vendorPrice.totalQuantity.piece + vendorPrice.totalQuantity.packet) : 1;
 
+    // Update today's price and profit margin
     const item = await hotelItemPrice.findOne({
       vendorId: vendorId,
       hotelId: hotelId,
@@ -3337,18 +3316,65 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
 
     item.todayCostPrice = newPrice;
 
-    const profit = newPrice - vendorPrice[0].todayCostPrice;
-    const percen = (profit / vendorPrice[0].todayCostPrice) * 100;
-    item.todayPercentageProfit = parseFloat(percen).toFixed(2);
+    const profit = newPrice - vendorAvgPrice;
+    const percent = (profit / newPrice) * 100;
+    item.todayPercentageProfit = parseFloat(percent).toFixed(2);
+
+    function pushProfitPercent(value) {
+      if (item?.pastPercentageProfits.length >= 10) {
+        item?.pastPercentageProfits.shift(); // Remove the first element if the array length is 10 or more
+      }
+      item?.pastPercentageProfits.push(value); // Push the new value
+    }
+
+    console.log(item?.todayPercentageProfit,'profit percentage')
+
+    pushProfitPercent((item?.todayPercentageProfit/100).toFixed(3))
 
     await item.save();
 
-    return res.json({ message: "Price Updated successfully!" });
+    const deliveredOrderStatus = await OrderStatus.findOne({status:"Delivered"})
+    // Fetch orders from the last two days that are not delivered
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    const undeliveredOrders = await Orders.find({
+      vendorId: vendorId,
+      hotelId: hotelId,
+      createdAt: { $gte: twoDaysAgo },
+      orderStatus: { $ne: deliveredOrderStatus._id }
+    });
+
+    // Update price in orders and recalculate total price
+    for (const order of undeliveredOrders) {
+      let orderUpdated = false;
+
+      order.orderedItems.forEach(orderedItem => {
+        if (orderedItem.itemId.toString() === itemId.toString()) {
+          orderedItem.price = newPrice;
+          orderUpdated = true;
+        }
+      });
+
+      if (orderUpdated) {
+        order.totalPrice = order.orderedItems.reduce((total, orderedItem) => {
+          const itemTotal = (orderedItem.quantity.kg || 0) * orderedItem.price +
+                            (orderedItem.quantity.gram || 0) / 1000 * orderedItem.price +
+                            (orderedItem.quantity.piece || 0) * orderedItem.price +
+                            (orderedItem.quantity.packet || 0) * orderedItem.price;
+          return total + itemTotal;
+        }, 0);
+
+        await order.save();
+      }
+    }
+
+    return res.json({ message: "Price Updated successfully!",newProfitPercentage:percent });
   } catch (error) {
-    // Pass any errors to the error handling middleware
     next(error);
   }
 });
+
 
 const changeHotelType = catchAsyncError(async (req, res, next) => {
   try {
@@ -3589,6 +3615,94 @@ const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
     // Save the changes
     await vendorItem.save();
 
+
+    const avgPriceOfItem = itemToBeUpdated?.totalPrice/
+    (itemToBeUpdated?.totalQuantity?.kg + itemToBeUpdated?.totalQuantity?.gram/1000 + itemToBeUpdated?.totalQuantity?.piece + itemToBeUpdated?.totalQuantity?.packet > 0 ?
+      itemToBeUpdated?.totalQuantity?.kg + itemToBeUpdated?.totalQuantity?.gram/1000 + itemToBeUpdated?.totalQuantity?.piece + itemToBeUpdated?.totalQuantity?.packet : 1 
+    )
+
+
+    // const allVariableHotels = await HotelItemPrice.find({
+    //   vendorId: vendorId,
+    //   isPriceFixed:false
+    // });
+
+    // console.log(allVariableHotels,'all Variable Hotels')
+    
+
+
+
+    // if (itemsToBeChange.length > 0) {
+    //   for (const item of itemsToBeChange) {
+
+    //     const hotelLink = await hotelVendorLink.findOne({
+    //       hotelId: item.hotelId,
+    //       vendorId: vendorId,
+    //       isPriceFixed:false
+    //     });
+
+    //     console.log(hotelLink)
+      
+    //       if(hotelLink){
+    //         if (item.pastPercentageProfits.length >= 3) {
+    //           let newProfitPercentage;
+  
+    //             newProfitPercentage = await freshoCalculator(
+    //               item.pastPercentageProfits
+    //             );
+           
+    //           const updatedCostPrice = avgPriceOfItem + newProfitPercentage * avgPriceOfItem;
+  
+    //           console.log(updatedCostPrice,'updatedCostPrice')
+  
+    //           const doc = await HotelItemPrice.findOneAndUpdate(
+    //             { itemId: item.itemId, vendorId: vendorId },
+    //             {
+    //               $set: {
+    //                 todayCostPrice: parseFloat(updatedCostPrice).toFixed(2),
+    //                 todayPercentageProfit:
+    //                   parseFloat(newProfitPercentage).toFixed(2),
+    //               },
+    //               $push: {
+    //                 pastPercentageProfits: {
+    //                   $each: [parseFloat(newProfitPercentage).toFixed(2)],
+    //                   $position: 0,
+    //                   $slice: 10,
+    //                 },
+    //               },
+    //             },
+    //             { new: true }
+    //           );
+  
+    //           console.log(doc,'doc')
+  
+          
+    //         } else {
+  
+    //           let newProfitPercentage;
+  
+    //             newProfitPercentage = await freshoCalculator(
+    //               item.pastPercentageProfits
+    //             );
+  
+    //           const doc = await HotelItemPrice.findOneAndUpdate(
+    //             { itemId: item.itemId, vendorId: vendorId },
+    //             {
+    //               $push: {
+    //                 pastPercentageProfits: {
+    //                   $each: [parseFloat(newProfitPercentage).toFixed(2)],
+    //                   $position: 0,
+    //                   $slice: 10,
+    //                 },
+    //               },
+    //             },
+    //             { new: true }
+    //           );
+    //         }
+    //       }
+    //  }
+    // }
+
     // Send success response
     res.json({ message: "Items updated successfully", data: vendorItem });
   } catch (error) {
@@ -3648,7 +3762,7 @@ const updateVendorItemWaste = catchAsyncError(async (req, res, next) => {
     } else {
       // Add new waste entry
       itemToBeUpdated.waste.push({
-        wasteId: new mongoose.Types.ObjectId(),
+        wasteId: new ObjectId(),
         date: Date.now(),
         quantity: quantity, // Assuming quantity is an object with kg, gram, piece, and packet
         reason: reason,
@@ -3736,6 +3850,324 @@ const updateCompiledItemQuantity = catchAsyncError(async (req, res, next) => {
 });
 
 
+const compiledOrderHotelDetails = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  try {
+    // Get today's date
+    const today = new Date();
+    today.setHours(3, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Step 1: Fetch compiled orders for today
+    const ordersToday = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          date: { $gte: today, $lt: tomorrow }, // Filter by today's date
+        },
+      },
+      {
+        $unwind: "$items", // Unwind items array to work with individual items
+      },
+      {
+        $unwind: "$items.hotels", // Unwind hotels array to work with individual hotel entries
+      },
+      {
+        $lookup: {
+          from: "Users", // Collection containing hotel details
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails", // Unwind the hotelDetails array
+      },
+      {
+        $lookup: {
+          from: "UserDetails", // Collection containing additional user details
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails.userDetails", // Unwind the userDetails array
+      },
+      {
+        $group: {
+          _id: {
+            _id: "$_id",
+            date: "$date",
+            itemId: "$items.itemId",
+            totalQuantity: "$items.totalQuantity",
+            quantityToBeOrder: "$items.quantityToBeOrder",
+            purchasePrice: "$items.purchasePrice",
+          },
+          hotels: {
+            $push: {
+              hotelName: "$hotelDetails.userDetails.organization", // Hotel name from UserDetails
+              fullName: "$hotelDetails.userDetails.fullName", // Full name from UserDetails
+              email: "$hotelDetails.userDetails.email", // Email from UserDetails
+              GSTnumber: "$hotelDetails.userDetails.GSTnumber", // GST number from UserDetails
+              quantity: "$items.hotels.quantity", // Quantity of the item for each hotel
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: "$_id._id",
+          date: "$_id.date",
+          itemId: "$_id.itemId",
+          totalQuantity: "$_id.totalQuantity",
+          quantityToBeOrder: "$_id.quantityToBeOrder",
+          purchasePrice: "$_id.purchasePrice",
+          hotels: 1,
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]).allowDiskUse(true);
+
+    res.status(200).send(ordersToday);
+
+
+  } catch (error) {
+    console.error("Error getting hotel details:", error);
+    res.status(500).send("Error getting hotel details");
+  }
+});
+
+
+const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  try {
+    // Get today's date
+    const today = new Date();
+    today.setHours(3, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Step 1: Fetch compiled orders for today
+    const ordersToday = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          date: { $gte: today, $lt: tomorrow }, // Filter by today's date
+        },
+      },
+      {
+        $unwind: "$items", // Unwind items array to work with individual items
+      },
+      {
+        $unwind: "$items.hotels", // Unwind hotels array to work with individual hotel entries
+      },
+      {
+        $lookup: {
+          from: "Items", // Collection containing item details
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails", // Unwind the itemDetails array
+      },
+      {
+        $lookup: {
+          from: "Users", // Collection containing hotel details
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails", // Unwind the hotelDetails array
+      },
+      {
+        $lookup: {
+          from: "UserDetails", // Collection containing additional user details
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails.userDetails", // Unwind the userDetails array
+      },
+      {
+        $group: {
+          _id: {
+            itemId: "$items.itemId",
+            itemName: "$itemDetails.name", // Include item name
+          },
+          totalQuantity: { $first: "$items.totalQuantity" }, // Use the totalQuantity from pipeline
+          hotels: {
+            $push: {
+              organization: "$hotelDetails.userDetails.organization", // Hotel organization from UserDetails
+              quantity: "$items.hotels.quantity", // Quantity for each hotel
+            },
+          },
+        },
+      },
+      {
+        $sort: { "_id.itemId": 1 },
+      },
+    ]).allowDiskUse(true);
+
+    // Step 2: Extract unique hotel organizations
+    const organizations = [
+      ...new Set(ordersToday.flatMap((order) => order.hotels.map((hotel) => hotel.organization))),
+    ];
+
+    // Step 3: Construct HTML with dynamic columns and total quantity per item
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "95%",
+        margin: "auto",
+        paddingRight: "20px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "calc(100% - 60px)",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+        marginLeft: "20px",
+        marginRight: "20px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        textAlign: "center",
+        background: "#f2f2f2",
+        fontSize: "10px",
+      },
+      td: {
+        textAlign: "center",
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "10px",
+      },
+      total: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "10px",
+        fontWeight: "600",
+      },
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    // Function to format quantities
+    const formatQuantity = (quantity) => {
+      const parts = [];
+      if (quantity.kg > 0) parts.push(`${quantity.kg} kg`);
+      if (quantity.gram > 0) parts.push(`${quantity.gram} gram`);
+      if (quantity.piece > 0) parts.push(`${quantity.piece} piece`);
+      if (quantity.packet > 0) parts.push(`${quantity.packet} packet`);
+      return parts.length > 0 ? parts.join(', ') : '0';
+    };
+
+    let html = `
+      <div style="${generateInlineStyles(styles.container)}">
+        <div style="${generateInlineStyles(styles.header)}">
+          <div>
+            <h1 style="font-weight:600;font-size:24px;">Compiled Order Hotel Details</h1>
+          </div>
+        </div>
+        <table style="${generateInlineStyles(styles.table)}">
+          <thead>
+            <tr>
+              <th style="${generateInlineStyles(styles.th)}">Item Name</th>
+              ${organizations
+                .map(
+                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                )
+                .join('')}
+              <th style="${generateInlineStyles(styles.th)}">Total Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ordersToday.map(order => {
+              const itemName = order._id.itemName;
+              const totalQuantity = order.totalQuantity;
+
+              const quantityRow = organizations
+                .map((org) => {
+                  const hotel = order.hotels.find(h => h.organization === org);
+                  const quantity = hotel ? formatQuantity(hotel.quantity) : '0';
+                  return `<td style="${generateInlineStyles(styles.td)}">${quantity}</td>`;
+                })
+                .join('');
+
+              const totalQuantityStr = formatQuantity(totalQuantity);
+
+              return `
+                <tr>
+                  <td style="${generateInlineStyles(styles.td)}">${itemName}</td>
+                  ${quantityRow}
+                  <td style="${generateInlineStyles(styles.td)}">${totalQuantityStr}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Step 4: Generate the PDF using Puppeteer
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: '/usr/bin/chromium-browser'
+    });
+    const page = await browser.newPage();
+
+    // Set the content of the page to the generated HTML
+    await page.setContent(html);
+
+    // Generate the PDF stream
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      landscape: true,
+    });
+
+    // Set response headers for PDF download
+    res.setHeader("Content-Disposition", 'attachment; filename="compiled_order_hotel_details.pdf"');
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
+
+    // Close the Puppeteer browser
+    await browser.close();
+
+  } catch (error) {
+    console.error("Error generating PDF for compiled order hotel details:", error);
+    res.status(500).send("Error generating PDF for compiled order hotel details");
+  }
+});
+
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -3743,7 +4175,6 @@ module.exports = {
   todayCompiledOrders,
   vendorItem,
   getAllSubVendors,
-  sendCompiledOrders,
   getHotelItemList,
   getAllOrdersbyHotel,
   generateInvoice,
@@ -3779,4 +4210,6 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
+  compiledOrderHotelDetailsPdf,
+  compiledOrderHotelDetails
 };
