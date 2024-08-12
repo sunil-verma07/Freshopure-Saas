@@ -1754,6 +1754,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -1996,6 +1997,7 @@ const salesReport = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -2023,8 +2025,6 @@ const salesReport = catchAsyncError(async (req, res, next) => {
     res.status(500).send("Error creating sales report");
   }
 });
-
-
 
 const addItemToStock = catchAsyncError(async (req, res, next) => {
   try {
