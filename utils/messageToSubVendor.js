@@ -172,4 +172,4 @@ const todayCompiledOrders = async (vendors) => {
   }
 };
 
-module.exports = { messageToSubvendor };
+module.exports = { messageToSubvendor };

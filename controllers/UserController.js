@@ -321,7 +321,6 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-
 const setProfileImage = catchAsyncErrors(async (req, res, next) => {
   try {
     // console.log(req, "req");

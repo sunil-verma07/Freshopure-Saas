@@ -3923,7 +3923,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     const response = await messageToSubvendor();
     console.log(response, "res");
 
-    // await sendWhatsappmessge(response); 
+    await sendWhatsappmessge(response);
 
     const statusId = await OrderStatus.findOne({ status: "In Process" });
     const orders = await UserOrder.updateMany(
@@ -4256,54 +4256,6 @@ const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-// const addCategoryToUserDetail = catchAsyncError(async (req, res, next) => {
-//   try {
-//     const vendorId = req.user._id; // Get the vendorId directly from the authenticated user
-//     let { categoryId } = req.body; // Expecting category ID(s) from the request body
-
-//     console.log(vendorId); // Log the vendorId to verify it's correctly extracted
-//     console.log(categoryId); // Log the categoryId to verify the request body content
-
-//     // Ensure categoryId is an array; if it's a single value, convert it to an array
-//     if (!Array.isArray(categoryId)) {
-//       categoryId = [categoryId];
-//     }
-
-//     // Convert categoryId(s) to ObjectId(s)
-//     const validCategoryIds = categoryId.map((id) => new mongoose.Types.ObjectId(id));
-
-//     // Find the user's details using the vendorId
-//     const userDetails = await UserDetails.findOne({ userId: vendorId });
-
-//     // If user details are not found, return a 404 error
-//     if (!userDetails) {
-//       return res.status(404).json({ error: "User details not found." });
-//     }
-
-//     // Ensure the Category field is initialized as an array
-//     if (!userDetails.Category) {
-//       userDetails.Category = [];
-//     }
-
-//     // Add the new category ID(s) to the user's categories
-//     userDetails.Category.push(...validCategoryIds);
-
-//     // Save the updated user details to the database
-//     await userDetails.save();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Categories added successfully!",
-//       data: userDetails,
-//     });
-//   } catch (error) {
-//     console.log("Error:", error);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// });
-
-
 
 const importAssignedItems = catchAsyncError(async (req, res, next) => {
   try {
@@ -4832,5 +4784,4 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
-  // addCategoryToUserDetail,
 };

@@ -100,17 +100,13 @@ router.get(
 );
 
 
+
 router.post(
   "/updateStock",
   authMiddleware.authMiddleware,
   vendorcontroller.updateStock
 );
 
-// router.post(
-//   "/addcategorytouserdetail",
-//   authMiddleware.authMiddleware,
-//   vendorcontroller.addCategoryToUserDetail
-// );
 
 router.post(
   "/updateVendorItemStock",
