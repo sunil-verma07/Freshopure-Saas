@@ -3,7 +3,7 @@ const User = require("./user");
 
 const addressSchema = new mongoose.Schema(
   {
-    HotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    UserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addressLine1: { type: String },
     addressLine2: { type: String },
     state: { type: String, required: true },

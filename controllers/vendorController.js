@@ -1,3 +1,5 @@
+const mongoose = require('mongoose'); // Add this line at the top of your file
+
 const ErrorHandler = require("../utils/errorhander.js");
 const catchAsyncError = require("../middleware/catchAsyncErrors.js");
 const { getDatabase } = require("../dbClient.js");
@@ -30,6 +32,7 @@ const { generatePaymentToken } = require("../utils/jwtToken.js");
 const hotelVendorLink = require("../models/hotelVendorLink.js");
 const { isPrimitive } = require("util");
 const userDetails = require("../models/userDetails.js");
+const UserDetails = require("../models/userDetails.js");
 const CompiledOrder = require("../models/compiledOrder.js");
 
 const setHotelItemPrice = catchAsyncError(async (req, res, next) => {
@@ -1604,7 +1607,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
     ]).allowDiskUse(true);
 
     const data = orderData[0];
-    console.log(data)
+    // console.log(JSON.stringify(data, null, 2))
 
     const styles = {
       container: {
@@ -1651,6 +1654,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
 
     };
 
+    
     const date = (createdOnString) => {
       const createdOn = new Date(createdOnString);
 
@@ -1901,6 +1905,570 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
     res.status(500).send("Error creating PDF:");
   }
 });
+
+const salesReport = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+  const { startDate, endDate } = req.body;
+  console.log(vendorId);
+
+
+
+
+  try {
+    // Step 1: Fetch sales data grouped by date and organization
+    const salesData = await UserOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) },
+        },
+      },
+      {
+        $lookup: {
+          from: "orderstatuses",
+          localField: "orderStatus",
+          foreignField: "_id",
+          as: "orderStatus",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$orderStatus",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "Users",
+          localField: "hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "UserDetails",
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+          pipeline: [{ $limit: 1 }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$hotelDetails.userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            organization: "$hotelDetails.userDetails.organization",
+          },
+          totalSales: { $sum: "$totalPrice" },
+        },
+      },
+      {
+        $sort: { "_id.date": 1, "_id.organization": 1 },
+      },
+    ]).allowDiskUse(true);
+
+    // Step 2: Extract unique organization names and format them
+    const formatOrganizationName = (name) => {
+      return name
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + '.')
+        .join(' ');
+    };
+
+    const organizations = [
+      ...new Set(salesData.map((data) => data._id.organization)),
+    ].map(formatOrganizationName);
+
+    // Step 3: Group sales data by date
+    const groupedSalesData = salesData.reduce((acc, curr) => {
+      const date = curr._id.date;
+      if (!acc[date]) acc[date] = {};
+      acc[date][formatOrganizationName(curr._id.organization)] = curr.totalSales;
+      return acc;
+    }, {});
+
+    // Step 4: Calculate the grand total for each date
+    let overallGrandTotal = 0;
+
+    const totalSalesPerDate = Object.keys(groupedSalesData).map((date) => {
+      let totalSalesForDate = 0;
+      organizations.forEach((org) => {
+        const sales = groupedSalesData[date][org] || 0;
+        totalSalesForDate += sales;
+      });
+      overallGrandTotal += totalSalesForDate;
+      return totalSalesForDate;
+    });
+
+    // Step 5: Construct HTML with dynamic columns, "Total" column, and "Grand Total" row
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "95%",
+        margin: "auto",
+        paddingRight: "20px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "calc(100% - 60px)",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+        marginLeft: "20px",
+        marginRight: "20px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "2px",
+        textAlign: "center",
+        background: "#f2f2f2",
+        fontSize: "10px",
+      },
+      td: {
+        textAlign: "center",
+        border: "1px solid #ddd",
+        padding: "2px",
+        fontSize: "10px",
+      },
+      total: {
+        border: "1px solid #ddd",
+        padding: "2px",
+        fontSize: "10px",
+        fontWeight: "600",
+      },
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    let html = `
+      <div style="${generateInlineStyles(styles.container)}">
+        <div style="${generateInlineStyles(styles.header)}">
+          <div>
+            <h1 style="font-weight:600;font-size:24px;">Sales Report</h1>
+          </div>
+        </div>
+        <table style="${generateInlineStyles(styles.table)}">
+          <thead>
+            <tr>
+              <th style="${generateInlineStyles(styles.th)}">Date</th>
+              ${organizations
+                .map(
+                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                )
+                .join('')}
+              <th style="${generateInlineStyles(styles.th)}">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(groupedSalesData)
+              .map((date, index) => {
+                let totalSalesForDate = 0;
+                const salesRow = organizations
+                  .map((org) => {
+                    const sales = groupedSalesData[date][org] || 0;
+                    totalSalesForDate += sales;
+                    return `<td style="${generateInlineStyles(styles.td)}">${sales.toFixed(2)}</td>`;
+                  })
+                  .join('');
+
+                return `
+                  <tr>
+                    <td style="${generateInlineStyles(styles.td)}">${date}</td>
+                    ${salesRow}
+                    <td style="${generateInlineStyles(styles.td)}">${totalSalesPerDate[index].toFixed(2)}</td>
+                  </tr>`;
+              })
+              .join('')}
+            <tr>
+              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">Grand Total</td>
+              ${organizations
+                .map(() => `<td style="${generateInlineStyles(styles.td)} font-weight: bold;"></td>`)
+                .join('')}
+              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">${overallGrandTotal.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+
+    // Set the content of the page to the provided HTML
+    await page.setContent(html);
+
+    // Generate the PDF stream
+    const pdfBuffer = await page.pdf({ format: "A4",
+      landscape: true,
+     });
+
+    // Set response headers for PDF download
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="generated.pdf"'
+    );
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
+    // Close the Puppeteer browser
+    await browser.close();
+  } catch (error) {
+    console.error("Error creating sales report:", error);
+    res.status(500).send("Error creating sales report");
+  }
+});
+
+const compiledOrderHotelDetails = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  try {
+    // Get today's date
+    const today = new Date();
+    today.setHours(3, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Step 1: Fetch compiled orders for today
+    const ordersToday = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          date: { $gte: today, $lt: tomorrow }, // Filter by today's date
+        },
+      },
+      {
+        $unwind: "$items", // Unwind items array to work with individual items
+      },
+      {
+        $unwind: "$items.hotels", // Unwind hotels array to work with individual hotel entries
+      },
+      {
+        $lookup: {
+          from: "Users", // Collection containing hotel details
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails", // Unwind the hotelDetails array
+      },
+      {
+        $lookup: {
+          from: "UserDetails", // Collection containing additional user details
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails.userDetails", // Unwind the userDetails array
+      },
+      {
+        $group: {
+          _id: {
+            _id: "$_id",
+            date: "$date",
+            itemId: "$items.itemId",
+            totalQuantity: "$items.totalQuantity",
+            quantityToBeOrder: "$items.quantityToBeOrder",
+            purchasePrice: "$items.purchasePrice",
+          },
+          hotels: {
+            $push: {
+              hotelName: "$hotelDetails.userDetails.organization", // Hotel name from UserDetails
+              fullName: "$hotelDetails.userDetails.fullName", // Full name from UserDetails
+              email: "$hotelDetails.userDetails.email", // Email from UserDetails
+              GSTnumber: "$hotelDetails.userDetails.GSTnumber", // GST number from UserDetails
+              quantity: "$items.hotels.quantity", // Quantity of the item for each hotel
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: "$_id._id",
+          date: "$_id.date",
+          itemId: "$_id.itemId",
+          totalQuantity: "$_id.totalQuantity",
+          quantityToBeOrder: "$_id.quantityToBeOrder",
+          purchasePrice: "$_id.purchasePrice",
+          hotels: 1,
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]).allowDiskUse(true);
+
+    res.status(200).send(ordersToday);
+
+
+  } catch (error) {
+    console.error("Error getting hotel details:", error);
+    res.status(500).send("Error getting hotel details");
+  }
+});
+
+
+const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  try {
+    // Get today's date
+    const today = new Date();
+    today.setHours(3, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Step 1: Fetch compiled orders for today
+    const ordersToday = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          date: { $gte: today, $lt: tomorrow }, // Filter by today's date
+        },
+      },
+      {
+        $unwind: "$items", // Unwind items array to work with individual items
+      },
+      {
+        $unwind: "$items.hotels", // Unwind hotels array to work with individual hotel entries
+      },
+      {
+        $lookup: {
+          from: "Items", // Collection containing item details
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails", // Unwind the itemDetails array
+      },
+      {
+        $lookup: {
+          from: "Users", // Collection containing hotel details
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails", // Unwind the hotelDetails array
+      },
+      {
+        $lookup: {
+          from: "UserDetails", // Collection containing additional user details
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails.userDetails", // Unwind the userDetails array
+      },
+      {
+        $group: {
+          _id: {
+            itemId: "$items.itemId",
+            itemName: "$itemDetails.name", // Include item name
+          },
+          totalQuantity: { $first: "$items.totalQuantity" }, // Use the totalQuantity from pipeline
+          hotels: {
+            $push: {
+              organization: "$hotelDetails.userDetails.organization", // Hotel organization from UserDetails
+              quantity: "$items.hotels.quantity", // Quantity for each hotel
+            },
+          },
+        },
+      },
+      {
+        $sort: { "_id.itemId": 1 },
+      },
+    ]).allowDiskUse(true);
+
+    // Step 2: Extract unique hotel organizations
+    const organizations = [
+      ...new Set(ordersToday.flatMap((order) => order.hotels.map((hotel) => hotel.organization))),
+    ];
+
+    // Step 3: Construct HTML with dynamic columns and total quantity per item
+    const styles = {
+      container: {
+        fontFamily: "Arial, sans-serif",
+        marginBottom: "30px",
+        width: "95%",
+        margin: "auto",
+        paddingRight: "20px",
+        borderRadius: "8px",
+        background: "#fff",
+      },
+      header: {
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: "5px",
+      },
+      logo: {
+        maxWidth: "50px",
+        maxHeight: "50px",
+      },
+      table: {
+        width: "calc(100% - 60px)",
+        borderCollapse: "collapse",
+        marginBottom: "10px",
+        marginLeft: "20px",
+        marginRight: "20px",
+      },
+      th: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        textAlign: "center",
+        background: "#f2f2f2",
+        fontSize: "10px",
+      },
+      td: {
+        textAlign: "center",
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "10px",
+      },
+      total: {
+        border: "1px solid #ddd",
+        padding: "4px",
+        fontSize: "10px",
+        fontWeight: "600",
+      },
+    };
+
+    const generateInlineStyles = (styles) => {
+      return Object.keys(styles)
+        .map((key) => `${key}:${styles[key]}`)
+        .join(";");
+    };
+
+    // Function to format quantities
+    const formatQuantity = (quantity) => {
+      const parts = [];
+      if (quantity.kg > 0) parts.push(`${quantity.kg} kg`);
+      if (quantity.gram > 0) parts.push(`${quantity.gram} gram`);
+      if (quantity.piece > 0) parts.push(`${quantity.piece} piece`);
+      if (quantity.packet > 0) parts.push(`${quantity.packet} packet`);
+      return parts.length > 0 ? parts.join(', ') : '0';
+    };
+
+    let html = `
+      <div style="${generateInlineStyles(styles.container)}">
+        <div style="${generateInlineStyles(styles.header)}">
+          <div>
+            <h1 style="font-weight:600;font-size:24px;">Compiled Order Hotel Details</h1>
+          </div>
+        </div>
+        <table style="${generateInlineStyles(styles.table)}">
+          <thead>
+            <tr>
+              <th style="${generateInlineStyles(styles.th)}">Item Name</th>
+              ${organizations
+                .map(
+                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                )
+                .join('')}
+              <th style="${generateInlineStyles(styles.th)}">Total Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ordersToday.map(order => {
+              const itemName = order._id.itemName;
+              const totalQuantity = order.totalQuantity;
+
+              const quantityRow = organizations
+                .map((org) => {
+                  const hotel = order.hotels.find(h => h.organization === org);
+                  const quantity = hotel ? formatQuantity(hotel.quantity) : '0';
+                  return `<td style="${generateInlineStyles(styles.td)}">${quantity}</td>`;
+                })
+                .join('');
+
+              const totalQuantityStr = formatQuantity(totalQuantity);
+
+              return `
+                <tr>
+                  <td style="${generateInlineStyles(styles.td)}">${itemName}</td>
+                  ${quantityRow}
+                  <td style="${generateInlineStyles(styles.td)}">${totalQuantityStr}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Step 4: Generate the PDF using Puppeteer
+    const browser = await puppeteer.launch({
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+
+    // Set the content of the page to the generated HTML
+    await page.setContent(html);
+
+    // Generate the PDF stream
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      landscape: true,
+    });
+
+    // Set response headers for PDF download
+    res.setHeader("Content-Disposition", 'attachment; filename="compiled_order_hotel_details.pdf"');
+    res.setHeader("Content-Type", "application/pdf");
+
+    // Send the PDF buffer as a stream in the response
+    res.status(200).send(pdfBuffer);
+
+    // Close the Puppeteer browser
+    await browser.close();
+
+  } catch (error) {
+    console.error("Error generating PDF for compiled order hotel details:", error);
+    res.status(500).send("Error generating PDF for compiled order hotel details");
+  }
+});
+
+
+
+
 
 
 const addItemToStock = catchAsyncError(async (req, res, next) => {
@@ -3355,7 +3923,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     const response = await messageToSubvendor();
     console.log(response, "res");
 
-    // await sendWhatsappmessge(response);
+    // await sendWhatsappmessge(response); 
 
     const statusId = await OrderStatus.findOne({ status: "In Process" });
     const orders = await UserOrder.updateMany(
@@ -3463,7 +4031,7 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const { quantity, itemId, orderId } = req.body;
 
-    if (!quantity || !itemId || !orderHistoryForVendors) {
+    if (!quantity || !itemId) {
       return res.json({ message: "All Fields are required!" });
     }
 
@@ -3688,6 +4256,54 @@ const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// const addCategoryToUserDetail = catchAsyncError(async (req, res, next) => {
+//   try {
+//     const vendorId = req.user._id; // Get the vendorId directly from the authenticated user
+//     let { categoryId } = req.body; // Expecting category ID(s) from the request body
+
+//     console.log(vendorId); // Log the vendorId to verify it's correctly extracted
+//     console.log(categoryId); // Log the categoryId to verify the request body content
+
+//     // Ensure categoryId is an array; if it's a single value, convert it to an array
+//     if (!Array.isArray(categoryId)) {
+//       categoryId = [categoryId];
+//     }
+
+//     // Convert categoryId(s) to ObjectId(s)
+//     const validCategoryIds = categoryId.map((id) => new mongoose.Types.ObjectId(id));
+
+//     // Find the user's details using the vendorId
+//     const userDetails = await UserDetails.findOne({ userId: vendorId });
+
+//     // If user details are not found, return a 404 error
+//     if (!userDetails) {
+//       return res.status(404).json({ error: "User details not found." });
+//     }
+
+//     // Ensure the Category field is initialized as an array
+//     if (!userDetails.Category) {
+//       userDetails.Category = [];
+//     }
+
+//     // Add the new category ID(s) to the user's categories
+//     userDetails.Category.push(...validCategoryIds);
+
+//     // Save the updated user details to the database
+//     await userDetails.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Categories added successfully!",
+//       data: userDetails,
+//     });
+//   } catch (error) {
+//     console.log("Error:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
+
+
 
 const importAssignedItems = catchAsyncError(async (req, res, next) => {
   try {
@@ -4181,6 +4797,9 @@ module.exports = {
   getAllOrdersbyHotel,
   generateInvoice,
   shareOrder,
+  salesReport,
+  compiledOrderHotelDetails,
+  compiledOrderHotelDetailsPdf,
   updateStock,
   addItemToStock,
   getVendorStocks,
@@ -4213,4 +4832,5 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
+  // addCategoryToUserDetail,
 };

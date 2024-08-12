@@ -7,17 +7,17 @@ const Address = require("../models/address.js");
 
 const addAddress = catchAsyncError(async (req, res, next) => {
   try {
-    const HotelId = req.user._id;
+    const UserId = req.user._id;
 
     const { addressLine1, addressLine2, state, city, pinCode } = req.body;
 
     await Address.updateMany(
-      { HotelId: new ObjectId(HotelId), selected: true },
+      { UserId: new ObjectId(UserId), selected: true },
       { $set: { selected: false } }
     );
 
     const address = new Address({
-      HotelId,
+      UserId,
       addressLine1,
       addressLine2,
       state,
@@ -26,7 +26,7 @@ const addAddress = catchAsyncError(async (req, res, next) => {
     });
     await address.save();
 
-    const hotelAddresses = await getAddressFunc(HotelId);
+    const hotelAddresses = await getAddressFunc(UserId);
 
     res
       .status(200)
@@ -89,7 +89,7 @@ const updateSelectedAddress = catchAsyncError(async (req, res, next) => {
     const UserId = req.user._id;
     const { addressId } = req.body;
     await Address.updateMany(
-      { HotelId: new ObjectId(UserId), selected: true },
+      { UserId: new ObjectId(UserId), selected: true },
       { $set: { selected: false } }
     );
     await Address.updateOne(
@@ -108,14 +108,14 @@ const updateSelectedAddress = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const getAddressFunc = async (hotelId) => {
+const getAddressFunc = async (UserId) => {
   const selectedAddress = await Address.findOne({
-    HotelId: new ObjectId(hotelId),
+    UserId: new ObjectId(UserId),
     selected: true,
   });
 
   const allAddresses = await Address.find({
-    HotelId: new ObjectId(hotelId),
+    UserId: new ObjectId(UserId),
     selected: false,
   });
 

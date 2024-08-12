@@ -81,10 +81,36 @@ router.post(
 );
 
 router.post(
+  "/salesreport",
+  authMiddleware.authMiddleware,
+  vendorcontroller.salesReport
+);
+
+
+router.get(
+  "/compiledorderhoteldetails",
+  authMiddleware.authMiddleware,
+  vendorcontroller.compiledOrderHotelDetails
+);
+
+router.get(
+  "/compiledorderhoteldetailspdf",
+  authMiddleware.authMiddleware,
+  vendorcontroller.compiledOrderHotelDetailsPdf
+);
+
+
+router.post(
   "/updateStock",
   authMiddleware.authMiddleware,
   vendorcontroller.updateStock
 );
+
+// router.post(
+//   "/addcategorytouserdetail",
+//   authMiddleware.authMiddleware,
+//   vendorcontroller.addCategoryToUserDetail
+// );
 
 router.post(
   "/updateVendorItemStock",
