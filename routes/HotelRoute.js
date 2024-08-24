@@ -36,7 +36,6 @@ router.post(
 
 router.get(
   "/getAllCategories",
-
   hotelcontroller.getAllCategories
 );
 router.get(

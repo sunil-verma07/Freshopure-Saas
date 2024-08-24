@@ -56,7 +56,12 @@ const getAllItemsForHotel = catchAsyncError(async (req, res, next) => {
       {
         $unwind: `$itemDetails.image`,
       },
+      {
+        // Filter out documents where todayCostPrice is 0 or NaN
+        $match: { todayCostPrice: { $gt: 0 } },
+      },
     ]);
+
     res.status(200).json({ data: data });
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });

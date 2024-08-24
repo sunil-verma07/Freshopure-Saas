@@ -1,4 +1,4 @@
-const mongoose = require('mongoose'); // Add this line at the top of your file
+const mongoose = require("mongoose"); // Add this line at the top of your file
 
 const ErrorHandler = require("../utils/errorhander.js");
 const catchAsyncError = require("../middleware/catchAsyncErrors.js");
@@ -185,51 +185,41 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
           orderedItems: 1,
         },
       },
-      // {
-      //   $sort: {
-      //     createdAt: -1,
-      //   },
-      // },
-      // {
-      //   $skip: parseInt(offset),
-      // },
-      // {
-      //   $limit: pageSize,
-      // },
     ];
 
-    let filterDate = `${
-      new Date(date).getFullYear() +
-      "-" +
-      new Date(date).getMonth() +
-      "-" +
-      new Date(date).getDate()
-    }`;
+    // if (date) {
 
-    let currentDate = `${
-      new Date().getFullYear() +
-      "-" +
-      new Date().getMonth() +
-      "-" +
-      new Date().getDate()
-    }`;
+    //   console.log('date hai')
 
-    console.log(filterDate, currentDate, "date read outside");
-    if (filterDate !== currentDate) {
-      console.log(filterDate, currentDate, "date read");
-      // console log: Fri Jun 21 2024 13:08:56 GMT 0530 2024-06-21T07:38:56.603Z date read
-      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
-      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+    //   let filterDate = `${
+    //     new Date(date).getFullYear() +
+    //     "-" +
+    //     new Date(date).getMonth() +
+    //     "-" +
+    //     new Date(date).getDate()
+    //   }`;
 
-      pipeline.push({
-        $match: {
-          createdAt: {
-            $gte: startDate,
-            $lte: endDate,
-          },
-        },
-      });
-    }
+    //   let currentDate = `${
+    //     new Date().getFullYear() +
+    //     "-" +
+    //     new Date().getMonth() +
+    //     "-" +
+    //     new Date().getDate()
+    //   }`;
+
+    //   // console log: Fri Jun 21 2024 13:08:56 GMT 0530 2024-06-21T07:38:56.603Z date read
+    //   let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+    //   let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+
+    //   pipeline.push({
+    //     $match: {
+    //       createdAt: {
+    //         $gte: startDate,
+    //         $lte: endDate,
+    //       },
+    //     },
+    //   });
+    // }
 
     // Add sorting, skipping, and limiting after potential date filtering
     pipeline.push(
@@ -243,14 +233,6 @@ const orderHistoryForVendors = catchAsyncError(async (req, res, next) => {
     );
 
     const orderData = await UserOrder.aggregate(pipeline);
-    // console.log(
-    //   "data:" + orderData.length,
-    //   "offset:" + offset,
-    //   "page size: " + pageSize
-    // );
-    orderData.map((order) => {
-      // console.log(order._id);
-    });
 
     res.status(200).json({
       status: "success",
@@ -380,10 +362,10 @@ const hotelsLinkedWithVendor = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const todayCompiledOrders = catchAsyncError(async (req, res, next) => { 
+const todayCompiledOrders = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
-  const today = new Date(); 
-  today.setHours(3, 0, 0, 0); 
+  const today = new Date();
+  today.setHours(3, 0, 0, 0);
 
   try {
     const startDate = new Date(today);
@@ -564,7 +546,6 @@ const getAllSubVendors = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-
 const getHotelItemList = catchAsyncError(async (req, res, next) => {
   try {
     const vendorId = req.user._id;
@@ -615,7 +596,7 @@ const getHotelItemList = catchAsyncError(async (req, res, next) => {
     // Fetch items associated with the vendor and hotelId, populating the associated item's fields
     const itemList = await HotelItemPrice.aggregate(pipeline);
 
-    return res.json({ data: itemList});
+    return res.json({ data: itemList });
   } catch (error) {
     throw error;
   }
@@ -682,7 +663,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           orderNumber: { $first: "$orderNumber" },
           isReviewed: { $first: "$isReviewed" },
           totalPrice: { $first: "$totalPrice" },
-          notes:{ $first: "$notes"},
+          notes: { $first: "$notes" },
           address: { $first: "$address" },
           createdAt: { $first: "$createdAt" },
           updatedAt: { $first: "$updatedAt" },
@@ -709,7 +690,7 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
           isReviewed: 1,
           totalPrice: 1,
           address: 1,
-          notes:1,
+          notes: 1,
           createdAt: 1,
           updatedAt: 1,
           orderStatusDetails: 1,
@@ -734,22 +715,22 @@ const getAllOrdersbyHotel = catchAsyncError(async (req, res, next) => {
       new Date().getDate()
     }`;
 
-    console.log(typeof filterDate, typeof currentDate, "date read outside");
-    if (filterDate !== currentDate) {
-      console.log(filterDate, currentDate, "date read");
+    // console.log(typeof filterDate, typeof currentDate, "date read outside");
+    // if (filterDate !== currentDate) {
+    //   console.log(filterDate, currentDate, "date read");
 
-      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
-      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+    //   let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+    //   let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
 
-      pipeline.push({
-        $match: {
-          createdAt: {
-            $gte: new Date(startDate),
-            $lte: new Date(endDate),
-          },
-        },
-      });
-    }
+    //   pipeline.push({
+    //     $match: {
+    //       createdAt: {
+    //         $gte: new Date(startDate),
+    //         $lte: new Date(endDate),
+    //       },
+    //     },
+    //   });
+    // }
 
     // Add sorting, skipping, and limiting after potential date filtering
     pipeline.push({
@@ -927,7 +908,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           orderedItems: { $push: "$orderedItems" },
           address: { $first: "$address" },
           orderNumber: { $first: "$orderNumber" },
-          createdAt:{ $first: "$createdAt" },
+          createdAt: { $first: "$createdAt" },
         },
       },
       {
@@ -966,7 +947,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const data = orderData[0];
 
-
     const styles = {
       container: {
         fontFamily: "Arial, sans-serif",
@@ -976,7 +956,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         paddingRight: "10px",
         borderRadius: "8px",
         background: "#fff",
-        position:"relative",
+        position: "relative",
       },
       header: {
         display: "flex",
@@ -1010,7 +990,6 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         fontSize: "6px",
         fontWeight: "600",
       },
-
     };
 
     const date = (createdOnString) => {
@@ -1030,31 +1009,48 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       return `${formattedDateTime}`;
     };
 
+    const priceWithGST = (item) => {
+      let totalQuantity =
+        item?.quantity?.kg +
+        item?.quantity?.gram / 1000 +
+        item?.quantity?.piece +
+        item?.quantity?.piece;
+
+      return (
+        item?.price * totalQuantity +
+        (item?.price * totalQuantity * item?.itemDetails?.GST) / 100
+      ).toFixed(2);
+    };
+
     const totalPrice = (items) => {
       let totalPrice = 0;
       for (let item of items) {
-        totalPrice +=
-          item.price * item.quantity?.kg +
-          item.price * (item.quantity?.gram / 1000)+
-          item.price * item.quantity?.piece +
-          item.price * item.quantity?.packet;
+        let totalQuantity =
+          item?.quantity?.kg +
+          item?.quantity?.gram / 1000 +
+          item?.quantity?.piece +
+          item?.quantity?.piece;
 
+        const finalPrice =
+          item?.price * totalQuantity +
+          (item?.price * totalQuantity * item?.itemDetails?.GST) / 100;
+
+        totalPrice = totalPrice + finalPrice;
       }
 
-      return totalPrice;
+      return totalPrice.toFixed(2);
     };
-
 
     function extractDate(dateString) {
       const date = new Date(dateString);
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-      const day = String(date.getDate()).padStart(2, '0');
-    
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+      const day = String(date.getDate()).padStart(2, "0");
+
       return `${year}-${month}-${day}`;
     }
 
-    const currentDate = Date.now()
+    const currentDate = Date.now();
 
     const generateInlineStyles = (styles) => {
       return Object.keys(styles)
@@ -1074,13 +1070,13 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         </div>
 
          <div style="margin-left:auto">
-          <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Order: ${
-          extractDate(data?.createdAt)
-        } <br/> </p>
+          <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Order: ${extractDate(
+            data?.createdAt
+          )} <br/> </p>
 
-        <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Billing: ${
-          extractDate(currentDate)
-        } <br/> </p>
+        <p style="line-height:1.4em;font-size:12px;text-align:right">Date of Billing: ${extractDate(
+          currentDate
+        )} <br/> </p>
          </div>
 
 
@@ -1151,8 +1147,8 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         <thead>
           <tr>
           <th style="${generateInlineStyles(
-              styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">S. No.</th>
+            styles.th
+          )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">S. No.</th>
             <th style="${generateInlineStyles(
               styles.th
             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Item Name</th>
@@ -1170,10 +1166,11 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
             <th style="${generateInlineStyles(
               styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">GST</th>
             <th style="${generateInlineStyles(
               styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">GST</th>
+            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
+            
           </tr>
         </thead>
         <tbody>
@@ -1183,9 +1180,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             <tr key=${index}>
               <td style="${generateInlineStyles(
                 styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                index
-              }</td>
+              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${index}</td>
               <td style="${generateInlineStyles(
                 styles.td
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
@@ -1224,27 +1219,19 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
                 2
               )}</td>
+
+               <td style="${generateInlineStyles(
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
+                item?.itemDetails?.GST
+              }%</td>
+
               <td style="${generateInlineStyles(
                 styles.td
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-                
-
-                ${
-                  item?.unit === "kg"
-                    ? (
-                        item.price * item.quantity?.kg +
-                        item.price * (item.quantity?.gram / 1000)
-                      ).toFixed(2)
-                    : item?.unit === "piece"
-                    ? (item?.quantity?.piece * item.price).toFixed(2)
-                    : (item?.quantity?.packet * item.price).toFixed(2)
-                }
+                ${priceWithGST(item)}
               </td>
-              <td style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                item?.itemDetails?.GST
-              }%</td>
+             
             </tr>
           `
             )
@@ -1252,45 +1239,13 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
             .join("")}
         </tbody>
         <tfoot>
-           <tr>
-             <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-              
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-             
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-             
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-              ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
-
-             
-              
-              <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">₹ 0</td>
-    </tr>
     <tr>
-     <td colspan="7" style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
-              Total : ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
+     <td colspan="8" style="${generateInlineStyles(
+       styles.td
+     )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
+              Total Price (including Taxes) : ₹ ${totalPrice(
+                data?.orderedItems
+              )}</td>
               </tr>
   </tfoot>
       </table>
@@ -1320,7 +1275,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: '/usr/bin/chromium-browser'
+       executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -1443,7 +1398,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
           orderedItems: { $push: "$orderedItems" },
           address: { $first: "$address" },
           orderNumber: { $first: "$orderNumber" },
-          createdAt: {$first: "$createdAt"}
+          createdAt: { $first: "$createdAt" },
         },
       },
       {
@@ -1525,10 +1480,8 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
         fontSize: "6px",
         fontWeight: "600",
       },
-
     };
 
-    
     const date = (createdOnString) => {
       const createdOn = new Date(createdOnString);
 
@@ -1575,9 +1528,9 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
         </div>
       </div>
       <div style="display:flex;justify-content:space-between">
-      <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Date: ${
-          date(data?.createdAt)
-        } <br/> </p>
+      <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Date: ${date(
+        data?.createdAt
+      )} <br/> </p>
         <p style="line-height:1.4em;font-size:12px;margin-top:10px;margin-bottom:20px;text-align:right">Order #${
           data?.orderNumber
         } <br/> </p>
@@ -1708,30 +1661,30 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
         <tfoot>
            <tr>
              <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+               styles.td
+             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
               
                <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
 
                <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-             
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-               <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
 
              
                <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+               <td  style="${generateInlineStyles(
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
+
+             
+               <td  style="${generateInlineStyles(
+                 styles.td
+               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
               ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
 
              
@@ -1742,8 +1695,8 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
     </tr>
     <tr>
      <td colspan="7" style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
+       styles.td
+     )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
               Total : ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
               </tr>
   </tfoot>
@@ -1754,7 +1707,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: '/usr/bin/chromium-browser'
+      executablePath: "/usr/bin/chromium-browser",
     });
     const page = await browser.newPage();
 
@@ -1785,9 +1738,6 @@ const salesReport = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
   const { startDate, endDate } = req.body;
   console.log(vendorId);
-
-
-
 
   try {
     // Step 1: Fetch sales data grouped by date and organization
@@ -1860,9 +1810,9 @@ const salesReport = catchAsyncError(async (req, res, next) => {
     // Step 2: Extract unique organization names and format them
     const formatOrganizationName = (name) => {
       return name
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + '.')
-        .join(' ');
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + ".")
+        .join(" ");
     };
 
     const organizations = [
@@ -1873,7 +1823,8 @@ const salesReport = catchAsyncError(async (req, res, next) => {
     const groupedSalesData = salesData.reduce((acc, curr) => {
       const date = curr._id.date;
       if (!acc[date]) acc[date] = {};
-      acc[date][formatOrganizationName(curr._id.organization)] = curr.totalSales;
+      acc[date][formatOrganizationName(curr._id.organization)] =
+        curr.totalSales;
       return acc;
     }, {});
 
@@ -1957,9 +1908,10 @@ const salesReport = catchAsyncError(async (req, res, next) => {
               <th style="${generateInlineStyles(styles.th)}">Date</th>
               ${organizations
                 .map(
-                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                  (org) =>
+                    `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
                 )
-                .join('')}
+                .join("")}
               <th style="${generateInlineStyles(styles.th)}">Total</th>
             </tr>
           </thead>
@@ -1971,24 +1923,37 @@ const salesReport = catchAsyncError(async (req, res, next) => {
                   .map((org) => {
                     const sales = groupedSalesData[date][org] || 0;
                     totalSalesForDate += sales;
-                    return `<td style="${generateInlineStyles(styles.td)}">${sales.toFixed(2)}</td>`;
+                    return `<td style="${generateInlineStyles(
+                      styles.td
+                    )}">${sales.toFixed(2)}</td>`;
                   })
-                  .join('');
+                  .join("");
 
                 return `
                   <tr>
                     <td style="${generateInlineStyles(styles.td)}">${date}</td>
                     ${salesRow}
-                    <td style="${generateInlineStyles(styles.td)}">${totalSalesPerDate[index].toFixed(2)}</td>
+                    <td style="${generateInlineStyles(
+                      styles.td
+                    )}">${totalSalesPerDate[index].toFixed(2)}</td>
                   </tr>`;
               })
-              .join('')}
+              .join("")}
             <tr>
-              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">Grand Total</td>
+              <td style="${generateInlineStyles(
+                styles.td
+              )} font-weight: bold;">Grand Total</td>
               ${organizations
-                .map(() => `<td style="${generateInlineStyles(styles.td)} font-weight: bold;"></td>`)
-                .join('')}
-              <td style="${generateInlineStyles(styles.td)} font-weight: bold;">${overallGrandTotal.toFixed(2)}</td>
+                .map(
+                  () =>
+                    `<td style="${generateInlineStyles(
+                      styles.td
+                    )} font-weight: bold;"></td>`
+                )
+                .join("")}
+              <td style="${generateInlineStyles(
+                styles.td
+              )} font-weight: bold;">${overallGrandTotal.toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
@@ -1997,7 +1962,7 @@ const salesReport = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: '/usr/bin/chromium-browser'
+      executablePath: "/usr/bin/chromium-browser",
     });
     const page = await browser.newPage();
 
@@ -2005,9 +1970,7 @@ const salesReport = catchAsyncError(async (req, res, next) => {
     await page.setContent(html);
 
     // Generate the PDF stream
-    const pdfBuffer = await page.pdf({ format: "A4",
-      landscape: true,
-     });
+    const pdfBuffer = await page.pdf({ format: "A4", landscape: true });
 
     // Set response headers for PDF download
     res.setHeader(
@@ -2244,33 +2207,44 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
     const hotelItems = [];
 
     for (const itemId of itemIds) {
+      // Check if the item already exists in the HotelItemPrice collection
+      const existingItem = await HotelItemPrice.findOne({
+        vendorId,
+        hotelId,
+        itemId,
+      });
+
+      if (existingItem) {
+        continue; // Skip if item already exists
+      }
+
       const item = items.items.find((item) => item.itemId.equals(itemId));
       if (!item) {
         continue; // Skip if item not found
       }
 
-      console.log(item,'item')
+      let quantityOfStock = item.totalQuantity.kg + item.totalQuantity.gram/1000 + item.totalQuantity.piece + item.totalQuantity.packet;
 
-      let vendorAvgPrice = item.totalPrice/(item.totalQuantity.kg + (item.totalQuantity.gram/1000) + item.totalQuantity.piece + item.totalQuantity.packet)
+      let todaysCostPrice = item.totalPrice / quantityOfStock;
 
-      console.log(vendorAvgPrice,'avg price')
-
-
+      if (isNaN(todaysCostPrice)) {
+        todaysCostPrice = 0;
+      }
+      
       const category = await Items.findOne({ _id: itemId });
-      // console.log(category, "category");
+
       // Create new HotelItemPrice document
       const hotelItemPrice = new HotelItemPrice({
         vendorId,
         hotelId,
         itemId,
         categoryId: category.categoryId,
-        todayCostPrice: (vendorAvgPrice ? vendorAvgPrice : 0),
+        todayCostPrice: todaysCostPrice,
         todayPercentageProfit: 0,
         showPrice: true, // Default to true if not provided
       });
 
       // Save the new document to the database
-      // console.log(hotelItemPrice, "hotelItem");
       await hotelItemPrice.save();
       hotelItems.push(hotelItemPrice);
     }
@@ -2282,18 +2256,8 @@ const addHotelItem = catchAsyncError(async (req, res, next) => {
 
     // Send success response
     res.json({ message: "Documents added successfully", data: itemList });
-
-    // const category = new ObjectId("65c093bb6b33fbcf67fb2784");
-
-    // const items = await item.updateMany(
-    //   { categoryId: category },
-    //   { $set: { categoryId: new ObjectId("65cc61c193a94ee59d679497") } }
-    // );
-
-    // return res.json({ Message: "done", items });
   } catch (error) {
     // Pass any errors to the error handling middleware
-    // console.log(error, "err");
     next(error);
   }
 });
@@ -2309,15 +2273,13 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
 
     let allItemsIds = [];
 
-    const items = await VendorItems.findOne({ vendorId: vendorId })
-
+    const items = await VendorItems.findOne({ vendorId: vendorId });
 
     items?.items?.map((item) => {
-        allItemsIds.push(item.itemId);
+      allItemsIds.push(item.itemId);
     });
 
     // console.log(allItemsIds)
-
 
     // console.log(allItemsIds, "all");
 
@@ -2327,7 +2289,6 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
     }).select("itemId");
 
     const assignedItemIds = hotelItems.map((item) => item.itemId.toString());
-
 
     // Filter out items from allItemsIds that are not present in assignedItemIds
     const notAssignedItemIds = allItemsIds.filter(
@@ -2342,9 +2303,7 @@ const getHotelAssignableItems = catchAsyncError(async (req, res, next) => {
         itemDetails: null,
       };
 
-
-      const itemDetails = await Items.findOne({_id:item});
-
+      const itemDetails = await Items.findOne({ _id: item });
 
       newItem.itemDetails = itemDetails;
 
@@ -2592,21 +2551,24 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
       });
     }
 
-    let vendor;
-    try {
-      vendor = await VendorItems.findOne({ vendorId: vendorId });
-    } catch (error) {
-      // Handle errors while fetching vendor
-      return next(error);
-    }
+    let vendor = await VendorItems.findOne({ vendorId });
 
     if (vendor) {
       // Add each itemId from the array to the vendor's items
       itemIds.forEach((itemId) => {
         vendor.items.push({
-          itemId: itemId,
+          itemId,
           todayCostPrice: 0,
-          history: [],
+          history: [
+            {
+              historyId: new mongoose.Types.ObjectId(),
+            },
+          ],
+          waste: [
+            {
+              wasteId: new mongoose.Types.ObjectId(),
+            },
+          ],
         });
       });
     } else {
@@ -2614,9 +2576,18 @@ const addVendorItem = catchAsyncError(async (req, res, next) => {
       vendor = new VendorItems({
         vendorId,
         items: itemIds.map((itemId) => ({
-          itemId: itemId,
+          itemId,
           todayCostPrice: 0,
-          history: [],
+          history: [
+            {
+              historyId: new mongoose.Types.ObjectId(),
+            },
+          ],
+          waste: [
+            {
+              wasteId: new mongoose.Types.ObjectId(),
+            },
+          ],
         })),
       });
     }
@@ -2697,6 +2668,8 @@ const getAllVendorItems = catchAsyncError(async (req, res, next) => {
     // vendorItems[0].items.map((item) => {
     //   console.log(item.itemId, "itemID");
     // });
+
+    console.log(vendorItems, "vendorItems");
 
     // Send success response with vendor items
     res.status(200).json({
@@ -3349,8 +3322,11 @@ let model; // Define the model variable globally
 
 function normalizeData(data) {
   const mean = data.reduce((acc, val) => acc + val, 0) / data.length;
-  const std = Math.sqrt(data.map(x => Math.pow(x - mean, 2)).reduce((acc, val) => acc + val, 0) / data.length);
-  return data.map(x => (x - mean) / std);
+  const std = Math.sqrt(
+    data.map((x) => Math.pow(x - mean, 2)).reduce((acc, val) => acc + val, 0) /
+      data.length
+  );
+  return data.map((x) => (x - mean) / std);
 }
 
 async function freshoCalculator(lastTenDaysProfitPercentage) {
@@ -3401,13 +3377,14 @@ async function initModel() {
 
 function createModel() {
   const model = tf.sequential();
-  model.add(tf.layers.dense({ units: 64, inputShape: [10], activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
+  model.add(
+    tf.layers.dense({ units: 64, inputShape: [10], activation: "relu" })
+  );
+  model.add(tf.layers.dense({ units: 32, activation: "relu" }));
   model.add(tf.layers.dense({ units: 1 }));
   model.compile({ optimizer: "adam", loss: "meanSquaredError" });
   return model;
 }
-
 
 const updateHotelItemProfit = async (req, res, next) => {
   try {
@@ -3495,10 +3472,7 @@ const msgToSubVendor = catchAsyncErrors(async (req, res, next) => {
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
 
-    
-
     const response = await messageToSubvendor();
-
 
     await sendWhatsappmessge(response);
 
@@ -3620,7 +3594,6 @@ const changeOrderQuantity = catchAsyncErrors(async (req, res, next) => {
 
     const orderStatus = await OrderStatus.findOne({ _id: order.orderStatus });
 
-  
     // Find the index of the ordered item in the orderedItems array
     const orderedItemIndex = order.orderedItems.findIndex(
       (item) => item.itemId.toString() === itemId
@@ -3796,111 +3769,117 @@ const totalSales = catchAsyncErrors(async (req, res, next) => {
 
 const statusUpdateToDelivered = catchAsyncError(async (req, res, next) => {
   try {
-    const  vendorId = req.user._id;
+    const vendorId = req.user._id;
 
     const { orderNumber, status } = req.body;
-
 
     if (orderNumber === undefined || status === "") {
       return res.status(400).json({ message: "Invalid OrderNumber" });
     }
 
-    const order = await UserOrder.findOne({ orderNumber: orderNumber }).populate('orderedItems');
+    const order = await UserOrder.findOne({
+      orderNumber: orderNumber,
+    }).populate("orderedItems");
 
     const statusId = await OrderStatus.findOne({ status: status });
+
    
-
-    if(status === "Cancelled"){
-
-
       const { hotelId, orderedItems } = order;
 
+      // Get the current date
+      const currentDate = new Date();
 
-       // Get the current date
-    const currentDate = new Date();
-    
-    // Set the start time to 3 AM of the current day
-    const startTime = new Date(currentDate);
-    startTime.setHours(3, 0, 0, 0);
+      // Set the start time to 3 AM of the current day
+      const startTime = new Date(currentDate);
+      startTime.setHours(3, 0, 0, 0);
 
-    // Set the end time to 2:59:59 AM of the following day
-    const endTime = new Date(currentDate);
-    endTime.setHours(26, 59, 59, 999);
+      // Set the end time to 2:59:59 AM of the following day
+      const endTime = new Date(currentDate);
+      endTime.setHours(26, 59, 59, 999);
 
+      // Find the compiled order for the vendor and the specific time range
+      const compiledOrder = await CompiledOrder.findOne({
+        vendorId: vendorId,
+        date: { $gte: startTime, $lt: endTime },
+      });
 
-    // Find the compiled order for the vendor and the specific time range
-    const compiledOrder = await CompiledOrder.findOne({
-      vendorId: vendorId,
-      date: { $gte: startTime, $lt: endTime },
-    });
-
-
-    if (!compiledOrder) {
-      throw new Error('Compiled order not found');
-    }
-
-    // Iterate over each item in the canceled order
-    orderedItems.forEach((orderedItem) => {
-      const compiledItem = compiledOrder.items.find(item => item.itemId.toString() === orderedItem.itemId.toString());
-    
-      if (compiledItem) {
-        // Find the hotel entry in the compiled item's hotels array
-        const hotelEntry = compiledItem.hotels.find(hotel => hotel.hotelId.toString() === hotelId.toString());
-    
-        if (hotelEntry) {
-          // Deduct the quantity
-          hotelEntry.quantity.kg -= orderedItem.quantity.kg || 0;
-          hotelEntry.quantity.gram -= orderedItem.quantity.gram || 0;
-          hotelEntry.quantity.piece -= orderedItem.quantity.piece || 0;
-          hotelEntry.quantity.packet -= orderedItem.quantity.packet || 0;
-    
-          // Adjust kg and gram if grams become negative
-          if (hotelEntry.quantity.gram < 0) {
-            hotelEntry.quantity.kg -= 1;
-            hotelEntry.quantity.gram += 1000;  // Adjust grams to a positive value by adding 1000
-          }
-    
-          // If the hotel's quantity is zero, remove the hotel entry from the array
-          if (hotelEntry.quantity.kg <= 0 && hotelEntry.quantity.gram <= 0 &&
-              hotelEntry.quantity.piece <= 0 && hotelEntry.quantity.packet <= 0) {
-            compiledItem.hotels = compiledItem.hotels.filter(hotel => hotel.hotelId.toString() !== hotelId.toString());
-          }
-        }
-    
-        // Deduct the quantity from the compiled item's totalQuantity
-        compiledItem.totalQuantity.kg -= orderedItem.quantity.kg || 0;
-        compiledItem.totalQuantity.gram -= orderedItem.quantity.gram || 0;
-        compiledItem.totalQuantity.piece -= orderedItem.quantity.piece || 0;
-        compiledItem.totalQuantity.packet -= orderedItem.quantity.packet || 0;
-    
-        // Adjust kg and gram if grams become negative for the total quantity
-        if (compiledItem.totalQuantity.gram < 0) {
-          compiledItem.totalQuantity.kg -= 1;
-          compiledItem.totalQuantity.gram += 1000;  // Adjust grams to a positive value by adding 1000
-        }
-    
-        // Check if totalQuantity is zero
-        const isTotalQuantityZero = compiledItem.totalQuantity.kg <= 0 &&
-                                    compiledItem.totalQuantity.gram <= 0 &&
-                                    compiledItem.totalQuantity.piece <= 0 &&
-                                    compiledItem.totalQuantity.packet <= 0;
-    
-        // Check if hotels array is empty
-        const isHotelsArrayEmpty = compiledItem.hotels.length === 0;
-    
-        // If totalQuantity is zero or hotels array is empty, remove the item
-        if (isTotalQuantityZero || isHotelsArrayEmpty) {
-          compiledOrder.items = compiledOrder.items.filter(item => item.itemId.toString() !== compiledItem.itemId.toString());
-        }
+      if (!compiledOrder) {
+        throw new Error("Compiled order not found");
       }
-    });
+
+      // Iterate over each item in the canceled order
+      orderedItems.forEach((orderedItem) => {
+        const compiledItem = compiledOrder.items.find(
+          (item) => item.itemId.toString() === orderedItem.itemId.toString()
+        );
+
+        if (compiledItem) {
+          // Find the hotel entry in the compiled item's hotels array
+          const hotelEntry = compiledItem.hotels.find(
+            (hotel) => hotel.hotelId.toString() === hotelId.toString()
+          );
+
+          if (hotelEntry) {
+            // Deduct the quantity
+            hotelEntry.quantity.kg -= orderedItem.quantity.kg || 0;
+            hotelEntry.quantity.gram -= orderedItem.quantity.gram || 0;
+            hotelEntry.quantity.piece -= orderedItem.quantity.piece || 0;
+            hotelEntry.quantity.packet -= orderedItem.quantity.packet || 0;
+
+            // Adjust kg and gram if grams become negative
+            if (hotelEntry.quantity.gram < 0) {
+              hotelEntry.quantity.kg -= 1;
+              hotelEntry.quantity.gram += 1000; // Adjust grams to a positive value by adding 1000
+            }
+
+            // If the hotel's quantity is zero, remove the hotel entry from the array
+            if (
+              hotelEntry.quantity.kg <= 0 &&
+              hotelEntry.quantity.gram <= 0 &&
+              hotelEntry.quantity.piece <= 0 &&
+              hotelEntry.quantity.packet <= 0
+            ) {
+              compiledItem.hotels = compiledItem.hotels.filter(
+                (hotel) => hotel.hotelId.toString() !== hotelId.toString()
+              );
+            }
+          }
+
+          // Deduct the quantity from the compiled item's totalQuantity
+          compiledItem.totalQuantity.kg -= orderedItem.quantity.kg || 0;
+          compiledItem.totalQuantity.gram -= orderedItem.quantity.gram || 0;
+          compiledItem.totalQuantity.piece -= orderedItem.quantity.piece || 0;
+          compiledItem.totalQuantity.packet -= orderedItem.quantity.packet || 0;
+
+          // Adjust kg and gram if grams become negative for the total quantity
+          if (compiledItem.totalQuantity.gram < 0) {
+            compiledItem.totalQuantity.kg -= 1;
+            compiledItem.totalQuantity.gram += 1000; // Adjust grams to a positive value by adding 1000
+          }
+
+          // Check if totalQuantity is zero
+          const isTotalQuantityZero =
+            compiledItem.totalQuantity.kg <= 0 &&
+            compiledItem.totalQuantity.gram <= 0 &&
+            compiledItem.totalQuantity.piece <= 0 &&
+            compiledItem.totalQuantity.packet <= 0;
+
+          // Check if hotels array is empty
+          const isHotelsArrayEmpty = compiledItem.hotels.length === 0;
+
+          // If totalQuantity is zero or hotels array is empty, remove the item
+          if (isTotalQuantityZero || isHotelsArrayEmpty) {
+            compiledOrder.items = compiledOrder.items.filter(
+              (item) =>
+                item.itemId.toString() !== compiledItem.itemId.toString()
+            );
+          }
+        }
+      });
+
+      // Save the updated compiled order
+      await compiledOrder.save();
     
-
-    // Save the updated compiled order
-    await compiledOrder.save();
-
-
-    }
 
     const updatedOrder = await UserOrder.findOneAndUpdate(
       { orderNumber: orderNumber },
@@ -3980,14 +3959,22 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
     }
 
     // Find the vendor's item details
-    const vendor = await VendorItems.findOne({ vendorId: vendorId }).select("items");
+    const vendor = await VendorItems.findOne({ vendorId: vendorId }).select(
+      "items"
+    );
     const vendorPrice = vendor?.items?.find(
       (item) => item?.itemId.toString() === itemId?.toString()
     );
+    console.log(vendorPrice, "vendor");
 
-    let vendorAvgPrice = vendorPrice ? vendorPrice.totalPrice / 
-      (vendorPrice.totalQuantity.kg + (vendorPrice.totalQuantity.gram / 1000) + 
-      vendorPrice.totalQuantity.piece + vendorPrice.totalQuantity.packet) : 1;
+    let vendorQuantity =
+      vendorPrice.totalQuantity.kg +
+      vendorPrice.totalQuantity.gram / 1000 +
+      vendorPrice.totalQuantity.piece +
+      vendorPrice.totalQuantity.packet;
+    let vendorAvgPrice =
+      vendorPrice &&
+      vendorPrice.totalPrice / (vendorQuantity > 0 ? vendorQuantity : 1);
 
     // Update today's price and profit margin
     const item = await hotelItemPrice.findOne({
@@ -4009,13 +3996,15 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
       item?.pastPercentageProfits.push(value); // Push the new value
     }
 
-    console.log(item?.todayPercentageProfit,'profit percentage')
+    console.log(typeof item?.todayPercentageProfit, "profit percentage");
 
-    pushProfitPercent((item?.todayPercentageProfit/100).toFixed(3))
+    pushProfitPercent((item?.todayPercentageProfit / 100).toFixed(3));
 
     await item.save();
 
-    const deliveredOrderStatus = await OrderStatus.findOne({status:"Delivered"})
+    const deliveredOrderStatus = await OrderStatus.findOne({
+      status: "Delivered",
+    });
     // Fetch orders from the last two days that are not delivered
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
@@ -4024,14 +4013,14 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
       vendorId: vendorId,
       hotelId: hotelId,
       createdAt: { $gte: twoDaysAgo },
-      orderStatus: { $ne: deliveredOrderStatus._id }
+      orderStatus: { $ne: deliveredOrderStatus._id },
     });
 
     // Update price in orders and recalculate total price
     for (const order of undeliveredOrders) {
       let orderUpdated = false;
 
-      order.orderedItems.forEach(orderedItem => {
+      order.orderedItems.forEach((orderedItem) => {
         if (orderedItem.itemId.toString() === itemId.toString()) {
           orderedItem.price = newPrice;
           orderUpdated = true;
@@ -4040,10 +4029,11 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
 
       if (orderUpdated) {
         order.totalPrice = order.orderedItems.reduce((total, orderedItem) => {
-          const itemTotal = (orderedItem.quantity.kg || 0) * orderedItem.price +
-                            (orderedItem.quantity.gram || 0) / 1000 * orderedItem.price +
-                            (orderedItem.quantity.piece || 0) * orderedItem.price +
-                            (orderedItem.quantity.packet || 0) * orderedItem.price;
+          const itemTotal =
+            (orderedItem.quantity.kg || 0) * orderedItem.price +
+            ((orderedItem.quantity.gram || 0) / 1000) * orderedItem.price +
+            (orderedItem.quantity.piece || 0) * orderedItem.price +
+            (orderedItem.quantity.packet || 0) * orderedItem.price;
           return total + itemTotal;
         }, 0);
 
@@ -4051,12 +4041,14 @@ const updatePrice = catchAsyncError(async (req, res, next) => {
       }
     }
 
-    return res.json({ message: "Price Updated successfully!",newProfitPercentage:percent });
+    return res.json({
+      message: "Price Updated successfully!",
+      newProfitPercentage: percent,
+    });
   } catch (error) {
     next(error);
   }
 });
-
 
 const changeHotelType = catchAsyncError(async (req, res, next) => {
   try {
@@ -4297,12 +4289,18 @@ const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
     // Save the changes
     await vendorItem.save();
 
-
-    const avgPriceOfItem = itemToBeUpdated?.totalPrice/
-    (itemToBeUpdated?.totalQuantity?.kg + itemToBeUpdated?.totalQuantity?.gram/1000 + itemToBeUpdated?.totalQuantity?.piece + itemToBeUpdated?.totalQuantity?.packet > 0 ?
-      itemToBeUpdated?.totalQuantity?.kg + itemToBeUpdated?.totalQuantity?.gram/1000 + itemToBeUpdated?.totalQuantity?.piece + itemToBeUpdated?.totalQuantity?.packet : 1 
-    )
-
+    const avgPriceOfItem =
+      itemToBeUpdated?.totalPrice /
+      (itemToBeUpdated?.totalQuantity?.kg +
+        itemToBeUpdated?.totalQuantity?.gram / 1000 +
+        itemToBeUpdated?.totalQuantity?.piece +
+        itemToBeUpdated?.totalQuantity?.packet >
+      0
+        ? itemToBeUpdated?.totalQuantity?.kg +
+          itemToBeUpdated?.totalQuantity?.gram / 1000 +
+          itemToBeUpdated?.totalQuantity?.piece +
+          itemToBeUpdated?.totalQuantity?.packet
+        : 1);
 
     // const allVariableHotels = await HotelItemPrice.find({
     //   vendorId: vendorId,
@@ -4310,9 +4308,6 @@ const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
     // });
 
     // console.log(allVariableHotels,'all Variable Hotels')
-    
-
-
 
     // if (itemsToBeChange.length > 0) {
     //   for (const item of itemsToBeChange) {
@@ -4324,19 +4319,19 @@ const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
     //     });
 
     //     console.log(hotelLink)
-      
+
     //       if(hotelLink){
     //         if (item.pastPercentageProfits.length >= 3) {
     //           let newProfitPercentage;
-  
+
     //             newProfitPercentage = await freshoCalculator(
     //               item.pastPercentageProfits
     //             );
-           
+
     //           const updatedCostPrice = avgPriceOfItem + newProfitPercentage * avgPriceOfItem;
-  
+
     //           console.log(updatedCostPrice,'updatedCostPrice')
-  
+
     //           const doc = await HotelItemPrice.findOneAndUpdate(
     //             { itemId: item.itemId, vendorId: vendorId },
     //             {
@@ -4355,18 +4350,17 @@ const updateVendorItemStock = catchAsyncError(async (req, res, next) => {
     //             },
     //             { new: true }
     //           );
-  
+
     //           console.log(doc,'doc')
-  
-          
+
     //         } else {
-  
+
     //           let newProfitPercentage;
-  
+
     //             newProfitPercentage = await freshoCalculator(
     //               item.pastPercentageProfits
     //             );
-  
+
     //           const doc = await HotelItemPrice.findOneAndUpdate(
     //             { itemId: item.itemId, vendorId: vendorId },
     //             {
@@ -4508,12 +4502,10 @@ const updateCompiledItemQuantity = catchAsyncError(async (req, res, next) => {
       date: { $gte: startOfDay, $lt: endOfDay },
     });
 
-
     const quantityToBeUpdate = order_doc?.items?.find(
       (item) => item?.itemId.toString() === itemId?.toString()
     );
-    console.log(quantityToBeUpdate)
-
+    console.log(quantityToBeUpdate);
 
     quantityToBeUpdate.quantityToBeOrder = quantity;
 
@@ -4524,13 +4516,14 @@ const updateCompiledItemQuantity = catchAsyncError(async (req, res, next) => {
       date: { $gte: startOfDay, $lt: endOfDay },
     });
 
-
-    return res.json({data:updated_doc, message: "Quantity Updated successfully!" });
+    return res.json({
+      data: updated_doc,
+      message: "Quantity Updated successfully!",
+    });
   } catch (error) {
     next(error);
   }
 });
-
 
 const compiledOrderHotelDetails = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
@@ -4624,7 +4617,6 @@ const compiledOrderHotelDetails = catchAsyncError(async (req, res, next) => {
   }
 });
 
-
 const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
   const vendorId = req.user._id;
 
@@ -4704,7 +4696,11 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
 
     // Step 2: Extract unique hotel organizations
     const organizations = [
-      ...new Set(ordersToday.flatMap((order) => order.hotels.map((hotel) => hotel.organization))),
+      ...new Set(
+        ordersToday.flatMap((order) =>
+          order.hotels.map((hotel) => hotel.organization)
+        )
+      ),
     ];
 
     // Step 3: Construct HTML with dynamic columns and total quantity per item
@@ -4768,7 +4764,7 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
       if (quantity.gram > 0) parts.push(`${quantity.gram} gram`);
       if (quantity.piece > 0) parts.push(`${quantity.piece} piece`);
       if (quantity.packet > 0) parts.push(`${quantity.packet} packet`);
-      return parts.length > 0 ? parts.join(', ') : '0';
+      return parts.length > 0 ? parts.join(", ") : "0";
     };
 
     let html = `
@@ -4784,34 +4780,47 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
               <th style="${generateInlineStyles(styles.th)}">Item Name</th>
               ${organizations
                 .map(
-                  (org) => `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
+                  (org) =>
+                    `<th style="${generateInlineStyles(styles.th)}">${org}</th>`
                 )
-                .join('')}
+                .join("")}
               <th style="${generateInlineStyles(styles.th)}">Total Quantity</th>
             </tr>
           </thead>
           <tbody>
-            ${ordersToday.map(order => {
-              const itemName = order._id.itemName;
-              const totalQuantity = order.totalQuantity;
+            ${ordersToday
+              .map((order) => {
+                const itemName = order._id.itemName;
+                const totalQuantity = order.totalQuantity;
 
-              const quantityRow = organizations
-                .map((org) => {
-                  const hotel = order.hotels.find(h => h.organization === org);
-                  const quantity = hotel ? formatQuantity(hotel.quantity) : '0';
-                  return `<td style="${generateInlineStyles(styles.td)}">${quantity}</td>`;
-                })
-                .join('');
+                const quantityRow = organizations
+                  .map((org) => {
+                    const hotel = order.hotels.find(
+                      (h) => h.organization === org
+                    );
+                    const quantity = hotel
+                      ? formatQuantity(hotel.quantity)
+                      : "0";
+                    return `<td style="${generateInlineStyles(
+                      styles.td
+                    )}">${quantity}</td>`;
+                  })
+                  .join("");
 
-              const totalQuantityStr = formatQuantity(totalQuantity);
+                const totalQuantityStr = formatQuantity(totalQuantity);
 
-              return `
+                return `
                 <tr>
-                  <td style="${generateInlineStyles(styles.td)}">${itemName}</td>
+                  <td style="${generateInlineStyles(
+                    styles.td
+                  )}">${itemName}</td>
                   ${quantityRow}
-                  <td style="${generateInlineStyles(styles.td)}">${totalQuantityStr}</td>
+                  <td style="${generateInlineStyles(
+                    styles.td
+                  )}">${totalQuantityStr}</td>
                 </tr>`;
-            }).join('')}
+              })
+              .join("")}
           </tbody>
         </table>
       </div>
@@ -4820,7 +4829,7 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
     // Step 4: Generate the PDF using Puppeteer
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: '/usr/bin/chromium-browser'
+      executablePath: "/usr/bin/chromium-browser",
     });
     const page = await browser.newPage();
 
@@ -4834,7 +4843,10 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
     });
 
     // Set response headers for PDF download
-    res.setHeader("Content-Disposition", 'attachment; filename="compiled_order_hotel_details.pdf"');
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="compiled_order_hotel_details.pdf"'
+    );
     res.setHeader("Content-Type", "application/pdf");
 
     // Send the PDF buffer as a stream in the response
@@ -4842,13 +4854,16 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
 
     // Close the Puppeteer browser
     await browser.close();
-
   } catch (error) {
-    console.error("Error generating PDF for compiled order hotel details:", error);
-    res.status(500).send("Error generating PDF for compiled order hotel details");
+    console.error(
+      "Error generating PDF for compiled order hotel details:",
+      error
+    );
+    res
+      .status(500)
+      .send("Error generating PDF for compiled order hotel details");
   }
 });
-
 
 module.exports = {
   setHotelItemPrice,
@@ -4896,5 +4911,4 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
-  
 };

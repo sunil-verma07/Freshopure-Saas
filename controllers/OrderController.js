@@ -28,7 +28,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     // Get the selected address
     const address = await Addresses.findOne({
-      HotelId: hotelId,
+      UserId: hotelId,
       selected: true,
     });
 
@@ -357,22 +357,22 @@ const orderHistory = catchAsyncError(async (req, res, next) => {
       new Date().getDate()
     }`;
 
-    console.log(typeof filterDate, typeof currentDate, "date read outside");
-    if (filterDate !== currentDate) {
-      console.log(filterDate, currentDate, "date read");
+    // console.log(typeof filterDate, typeof currentDate, "date read outside");
+    // if (filterDate !== currentDate) {
+    //   console.log(filterDate, currentDate, "date read");
 
-      let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
-      let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
+    //   let startDate = new Date(new Date(date).setHours(0, 0, 0, 0));
+    //   let endDate = new Date(new Date(date).setHours(23, 59, 59, 999));
 
-      pipeline.push({
-        $match: {
-          createdAt: {
-            $gte: new Date(startDate),
-            $lte: new Date(endDate),
-          },
-        },
-      });
-    }
+    //   pipeline.push({
+    //     $match: {
+    //       createdAt: {
+    //         $gte: new Date(startDate),
+    //         $lte: new Date(endDate),
+    //       },
+    //     },
+    //   });
+    // }
 
     // Add sorting, skipping, and limiting after potential date filtering
     pipeline.push(
@@ -576,8 +576,9 @@ const cancelOrder = catchAsyncError(async (req, res, next) => {
     const { hotelId } = req.user._id;
     const { orderNumber } = req.body;
 
+
     // Check if the order can be canceled
-    const order = await UserOrder.findOne({ orderNumber: orderNumber });
+    const order = await UserOrder.findOne({ orderNumber: orderNumber }).populate("orderedItems");
     const createdAtDate = new Date(order.createdAt);
     const currentDate = new Date();
 
@@ -601,6 +602,101 @@ const cancelOrder = catchAsyncError(async (req, res, next) => {
       { $set: { orderStatus: status._id } },
       { new: true } // Return the updated document
     );
+
+
+    const { orderedItems } = order;
+
+
+      const startTime = new Date(currentDate);
+      startTime.setHours(3, 0, 0, 0);
+
+      const endTime = new Date(currentDate);
+      endTime.setHours(26, 59, 59, 999);
+
+      // Find the compiled order for the vendor and the specific time range
+      const compiledOrder = await CompiledOrder.findOne({
+        vendorId: order?.vendorId,
+        date: { $gte: startTime, $lt: endTime },
+      });
+
+      if (!compiledOrder) {
+        throw new Error("Compiled order not found");
+      }
+
+      // Iterate over each item in the canceled order
+      orderedItems.forEach((orderedItem) => {
+        const compiledItem = compiledOrder.items.find(
+          (item) => item.itemId.toString() === orderedItem.itemId.toString()
+        );
+
+        if (compiledItem) {
+          // Find the hotel entry in the compiled item's hotels array
+          const hotelEntry = compiledItem.hotels.find(
+            (hotel) => hotel.hotelId.toString() === order?.hotelId.toString()
+          );
+
+          if (hotelEntry) {
+            // Deduct the quantity
+            hotelEntry.quantity.kg -= orderedItem.quantity.kg || 0;
+            hotelEntry.quantity.gram -= orderedItem.quantity.gram || 0;
+            hotelEntry.quantity.piece -= orderedItem.quantity.piece || 0;
+            hotelEntry.quantity.packet -= orderedItem.quantity.packet || 0;
+
+            // Adjust kg and gram if grams become negative
+            if (hotelEntry.quantity.gram < 0) {
+              hotelEntry.quantity.kg -= 1;
+              hotelEntry.quantity.gram += 1000; // Adjust grams to a positive value by adding 1000
+            }
+
+            // If the hotel's quantity is zero, remove the hotel entry from the array
+            if (
+              hotelEntry.quantity.kg <= 0 &&
+              hotelEntry.quantity.gram <= 0 &&
+              hotelEntry.quantity.piece <= 0 &&
+              hotelEntry.quantity.packet <= 0
+            ) {
+              compiledItem.hotels = compiledItem.hotels.filter(
+                (hotel) => hotel.hotelId.toString() !== order?.hotelId.toString()
+              );
+            }
+          }
+
+          // Deduct the quantity from the compiled item's totalQuantity
+          compiledItem.totalQuantity.kg -= orderedItem.quantity.kg || 0;
+          compiledItem.totalQuantity.gram -= orderedItem.quantity.gram || 0;
+          compiledItem.totalQuantity.piece -= orderedItem.quantity.piece || 0;
+          compiledItem.totalQuantity.packet -= orderedItem.quantity.packet || 0;
+
+          // Adjust kg and gram if grams become negative for the total quantity
+          if (compiledItem.totalQuantity.gram < 0) {
+            compiledItem.totalQuantity.kg -= 1;
+            compiledItem.totalQuantity.gram += 1000; // Adjust grams to a positive value by adding 1000
+          }
+
+          // Check if totalQuantity is zero
+          const isTotalQuantityZero =
+            compiledItem.totalQuantity.kg <= 0 &&
+            compiledItem.totalQuantity.gram <= 0 &&
+            compiledItem.totalQuantity.piece <= 0 &&
+            compiledItem.totalQuantity.packet <= 0;
+
+          // Check if hotels array is empty
+          const isHotelsArrayEmpty = compiledItem.hotels.length === 0;
+
+          // If totalQuantity is zero or hotels array is empty, remove the item
+          if (isTotalQuantityZero || isHotelsArrayEmpty) {
+            compiledOrder.items = compiledOrder.items.filter(
+              (item) =>
+                item.itemId.toString() !== compiledItem.itemId.toString()
+            );
+          }
+        }
+      });
+
+      // Save the updated compiled order
+      await compiledOrder.save();
+  
+
 
     // Check if the order was found and updated
     if (!updatedOrder) {

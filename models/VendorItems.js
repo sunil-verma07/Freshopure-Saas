@@ -5,8 +5,6 @@ const VendorItemsSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
-
-
   items: [
     {
       itemId: {
@@ -27,8 +25,8 @@ const VendorItemsSchema = new mongoose.Schema({
         {
           historyId: {
             type: mongoose.Schema.Types.ObjectId,
-            default: new mongoose.Types.ObjectId,
-            unique: true,
+            default: () => new mongoose.Types.ObjectId(), // Ensure unique ObjectId
+            ref: 'History', 
           },
           date: {
             type: Date,
@@ -50,8 +48,8 @@ const VendorItemsSchema = new mongoose.Schema({
         {
           wasteId: {
             type: mongoose.Schema.Types.ObjectId,
-            default: new mongoose.Types.ObjectId,
-            unique: true,
+            default: () => new mongoose.Types.ObjectId(), // Ensure unique ObjectId
+            ref: "Waste",
           },
           date: {
             type: Date,
@@ -65,7 +63,6 @@ const VendorItemsSchema = new mongoose.Schema({
           },
           reason: {
             type: String,
-            required: true,
           },
         },
       ],

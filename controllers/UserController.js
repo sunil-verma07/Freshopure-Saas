@@ -286,7 +286,7 @@ const profileComplete = catchAsyncErrors(async (req, res, next) => {
 
       await User.findOneAndUpdate(
         { phone: phone },
-        { isProfileComplete: true, isReviewed: false, isApproved: true }
+        { isProfileComplete: true, isReviewed: false, isApproved: false }
       );
 
       const result = await User.aggregate([
