@@ -179,6 +179,19 @@ router.post(
   vendorcontroller.addVendorItem
 );
 
+router.post(
+  "/updateTodayCostPriceInCOTable",
+  authMiddleware.authMiddleware,
+  vendorcontroller.updateTodayCostPriceInCOTable
+);
+
+router.get(
+  "/getcompiledordertable",
+  authMiddleware.authMiddleware,
+  vendorcontroller.getCompiledOrderTable
+
+);
+
 router.get(
   "/getVendorItem",
   authMiddleware.authMiddleware,

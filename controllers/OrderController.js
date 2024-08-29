@@ -23,8 +23,12 @@ const VendorItemsAndStock = require("../models/VendorItems")
 const placeOrder = catchAsyncError(async (req, res, next) => {
   try {
     const hotelId = req.user._id;
+    const { notes } = req.body;
 
-    const {notes} = req.body;
+    // Utility function to sanitize quantity values
+    const sanitizeQuantity = (quantity) => {
+      return isNaN(quantity) ? 0 : quantity;
+    };
 
     // Get the selected address
     const address = await Addresses.findOne({
@@ -40,7 +44,6 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
 
     const cart_doc = await Cart.findOne({ hotelId: hotelId });
     const orders = {};
-    let totalOrderPrice = 0;
 
     for (let item of cart_doc?.cartItems) {
       const itemPrice = await HotelItemPrice.findOne({
@@ -57,7 +60,12 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
       const updatedItem = {
         vendorId: item.vendorId,
         itemId: item.itemId,
-        quantity: item.quantity,
+        quantity: {
+          kg: sanitizeQuantity(item.quantity.kg || 0),
+          gram: sanitizeQuantity(item.quantity.gram || 0),
+          piece: sanitizeQuantity(item.quantity.piece || 0),
+          packet: sanitizeQuantity(item.quantity.packet || 0),
+        },
         price: itemPrice.todayCostPrice,
         unit: item.unit,
       };
@@ -91,6 +99,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           return items.reduce((totalPrice, item) => {
             let itemTotalPrice = 0;
 
+
             // Calculate total price based on the unit
             if (item.unit === "kg") {
               const totalGrams = item.quantity.kg * 1000 + item.quantity.gram; // Convert kg to grams and add the gram value
@@ -105,6 +114,8 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
             return totalPrice + itemTotalPrice;
           }, 0);
         };
+
+
 
         const existingCompiledOrder = await CompiledOrder.findOne({
           vendorId,
@@ -124,46 +135,43 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
               );
 
               if (existingHotel) {
-                existingHotel.quantity.kg += item.quantity.kg || 0;
-                existingHotel.quantity.gram += item.quantity.gram || 0;
+                existingHotel.quantity.kg += sanitizeQuantity(item.quantity.kg || 0);
+                existingHotel.quantity.gram += sanitizeQuantity(item.quantity.gram || 0);
 
                 // Convert grams to kilograms if greater than 999 grams
                 if (existingHotel.quantity.gram >= 1000) {
-                  const additionalKg = Math.floor(
-                    existingHotel.quantity.gram / 1000
-                  );
+                  const additionalKg = Math.floor(existingHotel.quantity.gram / 1000);
                   existingHotel.quantity.kg += additionalKg;
                   existingHotel.quantity.gram %= 1000;
                 }
 
-                existingHotel.quantity.piece += item.quantity.piece || 0;
-                existingHotel.quantity.packet += item.quantity.packet || 0;
+                existingHotel.quantity.piece += sanitizeQuantity(item.quantity.piece || 0);
+                existingHotel.quantity.packet += sanitizeQuantity(item.quantity.packet || 0);
               } else {
                 existingItem.hotels.push({
                   hotelId,
-                  quantity: item.quantity,
+                  quantity: {
+                    kg: sanitizeQuantity(item.quantity.kg || 0),
+                    gram: sanitizeQuantity(item.quantity.gram || 0),
+                    piece: sanitizeQuantity(item.quantity.piece || 0),
+                    packet: sanitizeQuantity(item.quantity.packet || 0),
+                  },
                 });
               }
 
               // Update total quantity
-              existingItem.totalQuantity.kg = existingItem.hotels
-                .reduce((sum, h) => sum + h.quantity.kg, 0)
-                .toFixed(2);
-              existingItem.totalQuantity.gram = existingItem.hotels
-                .reduce((sum, h) => sum + h.quantity.gram, 0)
-                .toFixed(2);
-              existingItem.totalQuantity.piece = existingItem.hotels
-                .reduce((sum, h) => sum + h.quantity.piece, 0)
-                .toFixed(2);
-              existingItem.totalQuantity.packet = existingItem.hotels
-                .reduce((sum, h) => sum + h.quantity.packet, 0)
-                .toFixed(2);
+              existingItem.totalQuantity.kg = sanitizeQuantity(existingItem.hotels
+                .reduce((sum, h) => sum + sanitizeQuantity(h.quantity.kg), 0)).toFixed(2);
+              existingItem.totalQuantity.gram = sanitizeQuantity(existingItem.hotels
+                .reduce((sum, h) => sum + sanitizeQuantity(h.quantity.gram), 0)).toFixed(2);
+              existingItem.totalQuantity.piece = sanitizeQuantity(existingItem.hotels
+                .reduce((sum, h) => sum + sanitizeQuantity(h.quantity.piece), 0)).toFixed(2);
+              existingItem.totalQuantity.packet = sanitizeQuantity(existingItem.hotels
+                .reduce((sum, h) => sum + sanitizeQuantity(h.quantity.packet), 0)).toFixed(2);
 
               // Convert total grams to kilograms if greater than 999 grams
               if (existingItem.totalQuantity.gram >= 1000) {
-                const additionalKg = Math.floor(
-                  existingItem.totalQuantity.gram / 1000
-                );
+                const additionalKg = Math.floor(existingItem.totalQuantity.gram / 1000);
                 existingItem.totalQuantity.kg = (
                   parseFloat(existingItem.totalQuantity.kg) + additionalKg
                 ).toFixed(2);
@@ -174,11 +182,21 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
             } else {
               existingCompiledOrder.items.push({
                 itemId: item.itemId,
-                totalQuantity: item.quantity,
+                totalQuantity: {
+                  kg: sanitizeQuantity(item.quantity.kg || 0),
+                  gram: sanitizeQuantity(item.quantity.gram || 0),
+                  piece: sanitizeQuantity(item.quantity.piece || 0),
+                  packet: sanitizeQuantity(item.quantity.packet || 0),
+                },
                 hotels: [
                   {
                     hotelId,
-                    quantity: item.quantity,
+                    quantity: {
+                      kg: sanitizeQuantity(item.quantity.kg || 0),
+                      gram: sanitizeQuantity(item.quantity.gram || 0),
+                      piece: sanitizeQuantity(item.quantity.piece || 0),
+                      packet: sanitizeQuantity(item.quantity.packet || 0),
+                    },
                   },
                 ],
               });
@@ -192,11 +210,21 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
             date: startOfDay,
             items: items.map((item) => ({
               itemId: item.itemId,
-              totalQuantity: item.quantity,
+              totalQuantity: {
+                kg: sanitizeQuantity(item.quantity.kg || 0),
+                gram: sanitizeQuantity(item.quantity.gram || 0),
+                piece: sanitizeQuantity(item.quantity.piece || 0),
+                packet: sanitizeQuantity(item.quantity.packet || 0),
+              },
               hotels: [
                 {
                   hotelId,
-                  quantity: item.quantity,
+                  quantity: {
+                    kg: sanitizeQuantity(item.quantity.kg || 0),
+                    gram: sanitizeQuantity(item.quantity.gram || 0),
+                    piece: sanitizeQuantity(item.quantity.piece || 0),
+                    packet: sanitizeQuantity(item.quantity.packet || 0),
+                  },
                 },
               ],
             })),
@@ -212,7 +240,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
           orderStatus,
           totalPrice: calculateTotalPrice(items), // Assume this function calculates the total price
           address,
-          notes:notes,
+          notes,
           orderedItems: items,
         });
 
@@ -228,6 +256,7 @@ const placeOrder = catchAsyncError(async (req, res, next) => {
     next(error);
   }
 });
+
 
 const orderHistory = catchAsyncError(async (req, res, next) => {
   try {

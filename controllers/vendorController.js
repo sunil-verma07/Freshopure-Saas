@@ -1014,7 +1014,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         item?.quantity?.kg +
         item?.quantity?.gram / 1000 +
         item?.quantity?.piece +
-        item?.quantity?.piece;
+        item?.quantity?.packet;
 
       return (
         item?.price * totalQuantity +
@@ -1029,9 +1029,9 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
           item?.quantity?.kg +
           item?.quantity?.gram / 1000 +
           item?.quantity?.piece +
-          item?.quantity?.piece;
+          item?.quantity?.packet;
 
-        const finalPrice =
+         const finalPrice =
           item?.price * totalQuantity +
           (item?.price * totalQuantity * item?.itemDetails?.GST) / 100;
 
@@ -1275,7 +1275,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-       executablePath: '/usr/bin/chromium-browser'
+      //  executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -4865,6 +4865,172 @@ const compiledOrderHotelDetailsPdf = catchAsyncError(async (req, res, next) => {
   }
 });
 
+const updateTodayCostPriceInCOTable = catchAsyncErrors(async (req, res, next) => {
+  const vendorId = req.user._id;
+  const updates = req.body; // Assuming this is an array of update objects
+
+  try {
+    const updatePromises = updates.map(update => {
+      return HotelItemPrice.updateOne(
+        {
+          vendorId: vendorId,
+          hotelId: update.hotelId,
+          itemId: update.itemId,
+        },
+        {
+          $set: { todayCostPrice: update.todayCostPrice },
+        }
+      );
+    });
+
+    const results = await Promise.all(updatePromises);
+    res.status(200).send({ message: "Today's cost prices updated successfully.", results });
+  } catch (error) {
+    console.error("Error updating today's cost prices:", error);
+    res.status(500).send("Error updating today's cost prices.");
+  }
+});
+
+const getCompiledOrderTable = catchAsyncErrors(async (req, res, next) => {
+  const vendorId = req.user._id;
+
+  try {
+    const today = new Date();
+    today.setHours(3, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // console.log(yesterday)
+    // console.log(tomorrow)
+
+
+    const ordersToday = await CompiledOrder.aggregate([
+      {
+        $match: {
+          vendorId: vendorId,
+          date: { $gte: yesterday, $lt: tomorrow },
+        },
+      },
+      {
+        $unwind: "$items", // Unwind items array to work with individual items
+      },
+      {
+        $unwind: "$items.hotels", // Unwind hotels array to work with individual hotel entries
+      },
+      {
+        $lookup: {
+          from: "Items", // Collection containing item details
+          localField: "items.itemId",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      {
+        $unwind: "$itemDetails", // Unwind the itemDetails array
+      },
+      {
+        $lookup: {
+          from: "Users", // Collection containing hotel details
+          localField: "items.hotels.hotelId",
+          foreignField: "_id",
+          as: "hotelDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails", // Unwind the hotelDetails array
+      },
+      {
+        $lookup: {
+          from: "UserDetails", // Collection containing additional user details
+          localField: "hotelDetails._id",
+          foreignField: "userId",
+          as: "hotelDetails.userDetails",
+        },
+      },
+      {
+        $unwind: "$hotelDetails.userDetails", // Unwind the userDetails array
+      },
+      {
+        $lookup: {
+          from: "HotelItemPrice", // Lookup from HotelItemPrice collection
+          let: { hotelId: "$items.hotels.hotelId", vendorId: "$vendorId", itemId: "$items.itemId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$hotelId", "$$hotelId"] },
+                    { $eq: ["$vendorId", "$$vendorId"] },
+                    { $eq: ["$itemId", "$$itemId"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                todayCostPrice: 1, // Include todayCostPrice
+              },
+            },
+          ],
+          as: "hotelItemPriceDetails",
+        },
+      },
+      {
+        $unwind: "$hotelItemPriceDetails", // Unwind to get today's cost price
+      },
+      {
+        $lookup: {
+          from: "HotelVendorLink", // Join with the HotelVendorLink collection
+          let: { vendorId: "$vendorId", hotelId: "$items.hotels.hotelId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$vendorId", "$$vendorId"] },
+                    { $eq: ["$hotelId", "$$hotelId"] },
+                    { $eq: ["$isPriceFixed", false] }, // Filter for isPriceFixed: false
+                  ],
+                },
+              },
+            },
+          ],
+          as: "hotelVendorLink",
+        },
+      },
+      {
+        $unwind: "$hotelVendorLink", // Unwind the hotelVendorLink array to filter only matched documents
+      },
+      {
+        $group: {
+          _id: {
+            itemId: "$items.itemId",
+            itemName: "$itemDetails.name", // Include item name
+            date: "$date",
+          },
+          hotels: {
+            $push: {
+              hotelId: "$hotelDetails.userDetails.userId",
+              organization: "$hotelDetails.userDetails.organization", // Hotel organization from UserDetails
+              quantity: "$items.hotels.quantity", // Quantity for each hotel
+              todayCostPrice: "$hotelItemPriceDetails.todayCostPrice", // Today's cost price
+            },
+          },
+        },
+      },
+      {
+        $sort: { "_id.itemId": 1 },
+      },
+    ]).allowDiskUse(true);
+
+    res.status(200).send(ordersToday);
+  } catch (error) {
+    res.status(500).send("Error getting hotel details");
+  }
+});
+
 module.exports = {
   setHotelItemPrice,
   orderHistoryForVendors,
@@ -4911,4 +5077,6 @@ module.exports = {
   updateVendorItemStock,
   updateVendorItemWaste,
   updateCompiledItemQuantity,
+  updateTodayCostPriceInCOTable,
+  getCompiledOrderTable
 };
