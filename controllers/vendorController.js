@@ -814,6 +814,8 @@ const updateStock = catchAsyncError(async (req, res, next) => {
   }
 });
 
+
+
 const generateInvoice = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
 
@@ -1008,16 +1010,27 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
         options
       ).format(createdOn);
 
-      return `${formattedDateTime}`;
+      return ${formattedDateTime};
     };
 
+    const validateZeros = (val)=>{
+       if(val){
+        return val;
+       }else{
+        return 0;
+       }
+    }
+
     const priceWithGST = (item) => {
+      console.log(item,"item")
       let totalQuantity =
-        item?.quantity?.kg +
-        item?.quantity?.gram / 1000 +
-        item?.quantity?.piece +
-        item?.quantity?.litre +
-        item?.quantity?.packet;
+      validateZeros(item?.quantity?.kg) +
+      validateZeros(item?.quantity?.gram / 1000) +
+      validateZeros(item?.quantity?.piece) +
+      validateZeros(item?.quantity?.litre) +
+      validateZeros(item?.quantity?.packet);
+
+        console.log(totalQuantity,'quantity')
 
       return (
         item?.price * totalQuantity +
@@ -1026,14 +1039,15 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
     };
 
     const totalPrice = (items) => {
+      // console.log(items)
       let totalPrice = 0;
       for (let item of items) {
         let totalQuantity =
-          item?.quantity?.kg +
-          item?.quantity?.gram / 1000 +
-          item?.quantity?.piece +
-          item?.quantity?.litre +
-          item?.quantity?.packet;
+          validateZeros(item?.quantity?.kg) +
+          validateZeros(item?.quantity?.gram / 1000) +
+          validateZeros(item?.quantity?.piece) +
+          validateZeros(item?.quantity?.litre) +
+          validateZeros(item?.quantity?.packet);
 
          const finalPrice =
           item?.price * totalQuantity +
@@ -1051,14 +1065,16 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
       const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
       const day = String(date.getDate()).padStart(2, "0");
 
-      return `${year}-${month}-${day}`;
+      return ${year}-${month}-${day};
     }
+
+    // console.log(data,'items')
 
     const currentDate = Date.now();
 
     const generateInlineStyles = (styles) => {
       return Object.keys(styles)
-        .map((key) => `${key}:${styles[key]}`)
+        .map((key) => ${key}:${styles[key]})
         .join(";");
     };
 
@@ -1206,16 +1222,16 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
                 styles.td
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
               ${
-                item?.unit === "kg"
-                  ? item?.quantity?.kg +
+                item?.itemDetails?.unit === "kg"
+          ? item?.quantity?.kg +
                     " kg   " +
                     item?.quantity?.gram +
                     " grams"
                   : item?.unit === "piece"
                   ? item?.quantity?.piece + " Pieces"
-                  : item?.quantity?.packet + " Packets"
-                  ? item?.quantity?.litre + " Litres"
-                  : 0
+                  : item?.unit === "packet" ? item?.quantity?.packet + " Packets"
+                  : item?.quantity?.litre + " Litres"
+
               }
               </td>
 
@@ -1281,7 +1297,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      //  executablePath: '/usr/bin/chromium-browser'
+       executablePath: '/usr/bin/chromium-browser'
     });
     const page = await browser.newPage();
 
@@ -1310,6 +1326,7 @@ const generateInvoice = catchAsyncError(async (req, res, next) => {
 
 const shareOrder = catchAsyncError(async (req, res, next) => {
   const { orderId } = req.body;
+  console.log(orderId)
 
   try {
     const orderData = await UserOrder.aggregate([
@@ -1502,7 +1519,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
         options
       ).format(createdOn);
 
-      return `${formattedDateTime}`;
+      return ${formattedDateTime};
     };
 
     const totalPrice = (items) => {
@@ -1518,7 +1535,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
 
     const generateInlineStyles = (styles) => {
       return Object.keys(styles)
-        .map((key) => `${key}:${styles[key]}`)
+        .map((key) => ${key}:${styles[key]})
         .join(";");
     };
 
@@ -1583,15 +1600,7 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
             <th style="${generateInlineStyles(
               styles.th
             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Quantity</th>
-            <th style="${generateInlineStyles(
-              styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Unit Price</th>
-            <th style="${generateInlineStyles(
-              styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">Price</th>
-            <th style="${generateInlineStyles(
-              styles.th
-            )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">GST</th>
+            
           </tr>
         </thead>
         <tbody>
@@ -1620,96 +1629,26 @@ const shareOrder = catchAsyncError(async (req, res, next) => {
                 styles.td
               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
               ${
-                item?.unit === "kg"
-                  ? item?.quantity?.kg +
+                item?.itemDetails?.unit === "kg"
+          ? item?.quantity?.kg +
                     " kg   " +
                     item?.quantity?.gram +
                     " grams"
                   : item?.unit === "piece"
                   ? item?.quantity?.piece + " Pieces"
-                  : item?.quantity?.packet + " Packets"
-                  ? item?.quantity?.litre + " Litres"
-                  : 0
+                  : item?.unit === "packet" ? item?.quantity?.packet + " Packets"
+                  : item?.quantity?.litre + " Litres"
               }
               </td>
 
               
-              <td style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${item.price.toFixed(
-                2
-              )}</td>
-              <td style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-                
-
-                ${
-                  item?.unit === "kg"
-                    ? (
-                        item.price * item.quantity?.kg +
-                        item.price * (item.quantity?.gram / 1000)
-                      ).toFixed(2)
-                    : item?.unit === "piece"
-                    ? (item?.quantity?.piece * item.price).toFixed(2)
-                    : (item?.quantity?.packet * item.price).toFixed(2)
-                    ? (item?.quantity?.litre * item.price).toFixed(2)
-                    : 0
-                }
-              </td>
-              <td style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">${
-                item?.itemDetails?.GST
-              }%</td>
             </tr>
           `
             )
 
             .join("")}
         </tbody>
-        <tfoot>
-           <tr>
-             <td  style="${generateInlineStyles(
-               styles.td
-             )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-              
-               <td  style="${generateInlineStyles(
-                 styles.td
-               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-               <td  style="${generateInlineStyles(
-                 styles.td
-               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-             
-               <td  style="${generateInlineStyles(
-                 styles.td
-               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-               <td  style="${generateInlineStyles(
-                 styles.td
-               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px"></td>
-
-             
-               <td  style="${generateInlineStyles(
-                 styles.td
-               )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">
-              ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
-
-             
-              
-              <td  style="${generateInlineStyles(
-                styles.td
-              )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px">₹ 0</td>
-    </tr>
-    <tr>
-     <td colspan="7" style="${generateInlineStyles(
-       styles.td
-     )} line-height:1.4em;font-size:10px;color:#7a7a7a;margin-top:1px;text-align:right">
-              Total : ₹ ${totalPrice(data?.orderedItems).toFixed(2)}</td>
-              </tr>
-  </tfoot>
+       
       </table>
       </div>
     </div>
